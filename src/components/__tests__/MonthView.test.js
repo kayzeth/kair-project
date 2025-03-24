@@ -118,6 +118,7 @@ describe('MonthView Component', () => {
   test('highlights the current day', () => {
     // Set the mock date to today to test current day highlighting
     const today = new Date();
+    const todayStr = today.getDate().toString();
     
     render(
       <MonthView 
@@ -128,15 +129,18 @@ describe('MonthView Component', () => {
       />
     );
     
-    // Find the day cell for today
-    const todayCell = screen.getByText(today.getDate().toString());
+    // Find all day cells for today's date
+    const todayCells = screen.getAllByText(todayStr);
     
-    // Check if the parent element has the 'current-day' class or some indicator
-    // This is a simplification and depends on the actual implementation
-    const parentCell = todayCell.closest('.day');
-    if (parentCell) {
-      expect(parentCell).toHaveClass('current-day');
-    }
+    // Find the cell that's in the current month (not other-month) and has the 'today' class
+    const todayCell = todayCells.find(el => {
+      const parent = el.closest('.calendar-day');
+      return parent && parent.classList.contains('today');
+    });
+    
+    // Verify that we found a cell with the 'today' class
+    expect(todayCell).toBeInTheDocument();
+    expect(todayCell.closest('.calendar-day')).toHaveClass('today');
   });
 
   test('shows different month days with different styling', () => {
