@@ -118,6 +118,7 @@
   max-width: 500px;
   overflow: hidden;
   border: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-md);
 }
 
 .auth-card-content {
@@ -293,20 +294,42 @@
 }
 
 .integration-note {
-  margin-top: var(--spacing-xl);
-  padding: var(--spacing-md);
-  background-color: #F5F5F5;
-  border-radius: var(--border-radius-sm);
-  font-size: 0.9rem;
+  background-color: var(--background-light);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-md);
 }
 
 .integration-note ol {
-  margin: var(--spacing-sm) 0;
-  padding-left: var(--spacing-lg);
+  margin-left: var(--spacing-md);
+  line-height: 1.6;
 }
 
-.integration-note li {
-  margin-bottom: var(--spacing-xs);
+.integration-note p {
+  margin: var(--spacing-sm) 0;
+}
+
+.integration-note strong {
+  color: var(--text-dark);
+}
+
+.integration-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-lg);
+}
+
+.auth-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.canvas-auth-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .integration-section {
