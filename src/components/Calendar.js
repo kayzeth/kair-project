@@ -6,18 +6,23 @@ import MonthView from './MonthView';
 import WeekView from './WeekView';
 import DayView from './DayView';
 import EventModal from './EventModal';
+import PreparationPrompt from './PreparationPrompt'; 
 import googleCalendarService from '../services/googleCalendarService';
+import nudgerService from '../services/nudgerService'; 
 import '../styles/Calendar.css';
 
 const Calendar = ({ initialEvents = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month'); // 'month', 'week', or 'day'
-  const [events, setEvents] = useState([]);  // Start with empty array, load from localStorage
+  const [events, setEvents] = useState([]); // Start with empty array, load from localStorage
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', message: '' });
+  const [showPreparationPrompt, setShowPreparationPrompt] = useState(false);
+  const [eventsNeedingPreparation, setEventsNeedingPreparation] = useState([]);
+  const [dismissedEvents, setDismissedEvents] = useState({});
 
   // Load events from localStorage when component mounts or when events are updated
   const loadEvents = useCallback(() => {
@@ -117,19 +122,16 @@ const Calendar = ({ initialEvents = [] }) => {
     setSelectedEvent(null);
   };
 
-  // Import events from Google Calendar
   const importGoogleCalendarEvents = useCallback(async () => {
     try {
       setSyncStatus({ status: 'loading', message: 'Importing events from Google Calendar...' });
         
-      // Get events from the last month to the next month
       const now = new Date();
       const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
       const oneMonthFromNow = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
         
       const googleEvents = await googleCalendarService.importEvents(oneMonthAgo, oneMonthFromNow);
         
-      // Filter out any Google events that might already be in our events array
       const existingGoogleEventIds = events
         .filter(event => event.googleEventId)
         .map(event => event.googleEventId);
@@ -146,7 +148,6 @@ const Calendar = ({ initialEvents = [] }) => {
         message: `Successfully imported ${newGoogleEvents.length} events from Google Calendar` 
       });
         
-      // Clear the success message after a few seconds
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
@@ -158,14 +159,12 @@ const Calendar = ({ initialEvents = [] }) => {
         message: 'Failed to import events from Google Calendar' 
       });
         
-      // Clear the error message after a few seconds
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
     }
   }, [events, updateEvents, setSyncStatus]);
 
-  // Check if Google Calendar is connected when component mounts
   useEffect(() => {
     const checkGoogleCalendarConnection = async () => {
       try {
@@ -173,12 +172,10 @@ const Calendar = ({ initialEvents = [] }) => {
         const isSignedIn = googleCalendarService.isSignedIn();
         setIsGoogleCalendarConnected(isSignedIn);
         
-        // Add listener for sign-in state changes
         googleCalendarService.addSignInListener((isSignedIn) => {
           setIsGoogleCalendarConnected(isSignedIn);
         });
         
-        // If signed in, import events from Google Calendar
         if (isSignedIn) {
           importGoogleCalendarEvents();
         }
@@ -190,13 +187,58 @@ const Calendar = ({ initialEvents = [] }) => {
     checkGoogleCalendarConnection();
   }, [importGoogleCalendarEvents]);
 
+  // Check for dismissed events that should be reminded again
+  useEffect(() => {
+    const checkDismissedEvents = () => {
+      const now = new Date().getTime();
+      const updatedDismissed = { ...dismissedEvents };
+      let hasChanges = false;
+
+      Object.keys(dismissedEvents).forEach(eventId => {
+        if (now >= dismissedEvents[eventId]) {
+          delete updatedDismissed[eventId];
+          hasChanges = true;
+        }
+      });
+
+      if (hasChanges) {
+        setDismissedEvents(updatedDismissed);
+      }
+    };
+
+    // Check every minute
+    const intervalId = setInterval(checkDismissedEvents, 60000);
+    
+    // Initial check
+    checkDismissedEvents();
+    
+    return () => clearInterval(intervalId);
+  }, [dismissedEvents]);
+
+  useEffect(() => {
+    const studyPlan = nudgerService.getStudyPlan(events);
+    // Filter events needing preparation that haven't been dismissed
+    const pendingEvents = studyPlan.events.filter(event => 
+      event.needsPreparationInput && 
+      !dismissedEvents[event.id]
+    );
+    
+    if (pendingEvents.length > 0 && !showModal) {
+      setEventsNeedingPreparation(pendingEvents);
+      setShowPreparationPrompt(true);
+    } else {
+      setShowPreparationPrompt(false);
+    }
+    
+    window.studyPlan = studyPlan;
+    console.log('[KAIR-15] Nudger study plan updated:', studyPlan);
+  }, [events, showModal, dismissedEvents]);
+
   const saveEvent = async (eventData) => {
-    // Remove any existing id from eventData
     const { id: _, ...cleanEventData } = eventData;
 
     try {
       if (selectedEvent) {
-        // Edit existing event
         const updatedEvents = events.map(event => 
           event.id === selectedEvent.id ? { 
             ...cleanEventData, 
@@ -207,7 +249,6 @@ const Calendar = ({ initialEvents = [] }) => {
         );
         updateEvents(updatedEvents);
         
-        // If this event was from Google Calendar and we're connected, update it there too
         if (isGoogleCalendarConnected && selectedEvent.googleEventId) {
           try {
             await googleCalendarService.updateEvent({
@@ -221,7 +262,6 @@ const Calendar = ({ initialEvents = [] }) => {
           }
         }
       } else {
-        // Add new event
         const newEvent = {
           id: Date.now().toString(),
           ...cleanEventData,
@@ -229,11 +269,9 @@ const Calendar = ({ initialEvents = [] }) => {
           end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`
         };
         
-        // If connected to Google Calendar, also create the event there
         if (isGoogleCalendarConnected) {
           try {
             const googleEvent = await googleCalendarService.exportEvent(newEvent);
-            // Add the Google Calendar event ID to our event
             newEvent.googleEventId = googleEvent.id;
             newEvent.source = 'google';
           } catch (error) {
@@ -242,6 +280,13 @@ const Calendar = ({ initialEvents = [] }) => {
         }
         
         updateEvents([...events, newEvent]);
+        
+        setTimeout(() => {
+          const singleEventStudyPlan = nudgerService.getStudyPlan([newEvent]);
+          if (singleEventStudyPlan.eventCount > 0) {
+            console.log('[KAIR-15] New event may require study time:', singleEventStudyPlan.events[0]);
+          }
+        }, 0);
       }
     } catch (error) {
       console.error('Error saving event:', error);
@@ -250,13 +295,60 @@ const Calendar = ({ initialEvents = [] }) => {
     closeModal();
   };
 
+  const savePreparationHours = (eventId, hours) => {
+    setEvents(prevEvents => 
+      prevEvents.map(event => 
+        event.id === eventId 
+          ? { 
+              ...event, 
+              preparationHours: hours.toString(),
+              requiresPreparation: true,
+              needsPreparationInput: false
+            } 
+          : event
+      )
+    );
+    
+    setSyncStatus({
+      status: 'success',
+      message: `Added ${hours} preparation hours to event`
+    });
+    
+    setTimeout(() => {
+      setSyncStatus({ status: 'idle', message: '' });
+    }, 3000);
+  };
+  
+  const dismissPreparationPrompt = (eventId) => {
+    // Set a reminder for 3 hours from now
+    const reminderTime = new Date().getTime() + (3 * 60 * 60 * 1000);
+    
+    setDismissedEvents(prev => ({
+      ...prev,
+      [eventId]: reminderTime
+    }));
+    
+    setSyncStatus({
+      status: 'info',
+      message: `You'll be reminded about this event in 3 hours`
+    });
+    
+    setTimeout(() => {
+      setSyncStatus({ status: 'idle', message: '' });
+    }, 3000);
+  };
+  
+  const closePreparationPrompt = () => {
+    setShowPreparationPrompt(false);
+    setEventsNeedingPreparation([]);
+  };
+
   const deleteEvent = async (id) => {
     const eventToDelete = events.find(event => event.id === id);
     
     // Remove from our local events
     updateEvents(events.filter(event => event.id !== id));
     
-    // If this event was from Google Calendar and we're connected, delete it there too
     if (isGoogleCalendarConnected && eventToDelete && eventToDelete.googleEventId) {
       try {
         await googleCalendarService.deleteEvent(eventToDelete);
@@ -308,8 +400,7 @@ const Calendar = ({ initialEvents = [] }) => {
   };
 
   return (
-    <div className="calendar-container">
-      {/* Render sync status as a popup banner if not idle */}
+    <div className="calendar-container" data-testid="calendar-container">
       {syncStatus.status !== 'idle' && (
         <div className={`sync-banner sync-${syncStatus.status}`} data-testid="sync-status">
           {syncStatus.message}
@@ -364,6 +455,14 @@ const Calendar = ({ initialEvents = [] }) => {
           onDelete={deleteEvent}
           event={selectedEvent}
           selectedDate={selectedDate}
+        />
+      )}
+      {showPreparationPrompt && eventsNeedingPreparation.length > 0 && (
+        <PreparationPrompt
+          events={eventsNeedingPreparation}
+          onSave={savePreparationHours}
+          onClose={closePreparationPrompt}
+          onDismiss={dismissPreparationPrompt}
         />
       )}
     </div>

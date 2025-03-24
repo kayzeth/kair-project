@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faTrashAlt, faClock, faMapMarkerAlt, faAlignLeft } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faTrashAlt, faClock, faMapMarkerAlt, faAlignLeft, faBookOpen } from '@fortawesome/free-solid-svg-icons';
 
 const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date() }) => {
   const [formData, setFormData] = useState({
@@ -13,7 +13,9 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
     startTime: '09:00',
     endTime: '10:00',
     allDay: false,
-    color: '#d2b48c'
+    color: '#d2b48c',
+    requiresPreparation: false,
+    preparationHours: ''
   });
 
   useEffect(() => {
@@ -43,13 +45,28 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
         startTime: startTime,
         endTime: endTime,
         allDay: event.allDay || false,
-        color: event.color || '#d2b48c'
+        color: event.color || '#d2b48c',
+        requiresPreparation: event.requiresPreparation || false,
+        preparationHours: event.preparationHours || ''
       });
     }
   }, [event]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // For preparation hours, ensure it's a positive number or empty
+    if (name === 'preparationHours') {
+      // Allow empty string or positive numbers
+      if (value === '' || (Number(value) >= 0 && !isNaN(Number(value)))) {
+        setFormData({
+          ...formData,
+          [name]: value
+        });
+      }
+      return;
+    }
+    
     setFormData({
       ...formData,
       [name]: type === 'checkbox' ? checked : value
@@ -207,6 +224,54 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                 onChange={handleChange}
                 style={{ width: '36px', height: '36px', border: 'none', padding: '0', background: 'none' }}
               />
+            </div>
+            
+            {/* [KAIR-16] Add Requires Preparation checkbox and hours input */}
+            <div className="form-group" style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <div style={{ marginRight: '12px', color: 'var(--text-light)', marginTop: '10px' }}>
+                <FontAwesomeIcon icon={faBookOpen} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      name="requiresPreparation"
+                      checked={formData.requiresPreparation}
+                      onChange={handleChange}
+                      style={{ marginRight: '8px' }}
+                      data-testid="requires-preparation-checkbox"
+                    />
+                    Requires Preparation
+                  </label>
+                </div>
+                
+                {formData.requiresPreparation && (
+                  <div style={{ display: 'flex', alignItems: 'center', marginTop: '8px' }}>
+                    <label htmlFor="preparationHours" style={{ marginRight: '8px' }}>
+                      Preparation Hours:
+                    </label>
+                    <input
+                      type="number"
+                      id="preparationHours"
+                      name="preparationHours"
+                      className="form-input"
+                      value={formData.preparationHours}
+                      onChange={handleChange}
+                      placeholder="Enter hours"
+                      min="0"
+                      step="0.5"
+                      style={{ 
+                        width: '120px', 
+                        height: '32px',
+                        padding: '4px 8px',
+                        fontSize: '14px'
+                      }}
+                      data-testid="preparation-hours-input"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="modal-footer">
