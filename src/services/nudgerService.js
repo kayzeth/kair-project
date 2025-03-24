@@ -25,8 +25,16 @@ export const identifyUpcomingEvents = (events) => {
 
   // Filter events within the next two weeks
   const upcomingEvents = events.filter(event => {
-    // Parse event start date
-    const eventDate = new Date(event.start.split('T')[0]);
+    // Parse event start date - handle both Date objects and string dates
+    let eventDate;
+    if (event.start instanceof Date) {
+      eventDate = new Date(event.start);
+    } else if (typeof event.start === 'string') {
+      eventDate = new Date(event.start.split('T')[0]);
+    } else {
+      console.error('Nudger: Invalid event start date format', event);
+      return false;
+    }
     
     // Check if event is within the next two weeks
     return eventDate >= now && eventDate <= twoWeeksFromNow;
@@ -85,11 +93,21 @@ export const getStudyPlan = (events) => {
   
   // Group events by date for easier display
   const eventsByDate = studyEvents.reduce((acc, event) => {
-    const date = event.start.split('T')[0];
-    if (!acc[date]) {
-      acc[date] = [];
+    // Handle both Date objects and string dates
+    let dateStr;
+    if (event.start instanceof Date) {
+      dateStr = event.start.toISOString().split('T')[0];
+    } else if (typeof event.start === 'string') {
+      dateStr = event.start.split('T')[0];
+    } else {
+      console.error('Nudger: Invalid event start date format in getStudyPlan', event);
+      dateStr = 'unknown-date';
     }
-    acc[date].push(event);
+    
+    if (!acc[dateStr]) {
+      acc[dateStr] = [];
+    }
+    acc[dateStr].push(event);
     return acc;
   }, {});
   
