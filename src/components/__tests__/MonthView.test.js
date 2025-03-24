@@ -69,7 +69,7 @@ describe('MonthView Component', () => {
     
     // Check if events are rendered
     expect(screen.getByText('Monthly Meeting')).toBeInTheDocument();
-    expect(screen.getByText('Conference')).toBeInTheDocument();
+    expect(screen.getByText(/Conference/)).toBeInTheDocument();
   });
 
   test('calls onEditEvent when clicking on an event', () => {

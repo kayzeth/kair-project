@@ -6,10 +6,14 @@ import Account from '../Account';
 // Mock the dependencies before importing them
 jest.mock('../../services/googleCalendarService');
 jest.mock('../../config/googleCalendarConfig');
+jest.mock('../../services/canvasService');
+jest.mock('../../config/canvasConfig');
 
 // Import the mocked modules after mocking
 import googleCalendarService from '../../services/googleCalendarService';
-import { isConfigured } from '../../config/googleCalendarConfig';
+import { isConfigured as isGoogleConfigured } from '../../config/googleCalendarConfig';
+import canvasService from '../../services/canvasService';
+import { isConfigured as isCanvasConfigured } from '../../config/canvasConfig';
 
 // Mock FontAwesome to avoid issues
 jest.mock('@fortawesome/react-fontawesome', () => ({
@@ -22,7 +26,7 @@ describe('Account Component', () => {
     jest.clearAllMocks();
     
     // Set up mock implementations
-    isConfigured.mockReturnValue(true);
+    isGoogleConfigured.mockReturnValue(true);
     
     // Set up googleCalendarService mock implementations
     googleCalendarService.initialize = jest.fn().mockResolvedValue();
@@ -47,7 +51,7 @@ describe('Account Component', () => {
   });
 
   test('shows API credentials warning when not configured', async () => {
-    isConfigured.mockReturnValue(false);
+    isGoogleConfigured.mockReturnValue(false);
     await act(() => {
       render(<Account />);
     });
@@ -272,5 +276,175 @@ describe('Account Component', () => {
     // Verify signed-in UI
     expect(screen.getByTestId('user-name')).toHaveTextContent('Test User');
     expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
+  });
+});
+
+describe('Canvas Integration', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    isCanvasConfigured.mockReturnValue(false);
+    
+    // Mock localStorage
+    const localStorageMock = {
+      store: {},
+      getItem: jest.fn(key => localStorageMock.store[key]),
+      setItem: jest.fn((key, value) => { localStorageMock.store[key] = value; }),
+      removeItem: jest.fn(key => { delete localStorageMock.store[key]; }),
+      clear: jest.fn(() => { localStorageMock.store = {}; }),
+    };
+    global.localStorage = localStorageMock;
+  });
+
+  test('shows connect form when not connected', async () => {
+    // Ensure localStorage returns null for Canvas credentials
+    localStorage.getItem.mockImplementation(key => {
+      if (key === 'canvasToken' || key === 'canvasDomain') return null;
+      return localStorage.store[key];
+    });
+
+    await act(async () => {
+      render(<Account />);
+    });
+    
+    // Form should be visible since we're not connected
+    expect(screen.getByLabelText('Canvas Developer Token:')).toBeInTheDocument();
+    expect(screen.getByLabelText('School Domain:')).toBeInTheDocument();
+    expect(screen.getByText('Connect Canvas')).toBeInTheDocument();
+  });
+
+  test('can connect with valid credentials', async () => {
+    // Ensure localStorage returns null for Canvas credentials
+    localStorage.getItem.mockImplementation(key => {
+      if (key === 'canvasToken' || key === 'canvasDomain') return null;
+      return localStorage.store[key];
+    });
+
+    // Mock successful connection
+    canvasService.testConnection.mockResolvedValue(true);
+    
+    render(<Account />);
+    
+    // Fill in the form
+    const tokenInput = screen.getByLabelText('Canvas Developer Token:');
+    const domainInput = screen.getByLabelText('School Domain:');
+    
+    fireEvent.change(tokenInput, { target: { value: 'test-token' } });
+    fireEvent.change(domainInput, { target: { value: 'harvard' } });
+    
+    // Submit form
+    const connectButton = screen.getByText('Connect Canvas');
+    await act(async () => {
+      fireEvent.click(connectButton);
+    });
+    
+    // Check that service was called with raw values (formatting happens in service)
+    expect(canvasService.setCredentials).toHaveBeenCalledWith('test-token', 'harvard');
+    expect(canvasService.testConnection).toHaveBeenCalled();
+  });
+
+  test('shows error message with invalid credentials', async () => {
+    // Ensure localStorage returns null for Canvas credentials
+    localStorage.getItem.mockImplementation(key => {
+      if (key === 'canvasToken' || key === 'canvasDomain') return null;
+      return localStorage.store[key];
+    });
+
+    // Mock failed connection
+    canvasService.testConnection.mockRejectedValue(new Error('Invalid token'));
+    
+    await act(async () => {
+      render(<Account />);
+    });
+    
+    // Fill in the form
+    const tokenInput = screen.getByLabelText('Canvas Developer Token:');
+    const domainInput = screen.getByLabelText('School Domain:');
+    
+    fireEvent.change(tokenInput, { target: { value: 'invalid-token' } });
+    fireEvent.change(domainInput, { target: { value: 'harvard' } });
+    
+    // Submit form
+    const connectButton = screen.getByText('Connect Canvas');
+    await act(async () => {
+      fireEvent.click(connectButton);
+    });
+    
+    // Wait for error message
+    await waitFor(() => {
+      expect(screen.getByText('Failed to connect to Canvas. Please check your credentials.')).toBeInTheDocument();
+    });
+  });
+
+  test('can disconnect after successful connection', async () => {
+    // Mock Canvas as initially connected
+    isCanvasConfigured.mockReturnValue(true);
+    localStorage.getItem.mockImplementation(key => {
+      if (key === 'canvasToken') return 'Bearer test-token';
+      if (key === 'canvasDomain') return 'canvas.harvard.edu';
+      return localStorage.store[key];
+    });
+    
+    await act(async () => {
+      render(<Account />);
+    });
+    
+    // Click disconnect button
+    await act(async () => {
+      fireEvent.click(screen.getByText('Disconnect'));
+    });
+    
+    expect(canvasService.clearCredentials).toHaveBeenCalled();
+    expect(screen.getByText('Connect Canvas')).toBeInTheDocument();
+  });
+
+  test('can sync assignments after connection', async () => {
+    // Mock Canvas as connected
+    isCanvasConfigured.mockReturnValue(true);
+    localStorage.getItem.mockImplementation(key => {
+      if (key === 'canvasToken') return 'Bearer test-token';
+      if (key === 'canvasDomain') return 'canvas.harvard.edu';
+      return localStorage.store[key];
+    });
+    
+    // Mock successful sync
+    canvasService.syncWithCalendar.mockResolvedValue(5);
+    
+    await act(async () => {
+      render(<Account />);
+    });
+    
+    // Click sync button
+    const syncButton = screen.getByText('Sync Canvas Assignments');
+    await act(async () => {
+      fireEvent.click(syncButton);
+    });
+    
+    expect(canvasService.syncWithCalendar).toHaveBeenCalled();
+    expect(await screen.findByText('Successfully imported 5 Canvas assignments!')).toBeInTheDocument();
+  });
+
+  test('shows error on sync failure', async () => {
+    // Mock Canvas as connected
+    isCanvasConfigured.mockReturnValue(true);
+    localStorage.getItem.mockImplementation(key => {
+      if (key === 'canvasToken') return 'Bearer test-token';
+      if (key === 'canvasDomain') return 'canvas.harvard.edu';
+      return localStorage.store[key];
+    });
+    
+    // Mock sync failure
+    canvasService.syncWithCalendar.mockRejectedValue(new Error('Sync failed'));
+    
+    await act(async () => {
+      render(<Account />);
+    });
+    
+    // Click sync button
+    const syncButton = screen.getByText('Sync Canvas Assignments');
+    await act(async () => {
+      fireEvent.click(syncButton);
+    });
+    
+    expect(await screen.findByText('Failed to sync Canvas assignments. Please try again.')).toBeInTheDocument();
   });
 });

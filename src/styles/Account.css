@@ -103,7 +103,8 @@
   padding-bottom: var(--spacing-sm);
 }
 
-.google-auth-section {
+.google-auth-section,
+.canvas-auth-section {
   display: flex;
   justify-content: center;
   margin: var(--spacing-lg) 0;
@@ -169,6 +170,11 @@
   margin-bottom: var(--spacing-md);
 }
 
+.canvas-icon {
+  color: #E72429;
+  margin-bottom: var(--spacing-md);
+}
+
 .google-button {
   background-color: #4285F4;
   color: white;
@@ -176,8 +182,19 @@
   margin-top: var(--spacing-md);
 }
 
+.canvas-button {
+  background-color: #E72429;
+  color: white;
+  border: none;
+  margin-top: var(--spacing-md);
+}
+
 .google-button:hover {
   background-color: #3367D6;
+}
+
+.canvas-button:hover {
+  background-color: #C41E23;
 }
 
 .user-profile {
@@ -290,6 +307,161 @@
 
 .integration-note li {
   margin-bottom: var(--spacing-xs);
+}
+
+.integration-section {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.integration-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #555;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.connect-button {
+  background-color: #4287f5;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.connect-button:hover {
+  background-color: #2d6ad9;
+}
+
+.connect-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.connected-status {
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.connected-text {
+  color: #28a745;
+  font-weight: 500;
+}
+
+.disconnect-button {
+  background-color: transparent;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.disconnect-button:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.sync-section {
+  margin-top: 16px;
+}
+
+.sync-button {
+  background-color: #4287f5;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.sync-button:hover {
+  background-color: #2d6ad9;
+}
+
+.sync-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.status-message {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.status-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-message.loading {
+  background-color: #e2e6ea;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+/* Loading animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
 }
 
 @media (max-width: 768px) {

@@ -9,11 +9,12 @@ import EventModal from './EventModal';
 import PreparationPrompt from './PreparationPrompt'; 
 import googleCalendarService from '../services/googleCalendarService';
 import nudgerService from '../services/nudgerService'; 
+import '../styles/Calendar.css';
 
 const Calendar = ({ initialEvents = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState('month'); 
-  const [events, setEvents] = useState(initialEvents);
+  const [view, setView] = useState('month'); // 'month', 'week', or 'day'
+  const [events, setEvents] = useState([]); // Start with empty array, load from localStorage
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -22,6 +23,69 @@ const Calendar = ({ initialEvents = [] }) => {
   const [showPreparationPrompt, setShowPreparationPrompt] = useState(false);
   const [eventsNeedingPreparation, setEventsNeedingPreparation] = useState([]);
   const [dismissedEvents, setDismissedEvents] = useState({});
+
+  // Load events from localStorage when component mounts or when events are updated
+  const loadEvents = useCallback(() => {
+    const savedEvents = localStorage.getItem('calendarEvents');
+    if (savedEvents) {
+      try {
+        const parsedEvents = JSON.parse(savedEvents);
+        // Convert date strings back to Date objects for events
+        const eventsWithDates = parsedEvents.map(event => ({
+          ...event,
+          start: new Date(event.start),
+          end: new Date(event.end)
+        }));
+        console.log('Loaded events from localStorage:', eventsWithDates.length);
+        setEvents(eventsWithDates);
+      } catch (error) {
+        console.error('Error loading events from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // Handle initialEvents prop
+  useEffect(() => {
+    if (initialEvents && initialEvents.length > 0) {
+      console.log('Received initialEvents:', initialEvents.length);
+      // Combine with existing events from localStorage
+      loadEvents();
+      setEvents(prevEvents => {
+        const combinedEvents = [...prevEvents, ...initialEvents];
+        // Save combined events to localStorage
+        try {
+          localStorage.setItem('calendarEvents', JSON.stringify(combinedEvents));
+          console.log('Saved combined events to localStorage:', combinedEvents.length);
+        } catch (error) {
+          console.error('Error saving combined events to localStorage:', error);
+        }
+        return combinedEvents;
+      });
+    }
+  }, [initialEvents, loadEvents]);
+
+  // Load events when component mounts and listen for updates
+  useEffect(() => {
+    loadEvents();
+    
+    // Listen for calendar events updates
+    window.addEventListener('calendarEventsUpdated', loadEvents);
+    
+    return () => {
+      window.removeEventListener('calendarEventsUpdated', loadEvents);
+    };
+  }, [loadEvents]);
+
+  // Only save events to localStorage when they are explicitly updated through setEvents
+  const updateEvents = useCallback((newEvents) => {
+    setEvents(newEvents);
+    try {
+      localStorage.setItem('calendarEvents', JSON.stringify(newEvents));
+      console.log('Saved events to localStorage:', newEvents.length);
+    } catch (error) {
+      console.error('Error saving events to localStorage:', error);
+    }
+  }, []);
 
   const nextHandler = () => {
     if (view === 'month') {
@@ -76,7 +140,8 @@ const Calendar = ({ initialEvents = [] }) => {
         event => !existingGoogleEventIds.includes(event.googleEventId)
       );
         
-      setEvents(prevEvents => [...prevEvents, ...newGoogleEvents]);
+      // Add the new Google events to our events array
+      updateEvents([...events, ...newGoogleEvents]);
         
       setSyncStatus({ 
         status: 'success', 
@@ -98,7 +163,7 @@ const Calendar = ({ initialEvents = [] }) => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
     }
-  }, [events, setEvents, setSyncStatus]);
+  }, [events, updateEvents, setSyncStatus]);
 
   useEffect(() => {
     const checkGoogleCalendarConnection = async () => {
@@ -182,7 +247,7 @@ const Calendar = ({ initialEvents = [] }) => {
             end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`
           } : event
         );
-        setEvents(updatedEvents);
+        updateEvents(updatedEvents);
         
         if (isGoogleCalendarConnected && selectedEvent.googleEventId) {
           try {
@@ -214,7 +279,7 @@ const Calendar = ({ initialEvents = [] }) => {
           }
         }
         
-        setEvents([...events, newEvent]);
+        updateEvents([...events, newEvent]);
         
         setTimeout(() => {
           const singleEventStudyPlan = nudgerService.getStudyPlan([newEvent]);
@@ -281,7 +346,8 @@ const Calendar = ({ initialEvents = [] }) => {
   const deleteEvent = async (id) => {
     const eventToDelete = events.find(event => event.id === id);
     
-    setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
+    // Remove from our local events
+    updateEvents(events.filter(event => event.id !== id));
     
     if (isGoogleCalendarConnected && eventToDelete && eventToDelete.googleEventId) {
       try {
