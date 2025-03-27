@@ -50,8 +50,8 @@ describe('WeekView Component', () => {
     
     let day = weekStart;
     while (day <= weekEnd) {
-      expect(screen.getByText(format(day, 'EEE'))).toBeInTheDocument();
-      expect(screen.getByText(format(day, 'd'))).toBeInTheDocument();
+      expect(screen.getByTestId(`weekview-day-name-${format(day, 'EEE')}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`weekview-day-number-${format(day, 'd')}`)).toBeInTheDocument();
       day = addDays(day, 1);
     }
   });
@@ -67,10 +67,10 @@ describe('WeekView Component', () => {
     );
     
     // Check if time slots are rendered
-    expect(screen.getByText('12 AM')).toBeInTheDocument();
-    expect(screen.getByText('12 PM')).toBeInTheDocument();
-    expect(screen.getByText('6 AM')).toBeInTheDocument();
-    expect(screen.getByText('6 PM')).toBeInTheDocument();
+    expect(screen.getByTestId('weekview-timeslot-0')).toBeInTheDocument(); // 12 AM
+    expect(screen.getByTestId('weekview-timeslot-12')).toBeInTheDocument(); // 12 PM
+    expect(screen.getByTestId('weekview-timeslot-6')).toBeInTheDocument(); // 6 AM
+    expect(screen.getByTestId('weekview-timeslot-18')).toBeInTheDocument(); // 6 PM
   });
 
   test('renders all-day events on the correct day', async () => {
@@ -83,8 +83,8 @@ describe('WeekView Component', () => {
       />
     );
   
-    // Find the event by its text
-    const allDayEvent = screen.getByText('All Day Event');
+    // Find the event by its test ID
+    const allDayEvent = screen.getByTestId('weekview-event-1'); // All Day Event
     expect(allDayEvent).toBeInTheDocument();
   
     // Check if clicking the event calls onEditEvent

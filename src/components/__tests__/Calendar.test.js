@@ -11,9 +11,9 @@ jest.mock('../WeekView', () => () => <div data-testid="week-view">Week View</div
 jest.mock('../DayView', () => () => <div data-testid="day-view">Day View</div>);
 jest.mock('../EventModal', () => ({ onClose, onSave, onDelete, event, selectedDate }) => (
   <div data-testid="event-modal">
-    <button onClick={onClose}>Close</button>
-    <button onClick={() => onSave({ title: 'Test Event' })}>Save</button>
-    {event && <button onClick={() => onDelete(event.id)}>Delete</button>}
+    <button onClick={onClose} data-testid="eventmodal-cancel-button">Close</button>
+    <button onClick={() => onSave({ title: 'Test Event' })} data-testid="eventmodal-save-button">Save</button>
+    {event && <button onClick={() => onDelete(event.id)} data-testid="eventmodal-delete-button">Delete</button>}
   </div>
 ));
 jest.useFakeTimers();
@@ -56,15 +56,15 @@ describe('Calendar Component', () => {
     render(<Calendar />);
     
     // Switch to week view
-    fireEvent.click(screen.getByText('Week'));
+    fireEvent.click(screen.getByTestId('calendar-week-view-button'));
     expect(screen.getByTestId('week-view')).toBeInTheDocument();
     
     // Switch to day view
-    fireEvent.click(screen.getByText('Day'));
+    fireEvent.click(screen.getByTestId('calendar-day-view-button'));
     expect(screen.getByTestId('day-view')).toBeInTheDocument();
     
     // Switch back to month view
-    fireEvent.click(screen.getByText('Month'));
+    fireEvent.click(screen.getByTestId('calendar-month-view-button'));
     expect(screen.getByTestId('month-view')).toBeInTheDocument();
   });
 
@@ -72,17 +72,17 @@ describe('Calendar Component', () => {
     render(<Calendar />);
     
     // Get the initial title text
-    const initialTitle = screen.getByText(/\w+ \d{4}/); // Month YYYY format
+    const initialTitle = screen.getByTestId('calendar-title');
     const initialTitleText = initialTitle.textContent;
     
     // Click next button
-    fireEvent.click(screen.getByText('Today').nextSibling);
+    fireEvent.click(screen.getByTestId('calendar-next-button'));
     
     // Title should have changed
     expect(initialTitle.textContent).not.toBe(initialTitleText);
     
     // Click previous button to go back
-    fireEvent.click(screen.getByText('Today').previousSibling);
+    fireEvent.click(screen.getByTestId('calendar-prev-button'));
     
     // Title should be back to initial
     expect(initialTitle.textContent).toBe(initialTitleText);
@@ -95,7 +95,7 @@ describe('Calendar Component', () => {
     expect(screen.queryByTestId('event-modal')).not.toBeInTheDocument();
     
     // Click add event button
-    fireEvent.click(screen.getByText('Add Event'));
+    fireEvent.click(screen.getByTestId('calendar-add-event-button'));
     
     // Modal should now be visible
     expect(screen.getByTestId('event-modal')).toBeInTheDocument();
@@ -105,10 +105,10 @@ describe('Calendar Component', () => {
     render(<Calendar />);
     
     // Open the modal
-    fireEvent.click(screen.getByText('Add Event'));
+    fireEvent.click(screen.getByTestId('calendar-add-event-button'));
     
     // Save the event
-    fireEvent.click(screen.getByText('Save'));
+    fireEvent.click(screen.getByTestId('eventmodal-save-button'));
     
     // Modal should be closed
     expect(screen.queryByTestId('event-modal')).not.toBeInTheDocument();
@@ -118,10 +118,10 @@ describe('Calendar Component', () => {
     render(<Calendar />);
     
     // Open the modal
-    fireEvent.click(screen.getByText('Add Event'));
+    fireEvent.click(screen.getByTestId('calendar-add-event-button'));
     
     // Close the modal
-    fireEvent.click(screen.getByText('Close'));
+    fireEvent.click(screen.getByTestId('eventmodal-cancel-button'));
     
     // Modal should be closed
     expect(screen.queryByTestId('event-modal')).not.toBeInTheDocument();
@@ -148,7 +148,7 @@ describe('Calendar Component', () => {
     );
     
     // Find and click the delete button
-    const deleteButton = screen.getByRole('button', { name: /delete/i });
+    const deleteButton = screen.getByTestId('eventmodal-delete-button');
     fireEvent.click(deleteButton);
     
     // Verify delete was called

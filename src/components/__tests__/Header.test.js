@@ -31,11 +31,14 @@ describe('Header Component', () => {
       />
     );
     
-    // Check for a logo element (this selector might need to be adjusted)
-    const logoElement = document.querySelector('.logo') || document.querySelector('.header-icon');
-    if (logoElement) {
-      expect(logoElement).toBeInTheDocument();
-    }
+    // Check for a logo element using testId
+    const logoElement = screen.getByTestId('header-logo');
+    expect(logoElement).toBeInTheDocument();
+    
+    // Check for the header title
+    const titleElement = screen.getByTestId('header-title');
+    expect(titleElement).toBeInTheDocument();
+    expect(titleElement).toHaveTextContent('Kairos');
   });
 
   test('has the correct styling and layout', () => {
@@ -47,7 +50,30 @@ describe('Header Component', () => {
     );
     
     // Check if the header has the expected class
-    const headerElement = screen.getByRole('banner');
+    const headerElement = screen.getByTestId('header');
     expect(headerElement).toHaveClass('header');
+  });
+
+  test('renders all navigation links correctly', () => {
+    render(
+      <Header 
+        title={mockTitle} 
+        onAddEvent={mockOnAddEvent} 
+      />
+    );
+    
+    // Check if all navigation links are present
+    const calendarLink = screen.getByTestId('header-nav-calendar');
+    const syllabusLink = screen.getByTestId('header-nav-syllabus');
+    const accountLink = screen.getByTestId('header-nav-account');
+    
+    expect(calendarLink).toBeInTheDocument();
+    expect(syllabusLink).toBeInTheDocument();
+    expect(accountLink).toBeInTheDocument();
+    
+    // Check text content of links
+    expect(calendarLink).toHaveTextContent('Calendar');
+    expect(syllabusLink).toHaveTextContent('Syllabus Parser');
+    expect(accountLink).toHaveTextContent('Account');
   });
 });

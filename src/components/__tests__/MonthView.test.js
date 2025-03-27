@@ -40,20 +40,24 @@ describe('MonthView Component', () => {
     const startDate = startOfWeek(startOfMonth(mockDate));
     const endDate = endOfWeek(endOfMonth(mockDate));
 
-    let day = startDate;
-    while (day <= endDate) {
-      const dayNumber = day.getDate().toString();
-      
-      // Get all matching elements with that day number
-      const matchingElements = screen.getAllByText(dayNumber);
-      
-      // Filter to find the correct `.calendar-day` element, avoiding `.other-month`
-      const correctDay = matchingElements.find(el => 
-        el.closest('.calendar-day') && !el.closest('.other-month')
-      );
-
-      expect(correctDay).toBeInTheDocument();
+    // Get all days in the current month
+    const currentMonthDays = [];
+    let day = startOfMonth(mockDate);
+    const lastDayOfMonth = endOfMonth(mockDate);
+    
+    while (day <= lastDayOfMonth) {
+      currentMonthDays.push(format(day, 'yyyy-MM-dd'));
       day = addDays(day, 1);
+    }
+    
+    // Check that each day in the current month is rendered
+    for (const dateStr of currentMonthDays) {
+      const dayElement = screen.getByTestId(`monthview-day-number-${dateStr}`);
+      expect(dayElement).toBeInTheDocument();
+      
+      // Verify it's not in the 'other-month' class
+      const calendarDay = dayElement.closest('.calendar-day');
+      expect(calendarDay).not.toHaveClass('other-month');
     }
   });
 
@@ -68,8 +72,8 @@ describe('MonthView Component', () => {
     );
     
     // Check if events are rendered
-    expect(screen.getByText('Monthly Meeting')).toBeInTheDocument();
-    expect(screen.getByText(/Conference/)).toBeInTheDocument();
+    expect(screen.getByTestId('monthview-event-1')).toBeInTheDocument(); // Using event ID
+    expect(screen.getByTestId('monthview-event-2')).toBeInTheDocument(); // Using event ID
   });
 
   test('calls onEditEvent when clicking on an event', () => {
@@ -83,7 +87,7 @@ describe('MonthView Component', () => {
     );
     
     // Click on an event
-    fireEvent.click(screen.getByText('Monthly Meeting'));
+    fireEvent.click(screen.getByTestId('monthview-event-1'));
     
     // Check if onEditEvent was called with the correct event
     expect(mockOnEditEvent).toHaveBeenCalledWith(mockEvents[0]);
@@ -146,8 +150,11 @@ describe('MonthView Component', () => {
   test('shows different month days with different styling', () => {
     render(<MonthView currentDate={mockDate} events={mockEvents} onAddEvent={jest.fn()} onEditEvent={jest.fn()} />);
     
-    // Get the first day of the current month
-    const dayCells = screen.getAllByText('1');
+    // Get the first day of the month by test ID
+    // Find all day cells for the first day of the month across all months shown
+    const firstOfMonthDate = new Date(mockDate.getFullYear(), mockDate.getMonth(), 1);
+    const formattedDate = format(firstOfMonthDate, 'yyyy-MM-dd');
+    const dayCells = screen.getAllByTestId((id) => id.startsWith('monthview-day-number-') && id.includes('-01'));
     const firstDayCell = dayCells.find(el => el.closest('.calendar-day') && !el.closest('.other-month'));
     expect(firstDayCell).toBeInTheDocument();
   

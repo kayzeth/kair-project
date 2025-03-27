@@ -36,19 +36,19 @@ describe('SyllabusParser Component', () => {
 
   test('renders without crashing', () => {
     render(<SyllabusParser onAddEvents={() => {}} />);
-    expect(screen.getByText('Syllabus Parser')).toBeInTheDocument();
-    expect(screen.getByText(/Upload your course syllabus/)).toBeInTheDocument();
+    expect(screen.getByTestId('syllabus-title')).toBeInTheDocument();
+    expect(screen.getByTestId('syllabus-upload-instruction')).toBeInTheDocument();
   });
 
   test('button is disabled when no file is selected', () => {
     render(<SyllabusParser onAddEvents={() => {}} />);
     
     // Add an API key
-    const apiKeyInput = screen.getByPlaceholderText('Enter your OpenAI API key');
+    const apiKeyInput = screen.getByTestId('syllabus-api-key-input');
     fireEvent.change(apiKeyInput, { target: { value: 'test-api-key' } });
     
     // Check that the button is disabled when no file is selected
-    const parseButton = screen.getByText('Parse Syllabus');
+    const parseButton = screen.getByTestId('syllabus-parse-button');
     expect(parseButton).toBeDisabled();
   });
 
@@ -59,17 +59,17 @@ describe('SyllabusParser Component', () => {
     const file = new File(['dummy content'], 'syllabus.txt', { type: 'text/plain' });
     
     // Simulate file selection
-    const fileInput = screen.getByLabelText(/Choose syllabus file/i);
+    const fileInput = screen.getByTestId('syllabus-file-input');
     Object.defineProperty(fileInput, 'files', {
       value: [file]
     });
     fireEvent.change(fileInput);
     
     // Click the parse button without providing an API key
-    fireEvent.click(screen.getByText('Parse Syllabus'));
+    fireEvent.click(screen.getByTestId('syllabus-parse-button'));
     
     // Check if API key error message is displayed
-    expect(screen.getByText('Please enter your OpenAI API key')).toBeInTheDocument();
+    expect(screen.getByTestId('syllabus-api-key-error')).toBeInTheDocument();
   });
 
   test('handles invalid API key error correctly', async () => {
@@ -79,14 +79,14 @@ describe('SyllabusParser Component', () => {
     const file = new File(['dummy content'], 'syllabus.txt', { type: 'text/plain' });
     
     // Simulate file selection
-    const fileInput = screen.getByLabelText(/Choose syllabus file/i);
+    const fileInput = screen.getByTestId('syllabus-file-input');
     Object.defineProperty(fileInput, 'files', {
       value: [file]
     });
     fireEvent.change(fileInput);
     
     // Add an API key
-    const apiKeyInput = screen.getByPlaceholderText('Enter your OpenAI API key');
+    const apiKeyInput = screen.getByTestId('syllabus-api-key-input');
     fireEvent.change(apiKeyInput, { target: { value: 'invalid-api-key' } });
     
     // Mock fetch to return an authentication error (401)
@@ -101,11 +101,11 @@ describe('SyllabusParser Component', () => {
     });
     
     // Click the parse button
-    fireEvent.click(screen.getByText('Parse Syllabus'));
+    fireEvent.click(screen.getByTestId('syllabus-parse-button'));
     
     // Wait for the error message to appear
     await waitFor(() => {
-      expect(screen.getByText('Failed to process syllabus. Please try again with a different file.')).toBeInTheDocument();
+      expect(screen.getByTestId('syllabus-processing-error')).toBeInTheDocument();
     });
   });
 
@@ -122,14 +122,14 @@ describe('SyllabusParser Component', () => {
     file.arrayBuffer = jest.fn().mockResolvedValue(new ArrayBuffer(8));
     
     // Simulate file selection
-    const fileInput = screen.getByLabelText(/Choose syllabus file/i);
+    const fileInput = screen.getByTestId('syllabus-file-input');
     Object.defineProperty(fileInput, 'files', {
       value: [file]
     });
     fireEvent.change(fileInput);
     
     // Add an API key
-    const apiKeyInput = screen.getByPlaceholderText('Enter your OpenAI API key');
+    const apiKeyInput = screen.getByTestId('syllabus-api-key-input');
     fireEvent.change(apiKeyInput, { target: { value: 'test-api-key' } });
     
     // Mock PDF.js getDocument function
@@ -172,7 +172,7 @@ describe('SyllabusParser Component', () => {
     });
     
     // Click the parse button
-    fireEvent.click(screen.getByText('Parse Syllabus'));
+    fireEvent.click(screen.getByTestId('syllabus-parse-button'));
     
     // Wait for the PDF extraction and API call to complete
     await waitFor(() => {
@@ -194,6 +194,21 @@ describe('SyllabusParser Component', () => {
 
   describe('Calendar Event Integration', () => {
     test('converts OpenAI response to calendar events correctly', async () => {
+      // Mock the Date object to ensure consistent date calculations
+      const mockDate = new Date('2025-03-21T12:00:00'); // Set to a Friday
+      const RealDate = global.Date;
+      global.Date = class extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) {
+            return mockDate;
+          }
+          return new RealDate(...args);
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      };
+
       const mockOnAddEvents = jest.fn();
       render(<SyllabusParser onAddEvents={mockOnAddEvents} />);
 
@@ -230,25 +245,25 @@ describe('SyllabusParser Component', () => {
 
       // Simulate file selection and API key input
       const file = new File(['dummy content'], 'syllabus.txt', { type: 'text/plain' });
-      const fileInput = screen.getByLabelText(/Choose syllabus file/i);
+      const fileInput = screen.getByTestId('syllabus-file-input');
       Object.defineProperty(fileInput, 'files', {
         value: [file]
       });
       fireEvent.change(fileInput);
 
-      const apiKeyInput = screen.getByPlaceholderText('Enter your OpenAI API key');
+      const apiKeyInput = screen.getByTestId('syllabus-api-key-input');
       fireEvent.change(apiKeyInput, { target: { value: 'test-api-key' } });
 
       // Trigger parsing
-      fireEvent.click(screen.getByText('Parse Syllabus'));
+      fireEvent.click(screen.getByTestId('syllabus-parse-button'));
 
       // Wait for parsed data to appear
       await waitFor(() => {
-        expect(screen.getByText('Extracted Information')).toBeInTheDocument();
+        expect(screen.getByTestId('syllabus-extracted-info-heading')).toBeInTheDocument();
       });
 
       // Simulate adding events to calendar
-      const addToCalendarButton = screen.getByText('Add to Calendar');
+      const addToCalendarButton = screen.getByTestId('syllabus-add-to-calendar-button');
       fireEvent.click(addToCalendarButton);
 
       // Verify calendar events were created correctly
@@ -256,19 +271,22 @@ describe('SyllabusParser Component', () => {
         expect(mockOnAddEvents).toHaveBeenCalledWith(expect.arrayContaining([
           expect.objectContaining({
             title: 'Advanced React - Room 202',
-            start: expect.stringMatching(/2025-03-\d{2}T14:00:00/),
-            end: expect.stringMatching(/2025-03-\d{2}T15:30:00/),
+            start: expect.stringMatching(/2025-03-25T14:00:00/), // Next Tuesday from mocked date (March 21)
+            end: expect.stringMatching(/2025-03-25T15:30:00/),
             recurring: true,
             recurringPattern: 'tuesday'
           }),
           expect.objectContaining({
             title: 'Due: Project Proposal',
-            start: expect.stringMatching(/2025-03-\d{2}/),
-            end: expect.stringMatching(/2025-03-\d{2}/),
+            start: '2025-03-24', // Exact date from test data
+            end: '2025-03-24',
             allDay: true
           })
         ]));
       });
+
+      // Restore original Date object
+      global.Date = RealDate;
     });
   });
 });

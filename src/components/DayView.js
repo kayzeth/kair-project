@@ -6,7 +6,7 @@ const DayView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   const timeSlots = [];
   for (let i = 0; i < 24; i++) {
     timeSlots.push(
-      <div className="time-slot" key={i}>
+      <div className="time-slot" key={i} data-testid={`dayview-timeslot-${i}`}>
         {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
       </div>
     );
@@ -98,6 +98,7 @@ const DayView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
           <div
             key={event.id}
             className="time-event"
+            data-testid={`dayview-event-${event.id}`}
             onClick={(e) => {
               e.stopPropagation();
               onEditEvent(event);
@@ -116,13 +117,13 @@ const DayView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   }
 
   return (
-    <div className="day-view">
+    <div className="day-view" data-testid="day-view-container">
       <div className="time-column">
         <div className="day-header"></div>
         {timeSlots}
       </div>
       <div className="day-column">
-        <div className="day-header">
+        <div className="day-header" data-testid="dayview-date-header">
           {format(currentDate, 'EEEE, MMMM d, yyyy')}
         </div>
         <div>
@@ -130,6 +131,7 @@ const DayView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
             <div
               key={event.id}
               className="event"
+              data-testid={`dayview-event-${event.id}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onEditEvent(event);

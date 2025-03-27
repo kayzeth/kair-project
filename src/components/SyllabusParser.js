@@ -543,8 +543,8 @@ const SyllabusParser = ({ onAddEvents }) => {
 
   return (
     <div className="syllabus-parser-container">
-      <h2>Syllabus Parser</h2>
-      <p>Upload your course syllabus (PDF or text file) to automatically extract important dates and add them to your calendar using OpenAI.</p>
+      <h2 data-testid="syllabus-title">Syllabus Parser</h2>
+      <p data-testid="syllabus-upload-instruction">Upload your course syllabus (PDF or text file) to automatically extract important dates and add them to your calendar using OpenAI.</p>
       
       <form onSubmit={handleSubmit} className="syllabus-form">
         <div className="api-key-container">
@@ -554,6 +554,7 @@ const SyllabusParser = ({ onAddEvents }) => {
           <input
             type="password"
             id="openai-api-key"
+            data-testid="syllabus-api-key-input"
             value={apiKey}
             onChange={(e) => {
               setApiKey(e.target.value);
@@ -562,7 +563,7 @@ const SyllabusParser = ({ onAddEvents }) => {
             placeholder="Enter your OpenAI API key"
             className="api-key-input"
           />
-          {apiKeyError && <div className="api-key-error">{apiKeyError}</div>}
+          {apiKeyError && <div className="api-key-error" data-testid="syllabus-api-key-error">{apiKeyError}</div>}
           <div className="api-key-info">
             Your API key is only used in your browser and is never stored on our servers.
           </div>
@@ -576,6 +577,7 @@ const SyllabusParser = ({ onAddEvents }) => {
           <input
             type="file"
             id="syllabus-file"
+            data-testid="syllabus-file-input"
             accept=".pdf,.txt"
             onChange={handleFileChange}
             className="file-input"
@@ -585,6 +587,7 @@ const SyllabusParser = ({ onAddEvents }) => {
         <button 
           type="submit" 
           className="parse-button"
+          data-testid="syllabus-parse-button"
           disabled={isLoading || !file}
         >
           {isLoading ? (
@@ -595,11 +598,11 @@ const SyllabusParser = ({ onAddEvents }) => {
         </button>
       </form>
       
-      {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message" data-testid="syllabus-processing-error">{error}</div>}
       
       {extractedInfo && (
         <div className="parsed-data-container">
-          <h3>Extracted Information</h3>
+          <h3 data-testid="syllabus-extracted-info-heading">Extracted Information</h3>
           <div className="parsed-data-summary">
             <p><strong>Course:</strong> {extractedInfo.courseName} ({extractedInfo.courseCode})</p>
             <p><strong>Instructor:</strong> {(() => {
@@ -667,7 +670,8 @@ const SyllabusParser = ({ onAddEvents }) => {
                 <div className="repeat-option">
                   <label className="repeat-label">
                     <input 
-                      type="checkbox" 
+                      type="checkbox"
+                      data-testid="syllabus-repeat-checkbox" 
                       checked={shouldRepeat} 
                       onChange={(e) => setShouldRepeat(e.target.checked)}
                     />
@@ -681,6 +685,7 @@ const SyllabusParser = ({ onAddEvents }) => {
                     <input
                       type="date"
                       id="repeat-until-date"
+                      data-testid="syllabus-repeat-until-date"
                       value={repeatUntilDate}
                       onChange={(e) => setRepeatUntilDate(e.target.value)}
                       min={new Date().toISOString().split('T')[0]}
@@ -690,7 +695,8 @@ const SyllabusParser = ({ onAddEvents }) => {
               </div>
               
               <button 
-                className="add-to-calendar-button" 
+                className="add-to-calendar-button"
+                data-testid="syllabus-add-to-calendar-button" 
                 onClick={() => {
                   if (onAddEvents && calendarEvents.length > 0) {
                     // Apply repeat settings to events

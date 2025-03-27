@@ -122,16 +122,17 @@ const PreparationPrompt = ({ events, onSave, onClose, onDismiss }) => {
           className="close-button" 
           onClick={onClose}
           aria-label="Close"
+          data-testid="preparation-close-button"
         >
           <FontAwesomeIcon icon={faTimes} />
         </button>
         
         <div className="prompt-header">
           <FontAwesomeIcon icon={faBookOpen} className="prompt-icon" />
-          <h3>Study Preparation Required</h3>
+          <h3 data-testid="preparation-title">Study Preparation Required</h3>
         </div>
         
-        <p className="prompt-instruction">
+        <p className="prompt-instruction" data-testid="preparation-instruction">
           Please enter preparation hours for the following events:
         </p>
         
@@ -139,8 +140,8 @@ const PreparationPrompt = ({ events, onSave, onClose, onDismiss }) => {
           {events.map(event => (
             <div key={event.id} className="event-item">
               <div className="event-details">
-                <p className="event-title">{event.title}</p>
-                <p className="event-date">
+                <p className="event-title" data-testid={`preparation-event-title-${event.id}`}>{event.title}</p>
+                <p className="event-date" data-testid={`preparation-event-date-${event.id}`}>
                   {new Date(event.start).toLocaleDateString()} at {
                     event.startTime || new Date(event.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                   }
@@ -167,6 +168,7 @@ const PreparationPrompt = ({ events, onSave, onClose, onDismiss }) => {
                     onClick={() => handleDismiss(event.id)}
                     className="button-secondary"
                     title="Remind me later"
+                    data-testid={`preparation-remind-later-${event.id}`}
                   >
                     <FontAwesomeIcon icon={faClock} />
                   </button>
