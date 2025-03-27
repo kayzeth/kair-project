@@ -44,7 +44,9 @@ describe('DayView Component', () => {
     );
     
     // Check if the day header shows the correct date
-    expect(screen.getByText(format(mockDate, 'EEEE, MMMM d, yyyy'))).toBeInTheDocument();
+    const dateHeader = screen.getByTestId('dayview-date-header');
+    expect(dateHeader).toBeInTheDocument();
+    expect(dateHeader).toHaveTextContent(format(mockDate, 'EEEE, MMMM d, yyyy'));
   });
 
   test('renders time slots correctly', () => {
@@ -58,10 +60,10 @@ describe('DayView Component', () => {
     );
     
     // Check if time slots are rendered
-    expect(screen.getByText('12 AM')).toBeInTheDocument();
-    expect(screen.getByText('12 PM')).toBeInTheDocument();
-    expect(screen.getByText('6 AM')).toBeInTheDocument();
-    expect(screen.getByText('6 PM')).toBeInTheDocument();
+    expect(screen.getByTestId('dayview-timeslot-0')).toBeInTheDocument(); // 12 AM
+    expect(screen.getByTestId('dayview-timeslot-12')).toBeInTheDocument(); // 12 PM
+    expect(screen.getByTestId('dayview-timeslot-6')).toBeInTheDocument(); // 6 AM
+    expect(screen.getByTestId('dayview-timeslot-18')).toBeInTheDocument(); // 6 PM
   });
 
   test('renders all-day events correctly', () => {
@@ -75,7 +77,7 @@ describe('DayView Component', () => {
     );
     
     // Check if all-day event is rendered
-    const allDayEvent = screen.getByText('All Day Event');
+    const allDayEvent = screen.getByTestId('dayview-event-1'); // All Day Event
     expect(allDayEvent).toBeInTheDocument();
     
     // Check if clicking the event calls onEditEvent
@@ -94,7 +96,7 @@ describe('DayView Component', () => {
     );
     
     // Check if time-based event is rendered
-    const timeEvent = screen.getByText('Meeting');
+    const timeEvent = screen.getByTestId('dayview-event-2'); // Meeting
     expect(timeEvent).toBeInTheDocument();
     
     // Check if clicking the event calls onEditEvent
