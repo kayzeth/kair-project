@@ -23,6 +23,25 @@ const Calendar = ({ initialEvents = [] }) => {
   const [showPreparationPrompt, setShowPreparationPrompt] = useState(false);
   const [eventsNeedingPreparation, setEventsNeedingPreparation] = useState([]);
   const [dismissedEvents, setDismissedEvents] = useState({});
+  const [viewDate, setViewDate] = useState(new Date());
+
+  // Calculate the appropriate view date based on the calendar view type
+  useEffect(() => {
+    let newViewDate;
+    
+    if (view === 'day') {
+      // For day view, use the current date directly
+      newViewDate = currentDate;
+    } else if (view === 'week') {
+      // For week view, use the first day of the week
+      newViewDate = startOfWeek(currentDate);
+    } else {
+      // For month view, use the first day of the month
+      newViewDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    }
+    
+    setViewDate(newViewDate);
+  }, [currentDate, view]);
 
   // Load events from localStorage when component mounts or when events are updated
   const loadEvents = useCallback(() => {
@@ -122,32 +141,65 @@ const Calendar = ({ initialEvents = [] }) => {
     setSelectedEvent(null);
   };
 
-  const importGoogleCalendarEvents = useCallback(async () => {
+  // Google Calendar cache state
+  const [googleCalendarCache, setGoogleCalendarCache] = useState({
+    startDate: null,
+    endDate: null,
+    lastFetched: null
+  });
+
+  const importGoogleCalendarEvents = useCallback(async (forceRefresh = false) => {
     try {
       setSyncStatus({ status: 'loading', message: 'Importing events from Google Calendar...' });
+      
+      // Use viewDate as the reference point instead of currentDate
+      // viewDate is calculated based on the calendar view type
+      const oneYearAgo = new Date(viewDate.getFullYear() - 1, viewDate.getMonth(), viewDate.getDate());
+      const oneYearFromNow = new Date(viewDate.getFullYear() + 1, viewDate.getMonth(), viewDate.getDate());
+      
+      let googleEvents = [];
+      
+      // Check if the current view date is within our cached range and if the cache is still valid
+      const isCacheValid = googleCalendarCache.startDate && googleCalendarCache.endDate && 
+        viewDate >= googleCalendarCache.startDate && viewDate <= googleCalendarCache.endDate &&
+        googleCalendarCache.lastFetched && 
+        (new Date() - googleCalendarCache.lastFetched < 24 * 60 * 60 * 1000); // Cache valid for 24 hours
+      
+      if (!isCacheValid || forceRefresh) {
+        // Cache is invalid or forced refresh, fetch new data
+        googleEvents = await googleCalendarService.importEvents(oneYearAgo, oneYearFromNow);
         
-      const now = new Date();
-      const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      const oneMonthFromNow = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        // Update the cache
+        setGoogleCalendarCache({
+          startDate: oneYearAgo,
+          endDate: oneYearFromNow,
+          lastFetched: new Date()
+        });
         
-      const googleEvents = await googleCalendarService.importEvents(oneMonthAgo, oneMonthFromNow);
+        // Filter out events that already exist in our calendar
+        const existingGoogleEventIds = events
+          .filter(event => event.googleEventId)
+          .map(event => event.googleEventId);
         
-      const existingGoogleEventIds = events
-        .filter(event => event.googleEventId)
-        .map(event => event.googleEventId);
+        const newGoogleEvents = googleEvents.filter(
+          event => !existingGoogleEventIds.includes(event.googleEventId)
+        );
         
-      const newGoogleEvents = googleEvents.filter(
-        event => !existingGoogleEventIds.includes(event.googleEventId)
-      );
+        // Add the new Google events to our events array
+        updateEvents([...events, ...newGoogleEvents]);
         
-      // Add the new Google events to our events array
-      updateEvents([...events, ...newGoogleEvents]);
-        
-      setSyncStatus({ 
-        status: 'success', 
-        message: `Successfully imported ${newGoogleEvents.length} events from Google Calendar` 
-      });
-        
+        setSyncStatus({ 
+          status: 'success', 
+          message: `Successfully imported ${newGoogleEvents.length} events from Google Calendar` 
+        });
+      } else {
+        // Cache is valid, no need to fetch
+        setSyncStatus({ 
+          status: 'success', 
+          message: 'Calendar is up to date with Google Calendar' 
+        });
+      }
+      
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
@@ -163,7 +215,7 @@ const Calendar = ({ initialEvents = [] }) => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
     }
-  }, [events, updateEvents, setSyncStatus]);
+  }, [events, updateEvents, setSyncStatus, viewDate, googleCalendarCache]);
 
   useEffect(() => {
     const checkGoogleCalendarConnection = async () => {
