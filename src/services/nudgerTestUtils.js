@@ -37,6 +37,7 @@ export const createTestEvent = (title, date, options = {}) => {
 export const generateTestEvents = () => {
   const now = new Date();
   const events = [];
+  let hasQuiz = false;
   
   // Create events for the next 30 days
   for (let i = 0; i < 30; i++) {
@@ -79,12 +80,33 @@ export const generateTestEvents = () => {
         requiresPreparation: true,
         preparationHours: '2'
       }));
+      hasQuiz = true;
     } else {
       events.push(createTestEvent('Lecture', eventDate, {
         description: 'Regular class lecture',
         requiresPreparation: false
       }));
     }
+  }
+  
+  // Ensure at least one Quiz event is included
+  if (!hasQuiz) {
+    // Find a suitable date for the quiz (not a weekend)
+    const quizDate = new Date();
+    quizDate.setDate(now.getDate() + 10); // Add 10 days to current date
+    
+    // Adjust if it falls on a weekend
+    if (quizDate.getDay() === 0) { // Sunday
+      quizDate.setDate(quizDate.getDate() + 1); // Move to Monday
+    } else if (quizDate.getDay() === 6) { // Saturday
+      quizDate.setDate(quizDate.getDate() + 2); // Move to Monday
+    }
+    
+    events.push(createTestEvent('Quiz', quizDate, {
+      description: 'Weekly quiz on recent material',
+      requiresPreparation: true,
+      preparationHours: '2'
+    }));
   }
   
   return events;

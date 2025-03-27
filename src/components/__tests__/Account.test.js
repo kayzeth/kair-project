@@ -47,7 +47,7 @@ describe('Account Component', () => {
     await act(() => {
       render(<Account />);
     });
-    expect(screen.getByText('Account Settings')).toBeInTheDocument();
+    expect(screen.getByTestId('account-title')).toBeInTheDocument();
   });
 
   test('shows API credentials warning when not configured', async () => {
@@ -55,7 +55,7 @@ describe('Account Component', () => {
     await act(() => {
       render(<Account />);
     });
-    expect(screen.getByText('Google Calendar API Credentials Required')).toBeInTheDocument();
+    expect(screen.getByTestId('api-credentials-warning')).toBeInTheDocument(); // This is an error state message
   });
 
   test('initializes Google Calendar service on mount', async () => {
@@ -69,7 +69,7 @@ describe('Account Component', () => {
     await act(() => {
       render(<Account />);
     });
-    expect(screen.getByText('Sign in with Google')).toBeInTheDocument();
+    expect(screen.getByTestId('google-sign-in-button')).toBeInTheDocument();
   });
 
   test('shows user profile when signed in', async () => {
@@ -118,7 +118,7 @@ describe('Account Component', () => {
     expect(screen.getByTestId('auth-user-email')).toHaveTextContent('test@example.com');
     
     // Check if connection status is displayed
-    expect(screen.getByText('Connected to Google Calendar')).toBeInTheDocument();
+    expect(screen.getByTestId('google-connected-status')).toBeInTheDocument();
   });
 
   test('handles sign-in button click', async () => {
@@ -128,7 +128,7 @@ describe('Account Component', () => {
     
     // Click the sign-in button
     await act(async () => {
-      fireEvent.click(screen.getByText('Sign in with Google'));
+      fireEvent.click(screen.getByTestId('google-sign-in-button'));
     });
     
     expect(googleCalendarService.signIn).toHaveBeenCalled();
@@ -148,7 +148,7 @@ describe('Account Component', () => {
     
     // Click the sign-out button
     await act(async () => {
-      fireEvent.click(screen.getByText('Disconnect Google Account'));
+      fireEvent.click(screen.getByTestId('google-disconnect-button'));
     });
     
     expect(googleCalendarService.signOut).toHaveBeenCalled();
@@ -255,7 +255,7 @@ describe('Account Component', () => {
     });
     
     // Verify signed-out UI
-    expect(screen.getByText('Sign in with Google')).toBeInTheDocument();
+    expect(screen.getByTestId('google-sign-in-button')).toBeInTheDocument();
     
     // Simulate sign-in event
     const mockUser = {
@@ -307,9 +307,9 @@ describe('Canvas Integration', () => {
     });
     
     // Form should be visible since we're not connected
-    expect(screen.getByLabelText('Canvas Developer Token:')).toBeInTheDocument();
-    expect(screen.getByLabelText('School Domain:')).toBeInTheDocument();
-    expect(screen.getByText('Connect Canvas')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas-token-label')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas-domain-label')).toBeInTheDocument();
+    expect(screen.getByTestId('account-connect-canvas-button')).toBeInTheDocument();
   });
 
   test('can connect with valid credentials', async () => {
@@ -325,14 +325,14 @@ describe('Canvas Integration', () => {
     render(<Account />);
     
     // Fill in the form
-    const tokenInput = screen.getByLabelText('Canvas Developer Token:');
-    const domainInput = screen.getByLabelText('School Domain:');
+    const tokenInput = screen.getByTestId('account-canvas-token-input');
+    const domainInput = screen.getByTestId('account-canvas-domain-input');
     
     fireEvent.change(tokenInput, { target: { value: 'test-token' } });
     fireEvent.change(domainInput, { target: { value: 'harvard' } });
     
     // Submit form
-    const connectButton = screen.getByText('Connect Canvas');
+    const connectButton = screen.getByTestId('account-connect-canvas-button');
     await act(async () => {
       fireEvent.click(connectButton);
     });
@@ -357,21 +357,21 @@ describe('Canvas Integration', () => {
     });
     
     // Fill in the form
-    const tokenInput = screen.getByLabelText('Canvas Developer Token:');
-    const domainInput = screen.getByLabelText('School Domain:');
+    const tokenInput = screen.getByTestId('account-canvas-token-input');
+    const domainInput = screen.getByTestId('account-canvas-domain-input');
     
     fireEvent.change(tokenInput, { target: { value: 'invalid-token' } });
     fireEvent.change(domainInput, { target: { value: 'harvard' } });
     
     // Submit form
-    const connectButton = screen.getByText('Connect Canvas');
+    const connectButton = screen.getByTestId('account-connect-canvas-button');
     await act(async () => {
       fireEvent.click(connectButton);
     });
     
     // Wait for error message
     await waitFor(() => {
-      expect(screen.getByText('Failed to connect to Canvas. Please check your credentials.')).toBeInTheDocument();
+      expect(screen.getByTestId('canvas-error-message')).toBeInTheDocument();
     });
   });
 
@@ -390,11 +390,11 @@ describe('Canvas Integration', () => {
     
     // Click disconnect button
     await act(async () => {
-      fireEvent.click(screen.getByText('Disconnect'));
+      fireEvent.click(screen.getByTestId('account-disconnect-canvas-button'));
     });
     
     expect(canvasService.clearCredentials).toHaveBeenCalled();
-    expect(screen.getByText('Connect Canvas')).toBeInTheDocument();
+    expect(screen.getByTestId('account-connect-canvas-button')).toBeInTheDocument();
   });
 
   test('can sync assignments after connection', async () => {
@@ -414,7 +414,7 @@ describe('Canvas Integration', () => {
     });
     
     // Click sync button
-    const syncButton = screen.getByText('Sync Canvas Assignments');
+    const syncButton = screen.getByTestId('account-sync-canvas-button');
     await act(async () => {
       fireEvent.click(syncButton);
     });
@@ -440,7 +440,7 @@ describe('Canvas Integration', () => {
     });
     
     // Click sync button
-    const syncButton = screen.getByText('Sync Canvas Assignments');
+    const syncButton = screen.getByTestId('account-sync-canvas-button');
     await act(async () => {
       fireEvent.click(syncButton);
     });

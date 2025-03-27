@@ -39,7 +39,7 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   const dayNames = [];
   for (let i = 0; i < 7; i++) {
     dayNames.push(
-      <div className="day-name" key={i}>
+      <div className="day-name" key={i} data-testid={`monthview-weekday-${i}`}>
         {format(addDays(startDate, i), 'EEE')}
       </div>
     );
@@ -97,16 +97,18 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
             !isSameMonth(day, monthStart) ? 'other-month' : ''
           } ${isSameDay(day, new Date()) ? 'today' : ''}`}
           key={day}
+          data-testid={`monthview-day-${format(day, 'yyyy-MM-dd')}`}
           onClick={() => onAddEvent(cloneDay)}
           style={{ height: cellHeight, overflow: 'hidden' }}
         >
-          <div className="day-number">{dayNumber}</div>
+          <div className="day-number" data-testid={`monthview-day-number-${format(day, 'yyyy-MM-dd')}`}>{dayNumber}</div>
           <div className="day-events">
             {dayEvents.slice(0, 3).map(event => {
               const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
               return (
                 <div
                   key={event.id}
+                  data-testid={`monthview-event-${event.id}`}
                   className={`event ${event.type || ''} ${event.allDay ? 'all-day' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();

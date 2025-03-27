@@ -40,18 +40,20 @@ describe('PreparationPrompt Component', () => {
     );
     
     // Check that the event title is displayed
-    expect(screen.getByText('Final Exam')).toBeInTheDocument();
+    expect(screen.getByTestId('preparation-event-title-123')).toBeInTheDocument();
+    expect(screen.getByTestId('preparation-event-title-123')).toHaveTextContent('Final Exam');
     
-    // Check that the date is displayed - using a more flexible approach
-    const dateElement = screen.getByText(/at 10:00/);
+    // Check that the date is displayed
+    const dateElement = screen.getByTestId('preparation-event-date-123');
     expect(dateElement).toBeInTheDocument();
+    expect(dateElement).toHaveTextContent(/at 10:00/);
     
     // Check that the input field is present
     expect(screen.getByTestId('preparation-hours-input-123')).toBeInTheDocument();
     
     // Check that the buttons are present
-    expect(screen.getByTitle('Remind me later')).toBeInTheDocument();
-    expect(screen.getByTitle('Save hours')).toBeInTheDocument();
+    expect(screen.getByTestId('preparation-remind-later-123')).toBeInTheDocument();
+    expect(screen.getByTestId('save-button-123')).toBeInTheDocument();
   });
   
   it('validates input and shows error for invalid values', () => {
@@ -73,7 +75,8 @@ describe('PreparationPrompt Component', () => {
     expect(input.value).toBe('');
     
     // Error message should be displayed
-    expect(screen.getByText('Please enter a positive number')).toBeInTheDocument();
+    expect(screen.getByTestId('error-message-123')).toBeInTheDocument();
+    expect(screen.getByTestId('error-message-123')).toHaveTextContent('Please enter a positive number');
   });
   
   it('allows valid input and saves correctly', () => {
@@ -115,7 +118,8 @@ describe('PreparationPrompt Component', () => {
     fireEvent.click(screen.getByTestId('save-button-123'));
     
     // Check that error message is displayed
-    expect(screen.getByText('Please enter preparation hours')).toBeInTheDocument();
+    expect(screen.getByTestId('error-message-123')).toBeInTheDocument();
+    expect(screen.getByTestId('error-message-123')).toHaveTextContent('Please enter preparation hours');
     
     // Check that onSave was not called
     expect(mockSave).not.toHaveBeenCalled();
@@ -132,7 +136,7 @@ describe('PreparationPrompt Component', () => {
     );
     
     // Click remind later button
-    fireEvent.click(screen.getByTitle('Remind me later'));
+    fireEvent.click(screen.getByTestId('preparation-remind-later-123'));
     
     // Check that onDismiss was called with the correct event ID
     expect(mockDismiss).toHaveBeenCalledWith('123');
@@ -149,8 +153,10 @@ describe('PreparationPrompt Component', () => {
     );
     
     // Check that both events are displayed
-    expect(screen.getByText('Final Exam')).toBeInTheDocument();
-    expect(screen.getByText('Research Paper Due')).toBeInTheDocument();
+    expect(screen.getByTestId('preparation-event-title-123')).toBeInTheDocument();
+    expect(screen.getByTestId('preparation-event-title-123')).toHaveTextContent('Final Exam');
+    expect(screen.getByTestId('preparation-event-title-456')).toBeInTheDocument();
+    expect(screen.getByTestId('preparation-event-title-456')).toHaveTextContent('Research Paper Due');
     
     // Check that both inputs are present
     expect(screen.getByTestId('preparation-hours-input-123')).toBeInTheDocument();

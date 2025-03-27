@@ -96,7 +96,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="close-button" onClick={onClose}>
+        <button className="close-button" data-testid="eventmodal-close-button" onClick={onClose}>
           <FontAwesomeIcon icon={faTimes} />
         </button>
         <form onSubmit={handleSubmit}>
@@ -107,6 +107,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                 id="title"
                 name="title"
                 className="form-input"
+                data-testid="eventmodal-title-input"
                 value={formData.title}
                 onChange={handleChange}
                 placeholder="Add title"
@@ -125,6 +126,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                   id="start"
                   name="start"
                   className="form-input"
+                  data-testid="eventmodal-start-date"
                   value={formData.start}
                   onChange={handleChange}
                   required
@@ -137,6 +139,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                       id="startTime"
                       name="startTime"
                       className="form-input"
+                      data-testid="eventmodal-start-time"
                       value={formData.startTime}
                       onChange={handleChange}
                       required
@@ -150,6 +153,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                     id="end"
                     name="end"
                     className="form-input"
+                    data-testid="eventmodal-end-date"
                     value={formData.end}
                     onChange={handleChange}
                     required
@@ -162,6 +166,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                       id="endTime"
                       name="endTime"
                       className="form-input"
+                      data-testid="eventmodal-end-time"
                       value={formData.endTime}
                       onChange={handleChange}
                       required
@@ -174,6 +179,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                     <input
                       type="checkbox"
                       name="allDay"
+                      data-testid="eventmodal-all-day"
                       checked={formData.allDay}
                       onChange={handleChange}
                       style={{ marginRight: '8px' }}
@@ -192,6 +198,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                 id="location"
                 name="location"
                 className="form-input"
+                data-testid="eventmodal-location"
                 value={formData.location}
                 onChange={handleChange}
                 placeholder="Add location"
@@ -206,6 +213,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                 id="description"
                 name="description"
                 className="form-input"
+                data-testid="eventmodal-description"
                 value={formData.description}
                 onChange={handleChange}
                 rows="3"
@@ -220,6 +228,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                 type="color"
                 id="color"
                 name="color"
+                data-testid="eventmodal-color"
                 value={formData.color}
                 onChange={handleChange}
                 style={{ width: '36px', height: '36px', border: 'none', padding: '0', background: 'none' }}
@@ -240,7 +249,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                       checked={formData.requiresPreparation}
                       onChange={handleChange}
                       style={{ marginRight: '8px' }}
-                      data-testid="requires-preparation-checkbox"
+                      data-testid="eventmodal-requires-preparation"
                     />
                     Requires Preparation
                   </label>
@@ -267,7 +276,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
                         padding: '4px 8px',
                         fontSize: '14px'
                       }}
-                      data-testid="preparation-hours-input"
+                      data-testid="eventmodal-preparation-hours"
                     />
                   </div>
                 )}
@@ -278,7 +287,8 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
             {event && (
               <button 
                 type="button" 
-                className="button button-danger" 
+                className="button button-danger"
+                data-testid="eventmodal-delete-button" 
                 onClick={handleDelete}
                 style={{ marginRight: 'auto' }}
               >
@@ -288,7 +298,8 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
             )}
             <button 
               type="button" 
-              className="button button-secondary" 
+              className="button button-secondary"
+              data-testid="eventmodal-cancel-button" 
               onClick={onClose}
             >
               Cancel
@@ -296,6 +307,7 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
             <button 
               type="submit" 
               className="button button-primary"
+              data-testid="eventmodal-save-button"
             >
               {event ? 'Save' : 'Save'}
             </button>

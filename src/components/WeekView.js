@@ -9,7 +9,7 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   const timeSlots = [];
   for (let i = 0; i < 24; i++) {
     timeSlots.push(
-      <div className="time-slot" key={i}>
+      <div className="time-slot" key={i} data-testid={`weekview-timeslot-${i}`}>
         {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
       </div>
     );
@@ -109,6 +109,7 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
               <div
                 key={stableEvent.id}
                 className="time-event"
+                data-testid={`weekview-time-event-${stableEvent.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onEditEvent(stableEvent);
@@ -132,15 +133,16 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     
     dayColumns.push(
       <div className="week-day-column" key={day}>
-        <div className="week-day-header">
-          <div>{format(day, 'EEE')}</div>
-          <div>{format(day, 'd')}</div>
+        <div className="week-day-header" data-testid={`weekview-day-header-${format(day, 'yyyy-MM-dd')}`}>
+          <div data-testid={`weekview-day-name-${format(day, 'EEE')}`}>{format(day, 'EEE')}</div>
+          <div data-testid={`weekview-day-number-${format(day, 'd')}`}>{format(day, 'd')}</div>
         </div>
         <div className="week-day-content">
           {allDayEvents.map(event => (
             <div
               key={event.id}
               className="event"
+              data-testid={`weekview-event-${event.id}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onEditEvent({
@@ -163,7 +165,7 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   }
 
   return (
-    <div className="week-view">
+    <div className="week-view" data-testid="week-view-container">
       <div className="time-column">
         <div className="week-day-header"></div>
         {timeSlots}
