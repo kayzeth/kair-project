@@ -407,7 +407,7 @@ const Calendar = ({ initialEvents = [] }) => {
         </div>
       )}
       <div className="calendar-header">
-        <div className="calendar-title">
+        <div className="calendar-title" data-testid="calendar-title">
           {view === 'month' && format(currentDate, 'MMMM yyyy')}
           {view === 'week' && `Week of ${format(startOfWeek(currentDate), 'MMM d')} - ${format(endOfWeek(currentDate), 'MMM d, yyyy')}`}
           {view === 'day' && format(currentDate, 'EEEE, MMMM d, yyyy')}
@@ -417,32 +417,35 @@ const Calendar = ({ initialEvents = [] }) => {
             <button 
               className={`view-button ${view === 'day' ? 'active' : ''}`}
               onClick={() => setView('day')}
+              data-testid="calendar-day-view-button"
             >
               Day
             </button>
             <button 
               className={`view-button ${view === 'week' ? 'active' : ''}`}
               onClick={() => setView('week')}
+              data-testid="calendar-week-view-button"
             >
               Week
             </button>
             <button 
               className={`view-button ${view === 'month' ? 'active' : ''}`}
               onClick={() => setView('month')}
+              data-testid="calendar-month-view-button"
             >
               Month
             </button>
           </div>
-          <button className="nav-button" onClick={prevHandler}>
+          <button className="nav-button" onClick={prevHandler} data-testid="calendar-prev-button">
             <FontAwesomeIcon icon={faChevronLeft} />
           </button>
-          <button className="today-button" onClick={todayHandler}>
+          <button className="today-button" onClick={todayHandler} data-testid="calendar-today-button">
             Today
           </button>
-          <button className="nav-button" onClick={nextHandler}>
+          <button className="nav-button" onClick={nextHandler} data-testid="calendar-next-button">
             <FontAwesomeIcon icon={faChevronRight} />
           </button>
-          <button className="add-event-button" onClick={() => addEventHandler()}>
+          <button className="add-event-button" onClick={() => addEventHandler()} data-testid="calendar-add-event-button">
             <FontAwesomeIcon icon={faPlus} /> Add Event
           </button>
         </div>

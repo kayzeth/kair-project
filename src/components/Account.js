@@ -191,11 +191,11 @@ const Account = () => {
 
   return (
     <div className="account-container">
-      <h1 className="account-title">Account Settings</h1>
+      <h1 className="account-title" data-testid="account-title">Account Settings</h1>
       
       {!apiConfigured && (
         <div className="api-credentials-warning">
-          <h2>Google Calendar API Credentials Required</h2>
+          <h2 data-testid="api-credentials-warning">Google Calendar API Credentials Required</h2>
           <p>To use Google Calendar integration, you need to configure your API credentials:</p>
           <ol>
             <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a></li>
@@ -279,7 +279,7 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                 
                 <div className="connected-status">
                   <FontAwesomeIcon icon={faCheck} className="status-icon success" />
-                  <span>Connected to Google Calendar</span>
+                  <span data-testid="google-connected-status">Connected to Google Calendar</span>
                 </div>
                 
                 <div className="google-actions">
@@ -295,6 +295,7 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                 <button 
                   className="button button-text"
                   onClick={handleSignOut}
+                  data-testid="google-disconnect-button"
                 >
                   Disconnect Google Account
                 </button>
@@ -340,13 +341,15 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
               <div className="auth-card">
                 <div className="auth-card-content">
                   <FontAwesomeIcon icon={faGraduationCap} size="3x" className="canvas-icon" />
-                  <h3>Connect with Canvas</h3>
+                  <h3 data-testid="canvas-connect-title">Connect with Canvas</h3>
                   <p>Link your Canvas account to import assignments and deadlines</p>
                   <form onSubmit={handleCanvasSubmit} className="canvas-form">
                     <div className="form-group">
+                      <label htmlFor="canvasToken" data-testid="canvas-token-label">Canvas API Token</label>
                       <input
                         type="password"
                         id="canvasToken"
+                        data-testid="account-canvas-token-input"
                         value={canvasFormData.token}
                         onChange={(e) => setCanvasFormData(prev => ({ ...prev, token: e.target.value }))}
                         placeholder="Enter your Canvas token"
@@ -354,9 +357,11 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                       />
                     </div>
                     <div className="form-group">
+                      <label htmlFor="canvasDomain" data-testid="canvas-domain-label">Canvas Domain</label>
                       <input
                         type="text"
                         id="canvasDomain"
+                        data-testid="account-canvas-domain-input"
                         value={canvasFormData.domain}
                         onChange={(e) => setCanvasFormData(prev => ({ ...prev, domain: e.target.value }))}
                         placeholder="Enter your school name (e.g., harvard)"
@@ -369,6 +374,7 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                     <button 
                       type="submit" 
                       className="button button-primary canvas-button"
+                      data-testid="account-connect-canvas-button"
                       disabled={canvasStatus.status === 'loading'}
                     >
                       <FontAwesomeIcon icon={faGraduationCap} />
@@ -398,6 +404,7 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                   <div className="canvas-actions">
                     <button 
                       className="button button-primary"
+                      data-testid="account-sync-canvas-button"
                       onClick={handleCanvasSync}
                       disabled={canvasSyncStatus.status === 'loading'}
                     >
@@ -408,6 +415,7 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                   
                   <button 
                     className="button button-text"
+                    data-testid="account-disconnect-canvas-button"
                     onClick={() => {
                       canvasService.clearCredentials();
                       setIsCanvasConnected(false);
@@ -428,7 +436,7 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                   } 
                   className={`status-icon ${(canvasStatus.status === 'loading' || canvasSyncStatus.status === 'loading') ? 'fa-spin' : ''}`}
                 />
-                <span>{canvasStatus.message || canvasSyncStatus.message}</span>
+                <span data-testid="canvas-error-message">{canvasStatus.message || canvasSyncStatus.message}</span>
               </div>
             )}
           </div>

@@ -107,7 +107,8 @@ describe('Preparation Hours Integration Tests [KAIR-16]', () => {
       );
       
       // Check that the component renders with the correct event title
-      expect(screen.getByText('Final Exam')).toBeInTheDocument();
+      expect(screen.getByTestId('preparation-event-title-2')).toBeInTheDocument();
+      expect(screen.getByTestId('preparation-event-title-2')).toHaveTextContent('Final Exam');
       
       // Check that the input field is present
       expect(screen.getByTestId('preparation-hours-input-2')).toBeInTheDocument();
@@ -145,7 +146,7 @@ describe('Preparation Hours Integration Tests [KAIR-16]', () => {
       );
       
       // Click remind later button
-      fireEvent.click(screen.getByTitle('Remind me later'));
+      fireEvent.click(screen.getByTestId('preparation-remind-later-2'));
       
       // Check that onDismiss was called
       expect(mockDismiss).toHaveBeenCalledWith('2');

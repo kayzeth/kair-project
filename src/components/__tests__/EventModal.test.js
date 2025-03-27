@@ -53,18 +53,18 @@ describe('EventModal Component', () => {
     });
     
     // Check if form fields are present
-    expect(screen.getByPlaceholderText(/add title/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/add description/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Start$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^End$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/All Day/i)).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-title-input')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-description')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-start-date')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-end-date')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-all-day')).toBeInTheDocument();
     
     // Check if buttons are present
-    expect(screen.getByText('Save')).toBeInTheDocument();
-    expect(screen.getByText('Cancel')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-save-button')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-cancel-button')).toBeInTheDocument();
     
-    // Delete button should not be present for a new event
-    expect(screen.queryByText('Delete')).toBeInTheDocument();
+    // Delete button should be present for an existing event
+    expect(screen.getByTestId('eventmodal-delete-button')).toBeInTheDocument();
   });
 
   test('renders correctly for editing an existing event', async () => {
@@ -80,36 +80,36 @@ describe('EventModal Component', () => {
     });
   
     // Ensure the modal is displaying the correct content
-    expect(screen.getByText('Save')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-save-button')).toBeInTheDocument();
   
     // Check if form fields are pre-filled with mockEvent data
-    expect(screen.getByPlaceholderText(/add title/i)).toHaveValue(mockEvent.title);
-    expect(screen.getByPlaceholderText(/add description/i)).toHaveValue(mockEvent.description);
+    expect(screen.getByTestId('eventmodal-title-input')).toHaveValue(mockEvent.title);
+    expect(screen.getByTestId('eventmodal-description')).toHaveValue(mockEvent.description);
   
     // Check if the date inputs are populated correctly
-    expect(screen.getByLabelText(/^Start$/i)).toHaveValue('2025-03-15');
-    expect(screen.getByLabelText(/^End$/i)).toHaveValue('2025-03-15');
+    expect(screen.getByTestId('eventmodal-start-date')).toHaveValue('2025-03-15');
+    expect(screen.getByTestId('eventmodal-end-date')).toHaveValue('2025-03-15');
   
     // Check if time inputs are correctly set
-    expect(screen.getByLabelText(/start time/i)).toHaveValue('10:00');
-    expect(screen.getByLabelText(/end time/i)).toHaveValue('11:00');
+    expect(screen.getByTestId('eventmodal-start-time')).toHaveValue('10:00');
+    expect(screen.getByTestId('eventmodal-end-time')).toHaveValue('11:00');
   
     // Check if the all-day checkbox is unchecked
-    const allDayCheckbox = screen.getByLabelText(/all day/i);
+    const allDayCheckbox = screen.getByTestId('eventmodal-all-day');
     expect(allDayCheckbox).not.toBeChecked();
   
     // Check if delete button is present (since it's an existing event)
-    expect(screen.getByText(/delete/i)).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-delete-button')).toBeInTheDocument();
   
     // Simulate updating the event title
-    const titleInput = screen.getByPlaceholderText(/add title/i);
+    const titleInput = screen.getByTestId('eventmodal-title-input');
     await act(async () => {
       await userEvent.clear(titleInput);
       await userEvent.type(titleInput, 'Updated Test Event');
     });
   
     // Simulate clicking the save button
-    const saveButton = screen.getByText('Save');
+    const saveButton = screen.getByTestId('eventmodal-save-button');
     await userEvent.click(saveButton);
   
     // Ensure onSave is called with updated event data
@@ -130,13 +130,13 @@ describe('EventModal Component', () => {
     
     // Fill in the form
     await act(async () => {
-      fireEvent.change(screen.getByPlaceholderText(/add title/i), { target: { value: 'New Event' } });
-      fireEvent.change(screen.getByPlaceholderText(/add description/i), { target: { value: 'New Description' } });
+      fireEvent.change(screen.getByTestId('eventmodal-title-input'), { target: { value: 'New Event' } });
+      fireEvent.change(screen.getByTestId('eventmodal-description'), { target: { value: 'New Description' } });
     });
     
     // Click the Save button
     await act(async () => {
-      fireEvent.click(screen.getByText('Save'));
+      fireEvent.click(screen.getByTestId('eventmodal-save-button'));
     });
     
     // Check if onSave was called with the correct data
@@ -160,7 +160,7 @@ describe('EventModal Component', () => {
     
     // Click the Cancel button
     await act(async () => {
-      fireEvent.click(screen.getByText('Cancel'));
+      fireEvent.click(screen.getByTestId('eventmodal-cancel-button'));
     });
     
     // Check if onClose was called
@@ -181,7 +181,7 @@ describe('EventModal Component', () => {
     
     // Click the Delete button
     await act(async () => {
-      fireEvent.click(screen.getByText('Delete'));
+      fireEvent.click(screen.getByTestId('eventmodal-delete-button'));
     });
     
     // Check if onDelete was called with the correct event ID
@@ -202,17 +202,17 @@ describe('EventModal Component', () => {
     });
     
     // Check if time inputs are visible initially
-    expect(screen.getByLabelText(/start time/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/end time/i)).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-start-time')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-end-time')).toBeInTheDocument();
     
     // Toggle all-day checkbox
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/all day/i));
+      fireEvent.click(screen.getByTestId('eventmodal-all-day'));
     });
     
     // Check if time inputs are hidden when all-day is checked
-    expect(screen.queryByLabelText(/start time/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/end time/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('eventmodal-start-time')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('eventmodal-end-time')).not.toBeInTheDocument();
   });
 
   test('toggles preparation hours input when requires preparation is checked', async () => {
@@ -229,26 +229,26 @@ describe('EventModal Component', () => {
     });
     
     // Initially, the preparation hours input should not be visible
-    expect(screen.queryByLabelText(/preparation hours/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('eventmodal-preparation-hours')).not.toBeInTheDocument();
     
     // Find and click the "Requires Preparation?" checkbox
-    const prepCheckbox = screen.getByLabelText(/requires preparation/i);
+    const prepCheckbox = screen.getByTestId('eventmodal-requires-preparation');
     await act(async () => {
       fireEvent.click(prepCheckbox);
     });
     
     // Now the preparation hours input should be visible
-    expect(screen.getByLabelText(/preparation hours/i)).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodal-preparation-hours')).toBeInTheDocument();
     
     // Enter a value in the preparation hours input
-    const hoursInput = screen.getByLabelText(/preparation hours/i);
+    const hoursInput = screen.getByTestId('eventmodal-preparation-hours');
     await act(async () => {
       fireEvent.change(hoursInput, { target: { value: '4' } });
     });
     
     // Click save and check if the preparation hours are included in the saved event
     await act(async () => {
-      fireEvent.click(screen.getByText('Save'));
+      fireEvent.click(screen.getByTestId('eventmodal-save-button'));
     });
     
     // Check if onSave was called with the correct preparation data
@@ -278,11 +278,11 @@ describe('EventModal Component', () => {
     });
     
     // The requires preparation checkbox should be checked
-    const prepCheckbox = screen.getByLabelText(/requires preparation/i);
+    const prepCheckbox = screen.getByTestId('eventmodal-requires-preparation');
     expect(prepCheckbox).toBeChecked();
     
     // The preparation hours input should be visible and have the correct value
-    const hoursInput = screen.getByLabelText(/preparation hours/i);
+    const hoursInput = screen.getByTestId('eventmodal-preparation-hours');
     expect(hoursInput.value).toBe('3');
     
     // Update the preparation hours
@@ -292,7 +292,7 @@ describe('EventModal Component', () => {
     
     // Click save and check if the updated preparation hours are included
     await act(async () => {
-      fireEvent.click(screen.getByText('Save'));
+      fireEvent.click(screen.getByTestId('eventmodal-save-button'));
     });
     
     // Check if onSave was called with the updated preparation hours
@@ -322,7 +322,7 @@ describe('EventModal Component', () => {
     });
     
     // The requires preparation checkbox should be checked initially
-    const prepCheckbox = screen.getByLabelText(/requires preparation/i);
+    const prepCheckbox = screen.getByTestId('eventmodal-requires-preparation');
     expect(prepCheckbox).toBeChecked();
     
     // Uncheck the requires preparation checkbox
@@ -331,11 +331,11 @@ describe('EventModal Component', () => {
     });
     
     // The preparation hours input should no longer be visible
-    expect(screen.queryByLabelText(/preparation hours/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('eventmodal-preparation-hours')).not.toBeInTheDocument();
     
     // Click save and check if the preparation hours are removed
     await act(async () => {
-      fireEvent.click(screen.getByText('Save'));
+      fireEvent.click(screen.getByTestId('eventmodal-save-button'));
     });
     
     // Check if onSave was called with requiresPreparation set to false
@@ -362,13 +362,13 @@ describe('EventModal Component', () => {
     });
     
     // Get the title input using the correct role
-    const titleInput = screen.getByPlaceholderText(/add title/i);
+    const titleInput = screen.getByTestId('eventmodal-title-input');
     // Verify it's required
     expect(titleInput).toBeRequired();
 
     // Try to save without entering a title
     await act(async () => {
-      fireEvent.click(screen.getByText('Save'));
+      fireEvent.click(screen.getByTestId('eventmodal-save-button'));
     });
     
     // onSave should not have been called
@@ -376,8 +376,8 @@ describe('EventModal Component', () => {
     
     // Now enter a title and try again
     await act(async () => {
-      fireEvent.change(screen.getByPlaceholderText(/add title/i), { target: { value: 'Valid Event' } });
-      fireEvent.click(screen.getByText('Save'));
+      fireEvent.change(screen.getByTestId('eventmodal-title-input'), { target: { value: 'Valid Event' } });
+      fireEvent.click(screen.getByTestId('eventmodal-save-button'));
     });
     
     // onSave should now have been called

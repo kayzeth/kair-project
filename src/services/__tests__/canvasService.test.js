@@ -84,8 +84,17 @@ describe('Canvas Service', () => {
       });
 
       fetch.mockRejectedValueOnce(new Error('Network error'));
-
-      await expect(canvasService.testConnection()).rejects.toThrow('Network error');
+      
+      // Temporarily silence console.error for this test
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+      
+      try {
+        await expect(canvasService.testConnection()).rejects.toThrow('Network error');
+      } finally {
+        // Restore console.error
+        console.error = originalConsoleError;
+      }
     });
   });
 
