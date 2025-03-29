@@ -312,14 +312,37 @@ body {
 
 .time-column {
   border-right: 1px solid var(--border-color);
+  position: relative;
 }
 
 .time-slot {
   height: 60px;
-  padding: var(--spacing-xs);
-  text-align: center;
+  padding: 0;
+  text-align: right;
   font-size: var(--font-size-xs);
+  position: relative;
   border-bottom: 1px solid var(--border-color);
+}
+
+.time-label {
+  position: absolute;
+  right: 8px;
+  top: 8px; /* Position further down for better alignment with the grid lines */
+  font-size: var(--font-size-xs);
+  color: var(--text-color);
+  line-height: 1;
+  padding: 0 4px;
+  z-index: 1; /* Ensure the label appears above the grid lines */
+}
+
+.hour-slot {
+  height: 60px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+}
+
+.hour-slot:last-child {
+  border-bottom: none;
 }
 
 .week-day-column {
@@ -337,19 +360,14 @@ body {
   font-size: var(--font-size-sm);
   background-color: var(--primary-light);
   border-bottom: 1px solid var(--border-color);
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .week-day-content {
   position: relative;
-}
-
-.hour-slot {
-  height: 60px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.hour-slot:last-child {
-  border-bottom: none;
 }
 
 /* Day view styles */
@@ -373,6 +391,10 @@ body {
   font-size: var(--font-size-md);
   background-color: var(--primary-light);
   border-bottom: 1px solid var(--border-color);
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Event styles */
