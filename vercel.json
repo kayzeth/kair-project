@@ -17,6 +17,10 @@
       "src": "/api/canvas/(.*)",
       "dest": "server/index.js"
     },
+    {
+      "src": "/api/openai/(.*)",
+      "dest": "server/index.js"
+    },
     { "src": "/.*", "dest": "/index.html" }
   ]
 }

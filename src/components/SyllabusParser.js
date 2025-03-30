@@ -4,7 +4,6 @@ import { faUpload, faSpinner, faCalendarPlus } from '@fortawesome/free-solid-svg
 // Import pdf.js with specific version
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import 'pdfjs-dist/legacy/build/pdf.worker.entry';
-// We'll use the fetch API directly instead of the OpenAI library
 
 
 const SyllabusParser = ({ onAddEvents }) => {
@@ -16,8 +15,6 @@ const SyllabusParser = ({ onAddEvents }) => {
   const [apiResponse, setApiResponse] = useState(null);
   const [repeatUntilDate, setRepeatUntilDate] = useState('');
   const [shouldRepeat, setShouldRepeat] = useState(true);
-  const [apiKey, setApiKey] = useState('');
-  const [apiKeyError, setApiKeyError] = useState(null);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -32,11 +29,6 @@ const SyllabusParser = ({ onAddEvents }) => {
     
     if (!file) {
       setError('Please select a syllabus file to upload');
-      return;
-    }
-    
-    if (!apiKey) {
-      setApiKeyError('Please enter your OpenAI API key');
       return;
     }
 
@@ -78,43 +70,21 @@ const SyllabusParser = ({ onAddEvents }) => {
           return;
         }
         
-        // Log API key status (without revealing the key)
-        console.log('API Key status:', apiKey ? 'API key exists' : 'API key is missing');
-        console.log('API Key length:', apiKey ? apiKey.length : 0);
-        
-        // Truncate content if it's too long
+        // Truncate content if it's too long (though the backend will also handle this)
         const maxContentLength = 15000; // Adjust based on token limits
         const truncatedContent = content.length > maxContentLength 
           ? content.substring(0, maxContentLength) + '... (content truncated)' 
           : content;
         
-        // Prepare request body - using the same approach as text files
-        const requestBody = {
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: "You are a helpful assistant that parses course syllabi. Extract all relevant information including course name, course code, instructor, meeting times, and assignment due dates. Format the output as a valid JSON object with the following structure: { courseName, courseCode, instructor, meetingTimes: [{day, startTime, endTime, location}], assignments: [{title, dueDate, description}], exams: [{title, date, time, location, description}] }"
-            },
-            {
-              role: "user",
-              content: `Parse the following syllabus and extract all relevant information. Format your response as a valid JSON object.\n\n${truncatedContent}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.3
-        };
+        console.log('Sending request to backend API...');
         
-        console.log('Sending request to OpenAI API...');
-        
-        // Call OpenAI API directly using fetch
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        // Call our secure backend API route
+        const response = await fetch('/api/openai/syllabus-parser', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({ content: truncatedContent })
         });
         
         // Check response status
@@ -191,43 +161,21 @@ const SyllabusParser = ({ onAddEvents }) => {
         content = await readFileAsText(file);
         console.log('Processing text file...');
         
-        // Truncate content if it's too long
-        const maxContentLength = 10000;
+        // Truncate content if it's too long (though the backend will also handle this)
+        const maxContentLength = 15000; // Adjust based on token limits
         const truncatedContent = content.length > maxContentLength 
           ? content.substring(0, maxContentLength) + '... (content truncated)' 
           : content;
         
-        // Log API key status (without revealing the key)
-        console.log('API Key status:', apiKey ? 'API key exists' : 'API key is missing');
-        console.log('API Key length:', apiKey ? apiKey.length : 0);
+        console.log('Sending request to backend API...');
         
-        // Prepare request body
-        const requestBody = {
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: "You are a helpful assistant that parses course syllabi. Extract all relevant information including course name, course code, instructor, meeting times, and assignment due dates. Format the output as a valid JSON object with the following structure: { courseName, courseCode, instructor, meetingTimes: [{day, startTime, endTime, location}], assignments: [{title, dueDate, description}], exams: [{title, date, time, location, description}] }"
-            },
-            {
-              role: "user",
-              content: `Parse the following syllabus and extract all relevant information. Format your response as a valid JSON object.\n\n${truncatedContent}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.3
-        };
-        
-        console.log('Sending request to OpenAI API...');
-        
-        // Call OpenAI API directly using fetch
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        // Call our secure backend API route
+        const response = await fetch('/api/openai/syllabus-parser', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({ content: truncatedContent })
         });
         
         // Check response status
@@ -547,27 +495,7 @@ const SyllabusParser = ({ onAddEvents }) => {
       <p data-testid="syllabus-upload-instruction">Upload your course syllabus (PDF or text file) to automatically extract important dates and add them to your calendar using OpenAI.</p>
       
       <form onSubmit={handleSubmit} className="syllabus-form">
-        <div className="api-key-container">
-          <label htmlFor="openai-api-key" className="api-key-label">
-            OpenAI API Key (required)
-          </label>
-          <input
-            type="password"
-            id="openai-api-key"
-            data-testid="syllabus-api-key-input"
-            value={apiKey}
-            onChange={(e) => {
-              setApiKey(e.target.value);
-              setApiKeyError(null);
-            }}
-            placeholder="Enter your OpenAI API key"
-            className="api-key-input"
-          />
-          {apiKeyError && <div className="api-key-error" data-testid="syllabus-api-key-error">{apiKeyError}</div>}
-          <div className="api-key-info">
-            Your API key is only used in your browser and is never stored on our servers.
-          </div>
-        </div>
+  
 
         <div className="file-upload-container">
           <label htmlFor="syllabus-file" className="file-upload-label">
@@ -728,7 +656,7 @@ const SyllabusParser = ({ onAddEvents }) => {
           </div>
           
           <div className="section json-response-section">
-            <h4>JSON Response from OpenAI</h4>
+            <h4>Extracted JSON Data</h4>
             <div className="json-response-container">
               <pre className="json-response">
                 {JSON.stringify(extractedInfo, null, 2)}
@@ -740,7 +668,7 @@ const SyllabusParser = ({ onAddEvents }) => {
           </div>
           
           <div className="section">
-            <h4>Raw OpenAI API Response</h4>
+            <h4>Raw API Response</h4>
             <details>
               <summary>View Raw API Response</summary>
               <pre className="api-response">

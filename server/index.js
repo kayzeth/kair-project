@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -11,7 +14,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-canvas-domain']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '16mb' }));
 
 // Proxy all Canvas API requests
 app.use('/api/canvas/*', async (req, res) => {
@@ -84,6 +87,83 @@ app.use('/api/canvas/*', async (req, res) => {
   } catch (error) {
     console.error('Canvas API proxy error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// OpenAI API route
+app.post('/api/openai/syllabus-parser', async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content) {
+      return res.status(400).json({ error: 'Missing syllabus content' });
+    }
+    
+    // Get API key from environment variables
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      console.error('OpenAI API key is missing from environment variables');
+      return res.status(500).json({ error: 'Server configuration error: API key is missing' });
+    }
+    
+    // Truncate content if it's too long
+    const maxContentLength = 15000; // Adjust based on token limits
+    const truncatedContent = content.length > maxContentLength 
+      ? content.substring(0, maxContentLength) + '... (content truncated)' 
+      : content;
+    
+    // Prepare request body
+    const requestBody = {
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that parses course syllabi. Extract all relevant information including course name, course code, instructor, meeting times, and assignment due dates. Format the output as a valid JSON object with the following structure: { courseName, courseCode, instructor, meetingTimes: [{day, startTime, endTime, location}], assignments: [{title, dueDate, description}], exams: [{title, date, time, location, description}] }"
+        },
+        {
+          role: "user",
+          content: `Parse the following syllabus and extract all relevant information. Format your response as a valid JSON object.\n\n${truncatedContent}`
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3
+    };
+    
+    console.log('Sending request to OpenAI API...');
+    
+    // Call OpenAI API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      // Try to get error details
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        console.error('OpenAI API error details:', JSON.stringify(errorData, null, 2));
+        errorMessage = `OpenAI API error: ${errorData.error?.message || errorData.message || 'Unknown error'}`;
+      } catch (jsonError) {
+        console.error('Failed to parse error response:', jsonError);
+        const errorText = await response.text();
+        console.error('Error response text:', errorText);
+      }
+      return res.status(500).json({ error: errorMessage });
+    }
+    
+    const data = await response.json();
+    console.log('OpenAI API Response received');
+    
+    res.json(data);
+  } catch (error) {
+    console.error('Error processing syllabus:', error);
+    res.status(500).json({ error: 'Failed to process syllabus: ' + error.message });
   }
 });
 
