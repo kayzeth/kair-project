@@ -119,11 +119,11 @@ app.post('/api/openai/syllabus-parser', async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that parses course syllabi. Extract all relevant information including course name, course code, instructor, meeting times, and assignment due dates. Format the output as a valid JSON object with the following structure: { courseName, courseCode, instructor, meetingTimes: [{day, startTime, endTime, location}], assignments: [{title, dueDate, description}], exams: [{title, date, time, location, description}] }"
+          content: "You are a helpful assistant that parses course syllabi. Extract all relevant information including course name, course code, instructor, meeting times, and assignment due dates. Format the output as a valid JSON object with the following structure: { courseName, courseCode, instructor, meetingTimes: [{day, startTime, endTime, location}], assignments: [{title, dueDate, description}], exams: [{title, date, time, location, description}] }\n\nIMPORTANT: If the provided text does not appear to be a valid course syllabus, or if you cannot confidently extract the required information, DO NOT make up fake data. Instead, return a JSON object with an 'error' field like this: { \"error\": \"This does not appear to be a valid course syllabus\" }. Never return made-up course information."
         },
         {
           role: "user",
-          content: `Parse the following syllabus and extract all relevant information. Format your response as a valid JSON object.\n\n${truncatedContent}`
+          content: `Parse the following syllabus and extract all relevant information. Format your response as a valid JSON object. If this is not a valid syllabus, return an error message as instructed.\n\n${truncatedContent}`
         }
       ],
       response_format: { type: "json_object" },
