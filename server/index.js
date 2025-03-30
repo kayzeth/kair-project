@@ -83,7 +83,7 @@ app.use('/api/canvas/*', async (req, res) => {
     console.error('Canvas API proxy error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+}); 
 
 // OpenAI API route
 app.post('/api/openai/syllabus-parser', async (req, res) => {
