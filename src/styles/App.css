@@ -423,6 +423,211 @@ body {
   margin: 0 var(--spacing-xs);
 }
 
+/* API Key Section */
+.api-key-section {
+  margin: var(--spacing-lg) 0;
+  padding: var(--spacing-md);
+  background-color: var(--card-background);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+}
+
+.api-key-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.api-key-section-header h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+.toggle-button {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-button:hover {
+  background-color: var(--hover-color);
+  color: var(--text-color);
+}
+
+/* API Key Status when collapsed */
+.api-key-status {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background-color: var(--background-color-light);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+}
+
+.api-key-set {
+  color: var(--success-color);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.api-key-set::before {
+  content: "✓";
+  margin-right: var(--spacing-sm);
+  font-weight: bold;
+}
+
+.api-key-not-set {
+  color: var(--warning-color);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.api-key-not-set::before {
+  content: "×";
+  margin-right: var(--spacing-sm);
+  font-weight: bold;
+}
+
+.api-key-section-content {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.api-key-description {
+  margin-bottom: var(--spacing-md);
+  font-size: 0.95rem;
+  color: var(--text-color-secondary);
+}
+
+.api-key-input-group {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.api-key-input-group input {
+  flex: 1;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+}
+
+.api-key-input-group input.error {
+  border-color: var(--error-color);
+}
+
+.api-key-input-group .toggle-visibility {
+  background-color: var(--background-color-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: 0 var(--spacing-sm);
+  cursor: pointer;
+}
+
+.api-key-input-group .save-button {
+  background-color: var(--success-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  padding: 0 var(--spacing-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 500;
+}
+
+.api-key-input-group .clear-button {
+  background-color: var(--error-color-light);
+  color: var(--error-color);
+  border: 1px solid var(--error-color-light);
+  border-radius: var(--border-radius-sm);
+  padding: 0 var(--spacing-sm);
+  cursor: pointer;
+}
+
+.api-key-input-group .clear-button:hover {
+  background-color: var(--error-color);
+  color: white;
+}
+
+/* Storage options */
+.storage-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--background-color-light);
+  border-radius: var(--border-radius-sm);
+}
+
+.storage-options label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.storage-options input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.api-key-message {
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.api-key-message.error {
+  background-color: var(--error-color-light);
+  color: var(--error-color);
+  border: 1px solid var(--error-color-light);
+}
+
+.api-key-message.success {
+  background-color: var(--success-color-light);
+  color: var(--success-color);
+  border: 1px solid var(--success-color-light);
+}
+
+.api-key-info {
+  background-color: var(--info-color-light);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+}
+
+.api-key-info p {
+  margin-bottom: var(--spacing-sm);
+  font-size: 0.85rem;
+}
+
+.api-key-info a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.api-key-info a:hover {
+  text-decoration: underline;
+}
+
 /* Modal styles - Google Calendar style */
 .modal-overlay {
   position: fixed;

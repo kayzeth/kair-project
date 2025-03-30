@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Calendar from './components/Calendar';
@@ -9,8 +9,8 @@ import './styles/Account.css';
 import './styles/SyllabusParser.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('calendar');
-  const [events, setEvents] = useState([]);
+  const [activeTab, setActiveTab] = React.useState('calendar');
+  const [events, setEvents] = React.useState([]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);

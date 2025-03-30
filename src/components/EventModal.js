@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faTrashAlt, faClock, faMapMarkerAlt, faAlignLeft, faBookOpen } from '@fortawesome/free-solid-svg-icons';
 
-const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date() }) => {
+const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, event, selectedDate = new Date() }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -20,21 +20,39 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
 
   useEffect(() => {
     if (event) {
-      const startDate = typeof event.start === 'string' 
-        ? event.start.split('T')[0] 
-        : format(event.start, 'yyyy-MM-dd');
+      // For Date objects, use proper formatting
+      let startDate, endDate, startTime, endTime;
       
-      const endDate = typeof event.end === 'string' 
-        ? event.end.split('T')[0] 
-        : format(event.end, 'yyyy-MM-dd');
+      if (event.start instanceof Date) {
+        startDate = format(event.start, 'yyyy-MM-dd');
+        startTime = format(event.start, 'HH:mm');
+      } else if (typeof event.start === 'string') {
+        startDate = event.start.split('T')[0];
+        startTime = event.start.includes('T') ? event.start.split('T')[1].substring(0, 5) : '09:00';
+      } else {
+        startDate = format(new Date(), 'yyyy-MM-dd');
+        startTime = '09:00';
+      }
       
-      const startTime = typeof event.start === 'string' && event.start.includes('T')
-        ? event.start.split('T')[1].substring(0, 5)
-        : '09:00';
+      if (event.end instanceof Date) {
+        endDate = format(event.end, 'yyyy-MM-dd');
+        endTime = format(event.end, 'HH:mm');
+      } else if (typeof event.end === 'string') {
+        endDate = event.end.split('T')[0];
+        endTime = event.end.includes('T') ? event.end.split('T')[1].substring(0, 5) : '10:00';
+      } else {
+        endDate = format(new Date(), 'yyyy-MM-dd');
+        endTime = '10:00';
+      }
       
-      const endTime = typeof event.end === 'string' && event.end.includes('T')
-        ? event.end.split('T')[1].substring(0, 5)
-        : '10:00';
+      // Use startTime and endTime from the event object if they exist
+      if (event.startTime) {
+        startTime = event.startTime;
+      }
+      
+      if (event.endTime) {
+        endTime = event.endTime;
+      }
 
       setFormData({
         title: event.title || '',
@@ -89,7 +107,17 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
 
   const handleDelete = () => {
     if (event && event.id) {
+      console.log('Deleting event from modal:', event);
       onDelete(event.id);
+    }
+  };
+
+  const handleTriggerStudySuggestions = () => {
+    if (event && event.id) {
+      onClose(); // Close the modal first
+      setTimeout(() => {
+        onTriggerStudySuggestions(event); // Then trigger study suggestions
+      }, 300);
     }
   };
 
@@ -294,6 +322,18 @@ const EventModal = ({ onClose, onSave, onDelete, event, selectedDate = new Date(
               >
                 <FontAwesomeIcon icon={faTrashAlt} style={{ marginRight: '5px' }} />
                 Delete
+              </button>
+            )}
+            {event && event.requiresPreparation && event.preparationHours && (
+              <button 
+                type="button" 
+                className="button button-secondary"
+                data-testid="eventmodal-trigger-study-suggestions-button" 
+                onClick={handleTriggerStudySuggestions}
+                style={{ marginRight: '10px' }}
+              >
+                <FontAwesomeIcon icon={faBookOpen} style={{ marginRight: '5px' }} />
+                Generate Study Plan
               </button>
             )}
             <button 

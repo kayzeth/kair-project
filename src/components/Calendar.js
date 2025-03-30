@@ -7,8 +7,11 @@ import WeekView from './WeekView';
 import DayView from './DayView';
 import EventModal from './EventModal';
 import PreparationPrompt from './PreparationPrompt'; 
+import StudySuggestions from './StudySuggestions'; 
 import googleCalendarService from '../services/googleCalendarService';
 import nudgerService from '../services/nudgerService'; 
+import studySuggesterService from '../services/studySuggesterService'; 
+import ApiKeyInput from './ApiKeyInput';
 import '../styles/Calendar.css';
 
 const Calendar = ({ initialEvents = [] }) => {
@@ -24,6 +27,8 @@ const Calendar = ({ initialEvents = [] }) => {
   const [eventsNeedingPreparation, setEventsNeedingPreparation] = useState([]);
   const [dismissedEvents, setDismissedEvents] = useState({});
   const [viewDate, setViewDate] = useState(new Date());
+  const [studySuggestions, setStudySuggestions] = useState([]);
+  const [showStudySuggestions, setShowStudySuggestions] = useState(false);
 
   // Calculate the appropriate view date based on the calendar view type
   useEffect(() => {
@@ -83,16 +88,9 @@ const Calendar = ({ initialEvents = [] }) => {
     }
   }, [initialEvents, loadEvents]);
 
-  // Load events when component mounts and listen for updates
+  // Load events from localStorage on component mount
   useEffect(() => {
     loadEvents();
-    
-    // Listen for calendar events updates
-    window.addEventListener('calendarEventsUpdated', loadEvents);
-    
-    return () => {
-      window.removeEventListener('calendarEventsUpdated', loadEvents);
-    };
   }, [loadEvents]);
 
   // Only save events to localStorage when they are explicitly updated through setEvents
@@ -286,11 +284,30 @@ const Calendar = ({ initialEvents = [] }) => {
     console.log('[KAIR-15] Nudger study plan updated:', studyPlan);
   }, [events, showModal, dismissedEvents]);
 
+  // Manually trigger study suggestions for an event
+  const triggerStudySuggestions = async (event) => {
+    if (event && event.requiresPreparation && event.preparationHours) {
+      await generateStudySuggestions(
+        events,
+        event,
+        parseFloat(event.preparationHours)
+      );
+    }
+  };
+
   const saveEvent = async (eventData) => {
     const { id: _, ...cleanEventData } = eventData;
 
     try {
+      let updatedEvent = null;
+      
       if (selectedEvent) {
+        // Check if preparation hours were added or changed
+        const preparationHoursChanged = 
+          (selectedEvent.preparationHours !== cleanEventData.preparationHours) && 
+          cleanEventData.requiresPreparation && 
+          cleanEventData.preparationHours;
+        
         const updatedEvents = events.map(event => 
           event.id === selectedEvent.id ? { 
             ...cleanEventData, 
@@ -300,6 +317,11 @@ const Calendar = ({ initialEvents = [] }) => {
           } : event
         );
         updateEvents(updatedEvents);
+        
+        // Get the updated event for study suggestions
+        if (preparationHoursChanged) {
+          updatedEvent = updatedEvents.find(event => event.id === selectedEvent.id);
+        }
         
         if (isGoogleCalendarConnected && selectedEvent.googleEventId) {
           try {
@@ -333,12 +355,44 @@ const Calendar = ({ initialEvents = [] }) => {
         
         updateEvents([...events, newEvent]);
         
+        // Check if the new event requires preparation and has preparation hours
+        if (newEvent.requiresPreparation && newEvent.preparationHours) {
+          updatedEvent = newEvent;
+        }
+        
         setTimeout(() => {
           const singleEventStudyPlan = nudgerService.getStudyPlan([newEvent]);
           if (singleEventStudyPlan.eventCount > 0) {
             console.log('[KAIR-15] New event may require study time:', singleEventStudyPlan.events[0]);
           }
         }, 0);
+      }
+      
+      // Generate study suggestions if preparation hours were added or changed
+      if (updatedEvent && updatedEvent.preparationHours) {
+        // Check if the event is within 8 days
+        const eventDate = new Date(updatedEvent.start instanceof Date ? updatedEvent.start : updatedEvent.start);
+        const now = new Date();
+        const daysUntilEvent = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
+        
+        console.log(`Event is ${daysUntilEvent} days away`);
+        
+        if (daysUntilEvent <= 8) {
+          // Event is within 8 days, show study suggestions now
+          closeModal();
+          setTimeout(() => {
+            generateStudySuggestions(
+              events, 
+              updatedEvent, 
+              parseFloat(updatedEvent.preparationHours)
+            );
+          }, 500); // Short delay to ensure the modal is closed first
+        } else {
+          // Event is more than 8 days away, don't show study suggestions yet
+          console.log('Event is more than 8 days away, not showing study suggestions yet');
+          closeModal();
+        }
+        return; // Skip the normal closeModal call since we're handling it separately
       }
     } catch (error) {
       console.error('Error saving event:', error);
@@ -347,30 +401,243 @@ const Calendar = ({ initialEvents = [] }) => {
     closeModal();
   };
 
-  const savePreparationHours = (eventId, hours) => {
-    setEvents(prevEvents => 
-      prevEvents.map(event => 
-        event.id === eventId 
-          ? { 
-              ...event, 
-              preparationHours: hours.toString(),
-              requiresPreparation: true,
-              needsPreparationInput: false
-            } 
-          : event
-      )
-    );
+  const savePreparationHours = async (eventId, hours) => {
+    // Update the event with preparation hours
+    const updatedEvents = events.map(event => {
+      if (event.id === eventId) {
+        return {
+          ...event,
+          preparationHours: hours.toString(),
+          requiresPreparation: true,
+          needsPreparationInput: false
+        };
+      }
+      return event;
+    });
     
+    updateEvents(updatedEvents);
+    
+    // Find the updated event
+    const updatedEvent = updatedEvents.find(event => event.id === eventId);
+    
+    // Show success message
     setSyncStatus({
       status: 'success',
       message: `Added ${hours} preparation hours to event`
     });
     
+    // Clear the status after 3 seconds
+    setTimeout(() => {
+      setSyncStatus({ status: 'idle', message: '' });
+    }, 3000);
+    
+    // Generate study suggestions for this event
+    if (updatedEvent) {
+      // Check if the event is within 8 days
+      const eventDate = new Date(updatedEvent.start instanceof Date ? updatedEvent.start : updatedEvent.start);
+      const now = new Date();
+      const daysUntilEvent = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
+      
+      console.log(`Event is ${daysUntilEvent} days away`);
+      
+      if (daysUntilEvent <= 8) {
+        // Event is within 8 days, show study suggestions now
+        await generateStudySuggestions(updatedEvents, updatedEvent, hours);
+      } else {
+        // Event is more than 8 days away, don't show study suggestions yet
+        console.log('Event is more than 8 days away, not showing study suggestions yet');
+        setSyncStatus({
+          status: 'info',
+          message: `Added ${hours} preparation hours. Study suggestions will be available 8 days before the event.`
+        });
+      }
+    }
+    
+    // Remove the event from the list of events needing preparation
+    setEventsNeedingPreparation(prev => prev.filter(event => event.id !== eventId));
+    
+    // If no more events need preparation, close the prompt
+    if (eventsNeedingPreparation.length <= 1) {
+      setShowPreparationPrompt(false);
+    }
+  };
+  
+  // Generate study suggestions for an event
+  const generateStudySuggestions = async (allEvents, event, preparationHours) => {
+    // Show loading status
+    setSyncStatus({
+      status: 'loading',
+      message: 'Generating smart study suggestions...'
+    });
+    
+    try {
+      const suggestions = await studySuggesterService.generateStudySuggestions(
+        allEvents, 
+        event, 
+        preparationHours
+      );
+      
+      if (suggestions && suggestions.length > 0) {
+        setStudySuggestions(suggestions);
+        setShowStudySuggestions(true);
+        
+        // Show success message
+        setSyncStatus({
+          status: 'success',
+          message: `Generated ${suggestions.length} study suggestions`
+        });
+      } else {
+        // Show message if no suggestions could be generated
+        setSyncStatus({
+          status: 'info',
+          message: 'Could not generate study suggestions. Try adjusting preparation hours.'
+        });
+      }
+    } catch (error) {
+      console.error('Error generating study suggestions:', error);
+      setSyncStatus({
+        status: 'error',
+        message: 'Error generating study suggestions'
+      });
+    }
+    
+    // Clear status after 3 seconds
     setTimeout(() => {
       setSyncStatus({ status: 'idle', message: '' });
     }, 3000);
   };
-  
+
+  // Handle accepting study suggestions
+  const handleAcceptStudySuggestions = (acceptedSuggestions) => {
+    // Create calendar events from the suggestions
+    const studyEvents = acceptedSuggestions.map((suggestion, index) => {
+      const { event, suggestedStartTime, suggestedEndTime, message } = suggestion;
+      
+      // Format dates to match how regular events are stored
+      // Use the exact Date objects from the suggestions to ensure consistency
+      const startDate = format(suggestedStartTime, 'yyyy-MM-dd');
+      const startTime = format(suggestedStartTime, 'HH:mm');
+      const endDate = format(suggestedEndTime, 'yyyy-MM-dd');
+      const endTime = format(suggestedEndTime, 'HH:mm');
+      
+      // Create a new event with the same structure as regular events
+      // Use a unique timestamp for each study session
+      const uniqueId = Date.now() + index;
+      
+      return {
+        id: `study-${uniqueId}`,
+        title: message,
+        description: `Study session for ${event.title}`,
+        location: '',
+        start: suggestedStartTime, // Use the exact Date object
+        end: suggestedEndTime, // Use the exact Date object
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        allDay: false,
+        color: '#4287f5', // Blue color for study events
+        relatedEventId: event.id,
+        relatedEventTitle: event.title,
+        type: 'study',
+        isStudySession: true,
+        requiresPreparation: false,
+        // Add a unique batch ID to identify which sessions were added together
+        // but still allow them to be deleted individually
+        studyBatchId: `batch-${Date.now()}`
+      };
+    });
+    
+    // Add the study events to the calendar one by one
+    let updatedEvents = [...events];
+    
+    // Add each study event individually to ensure they have separate entries
+    studyEvents.forEach(studyEvent => {
+      updatedEvents = [...updatedEvents, studyEvent];
+    });
+    
+    updateEvents(updatedEvents);
+    
+    // Show success message
+    setSyncStatus({
+      status: 'success',
+      message: `Added ${acceptedSuggestions.length} study sessions to your calendar`
+    });
+    
+    // Clear the status after 3 seconds
+    setTimeout(() => {
+      setSyncStatus({ status: 'idle', message: '' });
+    }, 3000);
+  };
+
+  const handleRejectStudySuggestions = () => {
+    setShowStudySuggestions(false);
+    setStudySuggestions([]);
+  };
+
+  const deleteEvent = async (id) => {
+    const eventToDelete = events.find(event => event.id === id);
+    
+    if (!eventToDelete) {
+      console.error('Event not found for deletion:', id);
+      return;
+    }
+    
+    console.log('Deleting event:', eventToDelete);
+    
+    // If this is a regular event, check if it has related study sessions
+    if (!eventToDelete.isStudySession && eventToDelete.requiresPreparation) {
+      // Get all study sessions related to this event
+      const relatedStudySessions = events.filter(
+        event => event.isStudySession && event.relatedEventId === eventToDelete.id
+      );
+      
+      if (relatedStudySessions.length > 0) {
+        console.log(`Deleting ${relatedStudySessions.length} related study sessions`);
+        
+        // Remove the main event and all its related study sessions
+        updateEvents(events.filter(event => 
+          event.id !== id && !(event.isStudySession && event.relatedEventId === eventToDelete.id)
+        ));
+      } else {
+        // Just remove the main event
+        updateEvents(events.filter(event => event.id !== id));
+      }
+    } else {
+      // This is either a study session or a regular event without study sessions
+      // Only remove this specific event by its unique ID
+      updateEvents(events.filter(event => event.id !== id));
+    }
+    
+    // If it's a Google Calendar event, delete it from Google Calendar as well
+    if (isGoogleCalendarConnected && eventToDelete && eventToDelete.googleEventId) {
+      try {
+        await googleCalendarService.deleteEvent(eventToDelete);
+      } catch (error) {
+        console.error('Error deleting event from Google Calendar:', error);
+      }
+    }
+    
+    // Show success message for study events
+    if (eventToDelete && eventToDelete.isStudySession) {
+      setSyncStatus({
+        status: 'success',
+        message: 'Study session removed from calendar'
+      });
+      
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 3000);
+    }
+    
+    closeModal();
+  };
+
+  const editEvent = (event) => {
+    setSelectedEvent(event);
+    setShowModal(true);
+  };
+
   const dismissPreparationPrompt = (eventId) => {
     // Set a reminder for 3 hours from now
     const reminderTime = new Date().getTime() + (3 * 60 * 60 * 1000);
@@ -389,32 +656,10 @@ const Calendar = ({ initialEvents = [] }) => {
       setSyncStatus({ status: 'idle', message: '' });
     }, 3000);
   };
-  
+
   const closePreparationPrompt = () => {
     setShowPreparationPrompt(false);
     setEventsNeedingPreparation([]);
-  };
-
-  const deleteEvent = async (id) => {
-    const eventToDelete = events.find(event => event.id === id);
-    
-    // Remove from our local events
-    updateEvents(events.filter(event => event.id !== id));
-    
-    if (isGoogleCalendarConnected && eventToDelete && eventToDelete.googleEventId) {
-      try {
-        await googleCalendarService.deleteEvent(eventToDelete);
-      } catch (error) {
-        console.error('Error deleting event from Google Calendar:', error);
-      }
-    }
-    
-    closeModal();
-  };
-
-  const editEvent = (event) => {
-    setSelectedEvent(event);
-    setShowModal(true);
   };
 
   const renderView = () => {
@@ -503,11 +748,34 @@ const Calendar = ({ initialEvents = [] }) => {
         </div>
       </div>
       {renderView()}
+      
+      {/* API Key Input section */}
+      <ApiKeyInput onApiKeySubmit={(apiKey) => {
+        // If apiKey is null, it means it was cleared
+        if (apiKey === null) {
+          setSyncStatus({
+            status: 'info',
+            message: 'API key has been cleared'
+          });
+        } else {
+          setSyncStatus({
+            status: 'success',
+            message: 'API key updated successfully'
+          });
+        }
+        
+        // Reset status message after a delay
+        setTimeout(() => {
+          setSyncStatus({ status: 'idle', message: '' });
+        }, 3000);
+      }} />
+      
       {showModal && (
         <EventModal 
           onClose={closeModal}
           onSave={saveEvent}
           onDelete={deleteEvent}
+          onTriggerStudySuggestions={triggerStudySuggestions}
           event={selectedEvent}
           selectedDate={selectedDate}
         />
@@ -518,6 +786,14 @@ const Calendar = ({ initialEvents = [] }) => {
           onSave={savePreparationHours}
           onClose={closePreparationPrompt}
           onDismiss={dismissPreparationPrompt}
+        />
+      )}
+      {showStudySuggestions && studySuggestions.length > 0 && (
+        <StudySuggestions
+          suggestions={studySuggestions}
+          onAccept={handleAcceptStudySuggestions}
+          onReject={handleRejectStudySuggestions}
+          onClose={() => setShowStudySuggestions(false)}
         />
       )}
     </div>
