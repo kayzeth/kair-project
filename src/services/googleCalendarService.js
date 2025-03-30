@@ -281,7 +281,7 @@ class GoogleCalendarService {
           allDay,
           color: '#d2b48c', // Default color, as Google doesn't provide color info in this format
           googleEventId: event.id, // Store the Google event ID for future reference
-          source: 'google' // Mark this event as coming from Google Calendar
+          type: 'google' // Changed from source to type to match our schema
         };
       });
 

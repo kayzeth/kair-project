@@ -174,21 +174,35 @@ const Calendar = ({ initialEvents = [] }) => {
           lastFetched: new Date()
         });
         
-        // Filter out events that already exist in our calendar
-        const existingGoogleEventIds = events
-          .filter(event => event.googleEventId)
-          .map(event => event.googleEventId);
+        // Get current events from localStorage to ensure we have the latest state
+        const savedEvents = localStorage.getItem('calendarEvents');
+        let currentEvents = events; // Default to current state
         
-        const newGoogleEvents = googleEvents.filter(
-          event => !existingGoogleEventIds.includes(event.googleEventId)
-        );
+        if (savedEvents) {
+          try {
+            const parsedEvents = JSON.parse(savedEvents);
+            currentEvents = parsedEvents.map(event => ({
+              ...event,
+              start: new Date(event.start),
+              end: new Date(event.end)
+            }));
+          } catch (error) {
+            console.error('Error parsing events from localStorage:', error);
+          }
+        }
         
-        // Add the new Google events to our events array
-        updateEvents([...events, ...newGoogleEvents]);
+        // Keep all non-Google events (Canvas and custom events)
+        const nonGoogleEvents = currentEvents.filter(event => event.type !== 'google');
+        
+        // Add the new Google events
+        const updatedEvents = [...nonGoogleEvents, ...googleEvents];
+        
+        // Update state and localStorage
+        updateEvents(updatedEvents);
         
         setSyncStatus({ 
           status: 'success', 
-          message: `Successfully imported ${newGoogleEvents.length} events from Google Calendar` 
+          message: `Successfully imported ${googleEvents.length} events from Google Calendar` 
         });
       } else {
         // Cache is valid, no need to fetch
