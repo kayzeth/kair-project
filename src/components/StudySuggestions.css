@@ -1,0 +1,215 @@
+.study-suggestions-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.study-suggestions {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 24px;
+}
+
+.close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button:hover {
+  background-color: #f0f0f0;
+}
+
+.suggestions-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.suggestions-icon {
+  font-size: 24px;
+  color: #4287f5;
+  margin-right: 12px;
+}
+
+.suggestions-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.suggestions-instruction {
+  margin-bottom: 20px;
+  color: #555;
+  font-size: 16px;
+}
+
+.suggestions-list {
+  margin-bottom: 24px;
+}
+
+.day-group {
+  margin-bottom: 20px;
+}
+
+.day-header {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 12px;
+}
+
+.suggestion-item {
+  display: flex;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border: 1px solid #eee;
+}
+
+.suggestion-item:hover {
+  background-color: #f9f9f9;
+}
+
+.suggestion-item.selected {
+  background-color: #ebf5ff;
+  border-color: #4287f5;
+}
+
+.suggestion-checkbox {
+  margin-right: 12px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.suggestion-details {
+  flex: 1;
+}
+
+.suggestion-time {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+.suggestion-time svg {
+  margin-right: 8px;
+  color: #4287f5;
+}
+
+.suggestion-message {
+  margin: 0 0 8px 0;
+  color: #444;
+}
+
+.suggestion-session-info {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #666;
+  font-style: italic;
+}
+
+.suggestion-priority {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.suggestion-priority.high {
+  background-color: #ffe8e8;
+  color: #d32f2f;
+}
+
+.suggestion-priority.medium {
+  background-color: #fff8e1;
+  color: #ff8f00;
+}
+
+.suggestion-priority.low {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.suggestions-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.button-secondary {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background-color: white;
+  color: #555;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.button-secondary:hover {
+  background-color: #f5f5f5;
+}
+
+.button-primary {
+  padding: 8px 16px;
+  border: none;
+  background-color: #4287f5;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button-primary:hover {
+  background-color: #3a76d8;
+}
+
+.button-primary:disabled {
+  background-color: #a0bfff;
+  cursor: not-allowed;
+}
+
+.button-primary svg {
+  font-size: 14px;
+}

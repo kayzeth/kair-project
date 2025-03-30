@@ -5,12 +5,21 @@
   --primary-light: #e6d7bf; /* Very light sand */
   --accent-color: #8b7355; /* Brown sand */
   --text-color: #4a3c2c; /* Dark brown */
-  --text-light: #7d684a; /* Medium brown */
+  --text-color-secondary: #7d684a; /* Medium brown */
   --background-color: #f5f1e8; /* Off-white sand */
+  --background-color-light: #faf7f1; /* Lighter off-white sand */
+  --card-background: #ffffff; /* White for cards */
   --border-color: #cbbca0; /* Medium sand */
   --highlight-color: #e8c07d; /* Golden sand */
   --error-color: #a94442; /* Reddish brown */
+  --error-color-light: #f8d7da; /* Light red */
   --success-color: #5c8a70; /* Greenish */
+  --success-color-light: #d4edda; /* Light green */
+  --warning-color: #b7791f; /* Amber */
+  --warning-color-light: #fff3cd; /* Light amber */
+  --info-color: #4a6da7; /* Blue */
+  --info-color-light: #e7f1ff; /* Light blue */
+  --hover-color: #ebe5d9; /* Hover state color */
   
   /* Spacing */
   --spacing-xs: 4px;
