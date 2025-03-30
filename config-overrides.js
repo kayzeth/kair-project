@@ -1,6 +1,6 @@
 const webpack = require('webpack');
 
-module.exports = function override(config) {
+module.exports = function override(config, env) {
   // Add fallbacks for node modules
   config.resolve.fallback = {
     ...config.resolve.fallback,
@@ -32,6 +32,14 @@ module.exports = function override(config) {
     ...config.resolve.alias,
     'process/browser': require.resolve('process/browser'),
   };
+
+  // Fix for webpack dev server configuration
+  if (env === 'development') {
+    config.devServer = {
+      ...config.devServer,
+      allowedHosts: ['localhost', '.localhost', '127.0.0.1']
+    };
+  }
 
   return config;
 };
