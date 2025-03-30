@@ -1,4 +1,5 @@
 import { GOOGLE_API_CONFIG, isConfigured } from '../config/googleCalendarConfig';
+import eventService from './eventService';
 
 /**
  * Service for handling Google Calendar API interactions
@@ -267,7 +268,7 @@ class GoogleCalendarService {
       });
 
       // Process events into a format compatible with our app
-      return response.result.items.map(event => {
+      const events = response.result.items.map(event => {
         const allDay = !event.start.dateTime;
         
         return {
@@ -280,9 +281,33 @@ class GoogleCalendarService {
           allDay,
           color: '#d2b48c', // Default color, as Google doesn't provide color info in this format
           googleEventId: event.id, // Store the Google event ID for future reference
-          source: 'google' // Mark this event as coming from Google Calendar
+          type: 'google' // Changed from source to type to match our schema
         };
       });
+
+      // Save events to MongoDB
+      try {
+        // Use a test user ID for now - you'll want to replace this with actual user authentication later
+        const testUserId = 'test-user-1';
+        await eventService.saveEvents(events.map(event => ({
+          userId: testUserId,
+          title: event.title,
+          description: event.description,
+          startDate: new Date(event.start),
+          endDate: new Date(event.end),
+          googleEventId: event.googleEventId,
+          type: 'google',
+          color: event.color,
+          isCompleted: false,
+          location: event.location
+        })), testUserId);
+        console.log('Successfully saved Google Calendar events to MongoDB');
+      } catch (error) {
+        console.error('Failed to save events to MongoDB:', error);
+        // Don't throw the error - we still want to return the events
+      }
+
+      return events;
     } catch (error) {
       console.error('Error importing events from Google Calendar:', error);
       throw error;
