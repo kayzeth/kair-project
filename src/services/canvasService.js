@@ -294,12 +294,11 @@ const canvasService = {
           description: event.description,
           startDate: event.start,
           endDate: event.end,
-          canvasEventId: event.metadata.assignmentId || event.metadata.eventId,
+          canvasEventId: String(event.metadata.assignmentId || event.metadata.eventId),
           courseId: event.metadata.courseId,
           type: 'canvas',
           color: event.color,
-          isCompleted: false,
-          location: event.location || ''
+          isCompleted: false
         })), testUserId);
         console.log('Successfully saved Canvas events to MongoDB');
       } catch (error) {

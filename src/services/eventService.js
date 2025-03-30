@@ -8,19 +8,40 @@ const eventService = {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'user-id': userId
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(events)
+        body: JSON.stringify({
+          events,
+          userId
+        })
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(errorText);
       }
 
       return await response.json();
     } catch (error) {
       console.error('Error saving events to MongoDB:', error);
+      throw error;
+    }
+  },
+
+  async getEvents(userId) {
+    try {
+      const response = await fetch(`${API_URL}${userId}`, {
+        method: 'GET'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching events from MongoDB:', error);
       throw error;
     }
   }
