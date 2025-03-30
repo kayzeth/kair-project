@@ -1,3 +1,5 @@
+import eventService from './eventService';
+
 const PROXY_URL = process.env.NODE_ENV === 'production' 
   ? '/api/canvas/'  // In production, use relative path
   : 'http://localhost:3001/api/canvas/';  // In development, use full URL
@@ -201,7 +203,28 @@ const canvasService = {
       // Store all events in localStorage
       localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
 
-      // Return the number of Canvas events added
+      // Also save Canvas events to MongoDB
+      try {
+        // Use a test user ID for now - you'll want to replace this with actual user authentication later
+        const testUserId = 'test-user-1';
+        await eventService.saveEvents(calendarEvents.map(event => ({
+          userId: testUserId,
+          title: event.title,
+          description: event.description,
+          startDate: event.start,
+          endDate: event.end,
+          canvasEventId: event.metadata.assignmentId,
+          courseId: event.metadata.courseId,
+          type: 'canvas',
+          color: event.color,
+          isCompleted: false
+        })), testUserId);
+        console.log('Successfully saved Canvas events to MongoDB');
+      } catch (error) {
+        console.error('Failed to save events to MongoDB:', error);
+        // Don't throw the error - we still want to keep the localStorage functionality working
+      }
+
       return calendarEvents.length;
     } catch (error) {
       console.error('Failed to sync Canvas calendar:', error);

@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Create a new event
+// Create multiple events
 router.post('/', async (req, res) => {
     try {
         const userId = req.headers['user-id'];
@@ -25,13 +25,15 @@ router.post('/', async (req, res) => {
             return res.status(401).json({ message: 'User ID required' });
         }
 
-        const event = new Event({
-            ...req.body,
-            userId
-        });
+        // Check if we received an array of events
+        const events = Array.isArray(req.body) ? req.body : [req.body];
 
-        const newEvent = await event.save();
-        res.status(201).json(newEvent);
+        // First, remove existing Canvas events for this user to avoid duplicates
+        await Event.deleteMany({ userId, type: 'canvas' });
+
+        // Then create all new events
+        const newEvents = await Event.insertMany(events.map(event => ({ ...event, userId })));
+        res.status(201).json(newEvents);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }

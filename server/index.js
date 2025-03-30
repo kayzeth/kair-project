@@ -78,10 +78,6 @@ app.use('/api/canvas/*', async (req, res) => {
     }
 
     const data = await response.json();
-    console.log('Canvas API success:', {
-      dataLength: Array.isArray(data) ? data.length : 'Not an array',
-      data: Array.isArray(data) ? data.slice(0, 2) : data // Log first 2 items if array
-    });
     res.json(data);
   } catch (error) {
     console.error('Canvas API proxy error:', error);
