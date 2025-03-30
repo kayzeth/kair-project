@@ -21,16 +21,18 @@ const eventSchema = new mongoose.Schema({
     },
     canvasEventId: String,
     courseId: String,
+    googleEventId: String,
     type: {
         type: String,
-        enum: ['canvas', 'custom'],
+        enum: ['canvas', 'google', 'custom'],
         default: 'custom'
     },
     color: String,
     isCompleted: {
         type: Boolean,
         default: false
-    }
+    },
+    location: String
 }, {
     timestamps: true
 });

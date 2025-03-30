@@ -28,8 +28,11 @@ router.post('/', async (req, res) => {
         // Check if we received an array of events
         const events = Array.isArray(req.body) ? req.body : [req.body];
 
-        // First, remove existing Canvas events for this user to avoid duplicates
-        await Event.deleteMany({ userId, type: 'canvas' });
+        // First, remove existing events of the same type to avoid duplicates
+        const firstEvent = events[0];
+        if (firstEvent && (firstEvent.type === 'canvas' || firstEvent.type === 'google')) {
+            await Event.deleteMany({ userId, type: firstEvent.type });
+        }
 
         // Then create all new events
         const newEvents = await Event.insertMany(events.map(event => ({ ...event, userId })));
