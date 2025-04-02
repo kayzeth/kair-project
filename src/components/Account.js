@@ -6,6 +6,7 @@ import googleCalendarService from '../services/googleCalendarService';
 import canvasService from '../services/canvasService';
 import { isConfigured } from '../config/googleCalendarConfig';
 import { isConfigured as isCanvasConfigured } from '../config/canvasConfig';
+import ApiKeyInput from './ApiKeyInput';
 
 const Account = () => {
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -192,6 +193,27 @@ const Account = () => {
   return (
     <div className="account-container">
       <h1 className="account-title" data-testid="account-title">Account Settings</h1>
+
+      {/* API Key Input section */}
+      <ApiKeyInput onApiKeySubmit={(apiKey) => {
+        // If apiKey is null, it means it was cleared
+        if (apiKey === null) {
+          setSyncStatus({
+            status: 'info',
+            message: 'API key has been cleared'
+          });
+        } else {
+          setSyncStatus({
+            status: 'success',
+            message: 'API key updated successfully'
+          });
+        }
+        
+        // Reset status message after a delay
+        setTimeout(() => {
+          setSyncStatus({ status: 'idle', message: '' });
+        }, 3000);
+      }} />
       
       {!apiConfigured && (
         <div className="api-credentials-warning">

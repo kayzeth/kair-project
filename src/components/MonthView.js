@@ -8,7 +8,7 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   useEffect(() => {
     const calculateCellHeight = () => {
       const viewportHeight = window.innerHeight;
-      const headerHeight = 180; // Approximate header height including margins
+      const headerHeight = 160; // Approximate header height including margins
       const availableHeight = viewportHeight - headerHeight;
       const rowCount = 6; // Maximum number of rows in a month view
       const dayNameHeight = 40; // Approximate height of day names row
