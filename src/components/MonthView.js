@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay } from 'date-fns';
+import DayEventsPopup from './DayEventsPopup';
 
 const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   const [cellHeight, setCellHeight] = useState('auto');
+  const [popupDay, setPopupDay] = useState(null);
+  const [popupEvents, setPopupEvents] = useState([]);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
   
   // Calculate the height of each cell based on the available space
   useEffect(() => {
@@ -103,7 +107,7 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
         >
           <div className="day-number" data-testid={`monthview-day-number-${format(day, 'yyyy-MM-dd')}`}>{dayNumber}</div>
           <div className="day-events">
-            {dayEvents.slice(0, 3).map(event => {
+            {dayEvents.slice(0, 1).map(event => {
               const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
               return (
                 <div
@@ -131,8 +135,22 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
                 </div>
               );
             })}
-            {dayEvents.length > 3 && (
-              <div className="more-events">+{dayEvents.length - 3} more</div>
+            {dayEvents.length > 1 && (
+              <div 
+                className="more-events"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.target.getBoundingClientRect();
+                  setPopupPosition({
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX
+                  });
+                  setPopupDay(cloneDay);
+                  setPopupEvents(dayEvents);
+                }}
+              >
+                +{dayEvents.length - 1} more
+              </div>
             )}
           </div>
         </div>
@@ -151,6 +169,15 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     <div>
       <div className="calendar-day-names">{dayNames}</div>
       {rows}
+      {popupDay && (
+        <DayEventsPopup
+          day={popupDay}
+          events={popupEvents}
+          onClose={() => setPopupDay(null)}
+          onEditEvent={onEditEvent}
+          position={popupPosition}
+        />
+      )}
     </div>
   );
 };

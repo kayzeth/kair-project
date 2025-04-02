@@ -25,9 +25,8 @@
 
 .day-name {
   background-color: var(--background-color);
-  padding: 10px;
+  padding: var(--spacing-xs) !important;
   text-align: center;
-  font-weight: 600;
   color: var(--text-color);
 }
 
@@ -55,7 +54,8 @@
 
 .day-number {
   font-weight: 500;
-  margin-bottom: 4px;
+  padding: var(--spacing-xs);
+  text-align: center;
 }
 
 /* Events */
@@ -75,6 +75,7 @@
 
 .event:hover {
   opacity: 0.9;
+  background-color: var(--accent-dark) !important;
 }
 
 /* Canvas Events */

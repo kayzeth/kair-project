@@ -1,0 +1,110 @@
+.day-events-popup {
+  position: absolute;
+  width: 300px;
+  max-height: 400px;
+  background-color: var(--background-color);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.day-events-popup-header {
+  position: sticky;
+  top: 0;
+  background-color: var(--background-color);
+  padding: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 2;
+}
+
+.day-events-popup-date {
+  display: flex;
+  flex-direction: row;
+}
+
+.day-events-popup-date .day-name {
+  font-size: var(--font-size-md);
+  margin-bottom: var(--spacing-xs);
+}
+
+.day-events-popup-date .day-number {
+  font-size: var(--font-size-md);
+  color: var(--text-color-secondary);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: var(--font-size-xl);
+  cursor: pointer;
+  color: var(--text-color-secondary);
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+
+.close-button:hover {
+  color: var(--text-color);
+}
+
+.day-events-popup-content {
+  padding: var(--spacing-sm);
+  overflow-y: auto;
+  flex-grow: 1;
+  max-height: 300px;
+}
+
+.popup-event {
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  color: white;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.popup-event:last-child {
+  margin-bottom: 0;
+}
+
+.popup-event-time {
+  font-size: var(--font-size-sm);
+  width: 50px;
+}
+
+.popup-event-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.no-events {
+  color: var(--text-color-secondary);
+  text-align: center;
+  padding: var(--spacing-md) 0;
+  font-size: var(--font-size-sm);
+}
+
+/* Style for the "more events" indicator in the month view */
+.more-events {
+  background-color: var(--background-color);
+  color: var(--text-color-secondary);
+  padding: 2px 4px;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  text-align: center;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.more-events:hover {
+  background-color: var(--border-color);
+}

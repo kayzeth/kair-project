@@ -11,8 +11,8 @@ import StudySuggestions from './StudySuggestions';
 import googleCalendarService from '../services/googleCalendarService';
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
-import ApiKeyInput from './ApiKeyInput';
 import '../styles/Calendar.css';
+import '../styles/DayEventsPopup.css';
 
 const Calendar = ({ initialEvents = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
