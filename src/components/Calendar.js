@@ -11,8 +11,8 @@ import StudySuggestions from './StudySuggestions';
 import googleCalendarService from '../services/googleCalendarService';
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
-import ApiKeyInput from './ApiKeyInput';
 import '../styles/Calendar.css';
+import '../styles/DayEventsPopup.css';
 
 const Calendar = ({ initialEvents = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -762,27 +762,6 @@ const Calendar = ({ initialEvents = [] }) => {
         </div>
       </div>
       {renderView()}
-      
-      {/* API Key Input section */}
-      <ApiKeyInput onApiKeySubmit={(apiKey) => {
-        // If apiKey is null, it means it was cleared
-        if (apiKey === null) {
-          setSyncStatus({
-            status: 'info',
-            message: 'API key has been cleared'
-          });
-        } else {
-          setSyncStatus({
-            status: 'success',
-            message: 'API key updated successfully'
-          });
-        }
-        
-        // Reset status message after a delay
-        setTimeout(() => {
-          setSyncStatus({ status: 'idle', message: '' });
-        }, 3000);
-      }} />
       
       {showModal && (
         <EventModal 

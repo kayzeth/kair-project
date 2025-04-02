@@ -3,7 +3,6 @@
   padding: var(--spacing-lg);
   background: var(--background-color);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Calendar Grid */
@@ -26,9 +25,8 @@
 
 .day-name {
   background-color: var(--background-color);
-  padding: 10px;
+  padding: var(--spacing-xs) !important;
   text-align: center;
-  font-weight: 600;
   color: var(--text-color);
 }
 
@@ -56,7 +54,8 @@
 
 .day-number {
   font-weight: 500;
-  margin-bottom: 4px;
+  padding: var(--spacing-xs);
+  text-align: center;
 }
 
 /* Events */
@@ -69,7 +68,6 @@
 .event {
   border-radius: 3px;
   padding: 2px 4px;
-  font-size: 0.85em;
   cursor: pointer;
   transition: opacity 0.2s;
   color: white;
@@ -77,6 +75,14 @@
 
 .event:hover {
   opacity: 0.9;
+}
+
+.event.all-day:hover {
+  background-color: var(--accent-dark) !important;
+}
+
+.event:not(.all-day):hover {
+  background-color: var(--border-color) !important;
 }
 
 /* Canvas Events */
@@ -102,7 +108,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 var(--spacing-md) var(--spacing-md) var(--spacing-md);
+  padding: 0 var(--spacing-md) 0 var(--spacing-md);
 }
 
 .calendar-title {
