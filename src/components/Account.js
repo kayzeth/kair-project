@@ -344,13 +344,12 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
             <strong>Note:</strong> To use Google Calendar integration, you need to:
           </p>
           <ol>
-            <li>Sign in with your Google account</li>
-            <li>Allow Kairos to access your Google Calendar</li>
-            <li>Use the buttons above to import, export, or sync events</li>
+            <li>Sign in with your Google account.</li>
+            <li>Allow Kairos to access your Google Calendar.</li>
+            <li>Kairos will import your Google Calendar events.</li>
+            <li>Kairos will export your Google Calendar events.</li>
           </ol>
-          <p>
-            Your calendar data is only transferred when you explicitly request it using the buttons above.
-          </p>
+          <p>After the initial sync, a sync button will be available for you to manually sync your Google Calendar events.</p>
         </div>
       </div>
       
@@ -468,13 +467,13 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
               <strong>Note:</strong> To use Canvas integration, you need to:
             </p>
             <ol>
-              <li>Generate a Canvas Developer Token from your Canvas account settings</li>
-              <li>Enter your school name (e.g., harvard)</li>
-              <li>Use the sync button to import your Canvas assignments</li>
+              <li>Go to Canvas {'>'} Settings {'>'} Developer {'>'} Approved Integrations {'>'} New Access Token</li>
+              <li>Enter "Kairos" for "Purpose" and leave the expiration fields blank. Click "Generate Token".</li>
+              <li>Copy the generated token and paste it into the "Canvas Access Token" field in your Kairos account.</li>
+              <li>Enter your school name (e.g., harvard).</li>
+              <li>Use the sync button to import your Canvas assignments.</li>
             </ol>
-            <p>
-              Your Canvas data is only transferred when you explicitly request it using the sync button.
-            </p>
+            <p>After the initial sync, a sync button will be available for you to manually sync your Canvas assignments, announcements, quizzes, and events. Kairos can automate creating these events for you.</p>
           </div>
         </div>
       </div>
