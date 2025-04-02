@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faTrashAlt, faClock, faMapMarkerAlt, faAlignLeft, faBookOpen } from '@fortawesome/free-solid-svg-icons';
 
 const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, event, selectedDate = new Date() }) => {
+  // Create a ref for the title input to auto-focus it
+  const titleInputRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -17,6 +20,18 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     requiresPreparation: false,
     preparationHours: ''
   });
+
+  // Effect to auto-focus the title input when the modal opens
+  useEffect(() => {
+    // Focus the title input after a short delay to ensure the DOM is fully rendered
+    const timeoutId = setTimeout(() => {
+      if (titleInputRef.current) {
+        titleInputRef.current.focus();
+      }
+    }, 50);
+    
+    return () => clearTimeout(timeoutId);
+  }, []); // Empty dependency array ensures this only runs once when the modal mounts
 
   useEffect(() => {
     if (event) {
@@ -140,6 +155,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 onChange={handleChange}
                 placeholder="Add title"
                 required
+                ref={titleInputRef}
                 style={{ fontSize: '22px', fontWeight: '400', height: '50px', border: 'none', borderBottom: '1px solid var(--border-color)' }}
               />
             </div>
