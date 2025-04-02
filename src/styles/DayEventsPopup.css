@@ -65,11 +65,23 @@
   margin-bottom: var(--spacing-sm);
   border-radius: var(--border-radius-sm);
   cursor: pointer;
-  color: white;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-sm);
+  transition: background-color 0.2s;
+}
+
+.popup-event:hover {
+  opacity: 0.9;
+}
+
+.popup-event:not([style*="background-color: transparent"]):hover {
+  background-color: var(--accent-dark) !important;
+}
+
+.popup-event[style*="background-color: transparent"]:hover {
+  background-color: var(--border-color) !important;
 }
 
 .popup-event:last-child {

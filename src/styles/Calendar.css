@@ -75,7 +75,14 @@
 
 .event:hover {
   opacity: 0.9;
+}
+
+.event.all-day:hover {
   background-color: var(--accent-dark) !important;
+}
+
+.event:not(.all-day):hover {
+  background-color: var(--border-color) !important;
 }
 
 /* Canvas Events */

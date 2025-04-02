@@ -1,9 +1,19 @@
 import React, { useRef, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, getHours, getMinutes } from 'date-fns';
 import '../styles/DayEventsPopup.css';
 
 const DayEventsPopup = ({ day, events, onClose, onEditEvent, position }) => {
   const popupRef = useRef(null);
+  
+  // Custom time format function
+  const formatTime = (date) => {
+    const hours = getHours(date) % 12 || 12; // Convert 0 to 12 for 12 AM
+    const minutes = getMinutes(date);
+    const ampm = getHours(date) >= 12 ? 'pm' : 'am';
+    
+    // Only show minutes if they're not zero
+    return minutes === 0 ? `${hours}${ampm}` : `${hours}:${minutes < 10 ? '0' + minutes : minutes}${ampm}`;
+  };
 
   useEffect(() => {
     // Handle clicking outside the popup to close it
@@ -47,12 +57,28 @@ const DayEventsPopup = ({ day, events, onClose, onEditEvent, position }) => {
                   onEditEvent(event);
                   onClose();
                 }}
-                style={{ backgroundColor: event.color || 'var(--primary-color)' }}
+                style={{ 
+                  backgroundColor: event.allDay ? (event.color || 'var(--primary-color)') : 'transparent',
+                  color: event.allDay ? 'white' : 'var(--text-color)',
+                  border: !event.allDay ? '1px solid var(--border-color)' : 'none'
+                }}
               >
+                {!event.allDay && (
+                  <div 
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: event.color || 'var(--primary-color)',
+                      flexShrink: 0,
+                      marginRight: '8px'
+                    }}
+                  />
+                )}
                 <div className="popup-event-time">
-                  {event.allDay ? 'All day' : format(eventStart, 'h:mm a')}
+                  {event.allDay ? 'All day' : formatTime(eventStart)}
                 </div>
-                <div className="popup-event-title">{event.title}</div>
+                <div className="popup-event-title" style={{ fontWeight: 600 }}>{event.title}</div>
               </div>
             );
           })
