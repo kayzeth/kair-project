@@ -9,7 +9,7 @@
 
 body {
   font-family: 'Quicksand', sans-serif;
-  background-color: var(--background-color);
+  background-color: var(--primary-color);
   color: var(--text-color);
   line-height: 1.6;
 }
@@ -23,8 +23,7 @@ body {
 
 .header {
   background-color: var(--primary-color);
-  padding: var(--spacing-md) var(--spacing-xl);
-  box-shadow: var(--shadow-md);
+  padding: var(--spacing-md) var(--spacing-md);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -51,7 +50,7 @@ body {
 
 .nav-link:hover {
   background-color: var(--primary-dark);
-  color: white;
+  color: var(--accent-color);
 }
 
 .account-link {
@@ -65,7 +64,7 @@ body {
 
 .account-link:hover {
   background-color: var(--primary-dark);
-  color: white;
+  color: var(--accent-color);
 }
 
 @media (max-width: 576px) {
@@ -117,7 +116,7 @@ body {
 .app-title {
   font-size: var(--font-size-xl);
   font-weight: 700;
-  color: var(--text-color);
+  color: var(--accent-color);
   letter-spacing: 1px;
 }
 
@@ -143,12 +142,13 @@ body {
   height: 100%;
 }
 
+/* Calendar Navigation Header */
 .calendar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-md);
-  background-color: var(--primary-light);
+  background-color: var(--background-color);  /* white background */
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -179,13 +179,13 @@ body {
 }
 
 .view-button.active {
-  background-color: var(--primary-color);
+  background-color: var(--accent-color);
   font-weight: 600;
 }
 
 .view-button:hover {
   background-color: var(--primary-dark);
-  color: white;
+  color: var(--accent-color);
 }
 
 .nav-button {
@@ -206,8 +206,10 @@ body {
   color: white;
 }
 
+/* Today Button with Tan Accent */
 .today-button {
-  background-color: var(--primary-color);
+  background-color: var(--accent-color);
+  color: white;
   border: none;
   padding: var(--spacing-xs) var(--spacing-md);
   border-radius: var(--border-radius-sm);
@@ -217,8 +219,8 @@ body {
 }
 
 .today-button:hover {
-  background-color: var(--primary-dark);
-  color: white;
+  background-color: var(--accent-dark);
+  /* text remains white for contrast */
 }
 
 .add-event-button {
@@ -290,7 +292,7 @@ body {
 }
 
 .today .day-number {
-  background-color: var(--primary-color);
+  background-color: var(--accent-color);
   color: white;
   width: 24px;
   height: 24px;

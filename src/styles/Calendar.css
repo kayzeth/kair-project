@@ -46,10 +46,11 @@
 }
 
 .calendar-day.other-month {
-  background-color: var(--background-color-secondary);
+  background-color: var(--background-color-light);
 }
 
 .calendar-day.today {
+  /* Instead of a full-cell tan background, use a subtle highlight */
   background-color: var(--highlight-color);
 }
 

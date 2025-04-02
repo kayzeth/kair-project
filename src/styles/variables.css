@@ -1,46 +1,58 @@
 :root {
-  /* Sand theme color palette */
-  --primary-color: #d2b48c; /* Light sand */
-  --primary-dark: #b69b6d; /* Darker sand */
-  --primary-light: #e6d7bf; /* Very light sand */
-  --accent-color: #8b7355; /* Brown sand */
-  --text-color: #4a3c2c; /* Dark brown */
-  --text-color-secondary: #7d684a; /* Medium brown */
-  --background-color: #f5f1e8; /* Off-white sand */
-  --background-color-light: #faf7f1; /* Lighter off-white sand */
-  --card-background: #ffffff; /* White for cards */
-  --border-color: #cbbca0; /* Medium sand */
-  --highlight-color: #e8c07d; /* Golden sand */
-  --error-color: #a94442; /* Reddish brown */
-  --error-color-light: #f8d7da; /* Light red */
-  --success-color: #5c8a70; /* Greenish */
-  --success-color-light: #d4edda; /* Light green */
-  --warning-color: #b7791f; /* Amber */
-  --warning-color-light: #fff3cd; /* Light amber */
-  --info-color: #4a6da7; /* Blue */
-  --info-color-light: #e7f1ff; /* Light blue */
-  --hover-color: #ebe5d9; /* Hover state color */
-  
+  /* Accent */
+  --accent-color: #d2b48c; /* Tan accent */
+  --accent-dark:  #b69b6d; /* Darker tan for hover states */
+
+  /* Neutral/Modern Palette */
+  --primary-color: #ede1d1; /* White for primary backgrounds */
+  --primary-dark:  #f1f3f4; /* Subtle grey for hover states */
+  --primary-light: #ffffff; /* White for cards and headers */
+
+  --background-color: #ffffff; /* Main background */
+  --background-color-light: #f8f9fa; /* Off-white secondary background */
+  --card-background: #ffffff;
+
+  /* Text Colors */
+  --text-color: #202124; /* Nearly black dark gray */
+  --text-color-secondary: #5f6368; /* Medium gray for secondary text */
+
+  /* Borders & Highlights */
+  --border-color: #dadce0; /* Light grey border */
+  --highlight-color: #e8eaed; /* Light grey highlight */
+
+  /* Status Colors */
+  --error-color: #d93025;
+  --error-color-light: #fce8e6;
+  --success-color: #188038;
+  --success-color-light: #e6f4ea;
+  --warning-color: #f9ab00;
+  --warning-color-light: #fff8e1;
+  --info-color: #4285f4;
+  --info-color-light: #e8f0fe;
+
+  /* Hover */
+  --hover-color: #f1f3f4;
+
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
-  
-  /* Font sizes */
+
+  /* Font Sizes */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-md: 1rem;
   --font-size-lg: 1.25rem;
   --font-size-xl: 1.5rem;
   --font-size-xxl: 2rem;
-  
-  /* Border radius */
+
+  /* Border Radius */
   --border-radius-sm: 4px;
   --border-radius-md: 8px;
   --border-radius-lg: 12px;
-  
+
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
