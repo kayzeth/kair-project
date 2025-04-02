@@ -419,11 +419,37 @@ body {
   font-weight: 600;
   font-size: var(--font-size-md);
   background-color: var(--primary-light);
-  border-bottom: 1px solid var(--border-color);
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.day-all-day-events {
+  padding: var(--spacing-xs);
+  background-color: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  position: sticky;
+  top: 40px;
+  z-index: 1;
+}
+
+.day-all-day-events .event {
+  padding: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-content {
+  position: relative;
 }
 
 /* Event styles */
