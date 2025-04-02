@@ -147,7 +147,6 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-md);
   background-color: var(--background-color);  /* white background */
   border-bottom: 1px solid var(--border-color);
 }
@@ -184,8 +183,8 @@ body {
 }
 
 .view-button:hover {
-  background-color: var(--primary-dark);
-  color: var(--accent-color);
+  background-color: var(--accent-dark);
+  color: white;
 }
 
 .nav-button {
@@ -238,7 +237,7 @@ body {
 }
 
 .add-event-button:hover {
-  background-color: var(--text-color);
+  background-color: var(--accent-dark);
 }
 
 /* Calendar grid styles */
