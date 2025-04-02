@@ -1,6 +1,6 @@
 /* Calendar Container */
 .calendar-container {
-  padding: 20px;
+  padding: var(--spacing-lg);
   background: var(--background-color);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -46,10 +46,11 @@
 }
 
 .calendar-day.other-month {
-  background-color: var(--background-color-secondary);
+  background-color: var(--background-color-light);
 }
 
 .calendar-day.today {
+  /* Instead of a full-cell tan background, use a subtle highlight */
   background-color: var(--highlight-color);
 }
 
@@ -101,7 +102,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  padding: 0 var(--spacing-md) var(--spacing-md) var(--spacing-md);
 }
 
 .calendar-title {
