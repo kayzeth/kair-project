@@ -1,0 +1,259 @@
+/* EventModal.css */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: white;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  width: auto;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.close-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--text-color-secondary);
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group-flex {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 16px;
+}
+
+.form-group-flex-center {
+  display: flex;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.form-group-border-top {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.form-icon {
+  margin-right: 12px;
+  color: var(--text-color-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.form-label {
+  margin: 0 10px 0 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.form-input {
+  width: 100%;
+}
+
+.title-input {
+  font-size: 22px;
+  font-weight: 400;
+  height: 50px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  width: 100%;
+}
+
+.date-input {
+}
+
+.description-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  resize: none !important;
+  overflow-y: auto;
+  height: 80px !important; /* Approximately 3 rows of text */
+}
+
+.location-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.checkbox-input {
+  margin-right: 8px;
+  width: fit-content;
+}
+
+.preparation-hours-input {
+  width: 120px;
+  height: 32px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.date-time-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.date-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Color Picker Styles */
+.color-picker-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-sm);
+  border-radius: var(--border-radius-md);
+}
+
+.color-picker-container:hover {
+  background-color: var(--primary-dark);
+}
+
+.selected-color-container {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  height: 1rem;
+}
+
+.selected-color {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.color-dropdown-icon {
+  color: var(--text-color-secondary);
+  font-size: 12px;
+}
+
+.color-dropdown {
+  position: absolute;
+  z-index: 10;
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 8px;
+  width: 180px;
+}
+
+.color-option {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.color-option-selected {
+  border: 2px solid black;
+}
+
+.button {
+  padding: 8px 16px;
+  border-radius: var(--border-radius-sm);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.button-secondary {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.button-danger {
+  background-color: #e63946;
+  color: white;
+}
+
+.button-icon {
+  margin-right: 5px;
+}
+
+.button-left {
+  margin-right: auto;
+}
+
+.button-right {
+  margin-left: 10px;
+}

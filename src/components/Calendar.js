@@ -326,8 +326,13 @@ const Calendar = ({ initialEvents = [] }) => {
           event.id === selectedEvent.id ? { 
             ...cleanEventData, 
             ...eventData,
+            // For all-day events, ensure we're using the date string directly to avoid timezone issues
+            // For time-specific events, create a proper datetime string
             start: cleanEventData.allDay ? cleanEventData.start : `${cleanEventData.start}T${cleanEventData.startTime}`,
-            end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`
+            end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`,
+            // Store the original date strings to ensure consistent display
+            startDate: cleanEventData.start,
+            endDate: cleanEventData.end
           } : event
         );
         updateEvents(updatedEvents);
@@ -353,8 +358,13 @@ const Calendar = ({ initialEvents = [] }) => {
         const newEvent = {
           id: Date.now().toString(),
           ...cleanEventData,
+          // For all-day events, ensure we're using the date string directly to avoid timezone issues
+          // For time-specific events, create a proper datetime string
           start: cleanEventData.allDay ? cleanEventData.start : `${cleanEventData.start}T${cleanEventData.startTime}`,
-          end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`
+          end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`,
+          // Store the original date strings to ensure consistent display
+          startDate: cleanEventData.start,
+          endDate: cleanEventData.end
         };
         
         if (isGoogleCalendarConnected) {

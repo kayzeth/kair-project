@@ -725,7 +725,9 @@ body {
 .modal {
   background-color: white;
   border-radius: var(--border-radius-sm);
-  width: 448px;
+  width: auto;
+  max-width: 90vw;
+  max-height: 90vh;
   box-shadow: var(--shadow-lg);
   position: relative;
   overflow: visible;
