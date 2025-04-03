@@ -51,7 +51,20 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
 
   // Helper function to check if an event should appear on a specific day
   const shouldShowEventOnDay = (event, day) => {
-    // Handle both Date objects and ISO strings
+    // Special handling for all-day events
+    if (event.allDay) {
+      // For all-day events, use the stored date strings to avoid timezone issues
+      const startDate = event.startDate || (event.start instanceof Date ? format(event.start, 'yyyy-MM-dd') : event.start.split('T')[0]);
+      const endDate = event.endDate || (event.end instanceof Date ? format(event.end, 'yyyy-MM-dd') : event.end.split('T')[0]);
+      
+      // Format the day we're checking to yyyy-MM-dd for string comparison
+      const dayString = format(day, 'yyyy-MM-dd');
+      
+      // Check if the day is between start and end dates (inclusive)
+      return dayString >= startDate && dayString <= endDate;
+    }
+    
+    // Handle both Date objects and ISO strings for non-all-day events
     const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
     
     // If it's not a recurring event, just check if it's on the same day

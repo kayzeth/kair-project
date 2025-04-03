@@ -1,11 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faTrashAlt, faClock, faMapMarkerAlt, faAlignLeft, faBookOpen } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faTrashAlt, faClock, faAlignLeft, faBookOpen, faChevronDown, faMinus } from '@fortawesome/free-solid-svg-icons';
+import '../styles/EventModal.css';
 
 const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, event, selectedDate = new Date() }) => {
   // Create a ref for the title input to auto-focus it
   const titleInputRef = useRef(null);
+  
+  // Available color options
+  const colorOptions = [
+    '#e63946',
+    '#ff6f61',
+    '#ff8c42',
+    '#d1495b',
+    '#d2b48c',
+    '#457b9d',
+    '#2a9d8f',
+    '#6a4c93',
+    '#3a86ff',
+    '#5e60ce'
+  ];
+  
+  // State to track if color dropdown is open
+  const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
+  
+  // Ref for the color dropdown to handle outside clicks
+  const colorDropdownRef = useRef(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -32,6 +53,20 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     
     return () => clearTimeout(timeoutId);
   }, []); // Empty dependency array ensures this only runs once when the modal mounts
+  
+  // Effect to handle clicking outside the color dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (colorDropdownRef.current && !colorDropdownRef.current.contains(event.target)) {
+        setColorDropdownOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (event) {
@@ -139,43 +174,43 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="close-button" data-testid="eventmodal-close-button" onClick={onClose}>
-          <FontAwesomeIcon icon={faTimes} />
-        </button>
         <form onSubmit={handleSubmit}>
+          <div className="modal-header">
+            <button className="close-button" data-testid="eventmodal-close-button" onClick={onClose}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
           <div className="modal-body">
             <div className="form-group">
               <input
                 type="text"
                 id="title"
                 name="title"
-                className="form-input"
+                className="form-input title-input"
                 data-testid="eventmodal-title-input"
                 value={formData.title}
                 onChange={handleChange}
                 placeholder="Add title"
                 required
                 ref={titleInputRef}
-                style={{ fontSize: '22px', fontWeight: '400', height: '50px', border: 'none', borderBottom: '1px solid var(--border-color)' }}
               />
             </div>
-            <div className="form-group" style={{ display: 'flex', alignItems: 'flex-start', marginTop: '16px' }}>
-              <div style={{ marginRight: '12px', color: 'var(--text-light)', marginTop: '10px' }}>
+            <div className="form-group form-group-flex">
+              <div className="form-icon">
                 <FontAwesomeIcon icon={faClock} />
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+              <div className="date-time-container">
+                <div className="date-time-row">
                 <input
                   type="date"
                   id="start"
                   name="start"
-                  className="form-input"
+                  className="form-input date-input"
                   data-testid="eventmodal-start-date"
                   value={formData.start}
                   onChange={handleChange}
                   required
                   aria-label="Start"
-                  style={{ marginRight: '8px' }}
                 />
                   {!formData.allDay && (
                     <input
@@ -190,18 +225,16 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                       aria-label="Start time"
                     />
                   )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
+                <FontAwesomeIcon icon={faMinus} />
                   <input
                     type="date"
                     id="end"
                     name="end"
-                    className="form-input"
+                    className="form-input date-input"
                     data-testid="eventmodal-end-date"
                     value={formData.end}
                     onChange={handleChange}
                     required
-                    style={{ marginRight: '8px' }}
                     aria-label="End"
                   />
                   {!formData.allDay && (
@@ -218,108 +251,118 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                     />
                   )}
                 </div>
-                <div style={{ marginTop: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      name="allDay"
-                      data-testid="eventmodal-all-day"
-                      checked={formData.allDay}
-                      onChange={handleChange}
-                      style={{ marginRight: '8px' }}
-                    />
-                    All day
-                  </label>
+                <div className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="allDay"
+                    className="checkbox-input"
+                    data-testid="eventmodal-all-day"
+                    checked={formData.allDay}
+                    onChange={handleChange}
+                  />
+                  All day
                 </div>
               </div>
             </div>
-            <div className="form-group" style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-              <div style={{ marginRight: '12px', color: 'var(--text-light)', marginTop: '10px' }}>
+            {/* <div className="form-group form-group-flex form-group-border-top">
+              <div className="form-icon">
                 <FontAwesomeIcon icon={faMapMarkerAlt} />
               </div>
               <input
                 type="text"
                 id="location"
                 name="location"
-                className="form-input"
+                className="form-input location-input"
                 data-testid="eventmodal-location"
                 value={formData.location}
                 onChange={handleChange}
                 placeholder="Add location"
-                style={{ flex: 1, border: 'none', borderBottom: '1px solid var(--border-color)' }}
               />
-            </div>
-            <div className="form-group" style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-              <div style={{ marginRight: '12px', color: 'var(--text-light)', marginTop: '10px' }}>
+            </div> */}
+            <div className="form-group form-group-flex">
+              <div className="form-icon">
                 <FontAwesomeIcon icon={faAlignLeft} />
               </div>
               <textarea
                 id="description"
                 name="description"
-                className="form-input"
+                className="form-input description-input"
                 data-testid="eventmodal-description"
                 value={formData.description}
                 onChange={handleChange}
                 rows="3"
                 placeholder="Add description"
-                style={{ flex: 1, border: 'none', borderBottom: '1px solid var(--border-color)' }}
               />
             </div>
             
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-              <label className="form-label" htmlFor="color" style={{ marginRight: '10px' }}>Color:</label>
-              <input
-                type="color"
-                id="color"
-                name="color"
-                data-testid="eventmodal-color"
-                value={formData.color}
-                onChange={handleChange}
-                style={{ width: '36px', height: '36px', border: 'none', padding: '0', background: 'none' }}
-              />
+            <div className="form-group form-group-flex-center">
+              <label className="form-label">Color:</label>
+              <div className="color-picker-container" ref={colorDropdownRef}>
+                <div className="selected-color-container" onClick={() => setColorDropdownOpen(!colorDropdownOpen)}>
+                  <div 
+                    className="selected-color"
+                    data-testid="eventmodal-color"
+                    style={{ backgroundColor: formData.color }}
+                  ></div>
+                  <FontAwesomeIcon 
+                    icon={faChevronDown} 
+                    className="color-dropdown-icon"
+                  />
+                </div>
+                {colorDropdownOpen && (
+                  <div className="color-dropdown">
+                    {colorOptions.map((color, index) => (
+                      <div 
+                        key={index}
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            color: color
+                          });
+                          setColorDropdownOpen(false);
+                        }}
+                        className={`color-option ${formData.color === color ? 'color-option-selected' : ''}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* [KAIR-16] Add Requires Preparation checkbox and hours input */}
-            <div className="form-group" style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-              <div style={{ marginRight: '12px', color: 'var(--text-light)', marginTop: '10px' }}>
+            <div className="form-group form-group-flex-center">
+              <div className="form-icon">
                 <FontAwesomeIcon icon={faBookOpen} />
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ marginBottom: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      name="requiresPreparation"
-                      checked={formData.requiresPreparation}
-                      onChange={handleChange}
-                      style={{ marginRight: '8px' }}
-                      data-testid="eventmodal-requires-preparation"
-                    />
-                    Requires Preparation
-                  </label>
+              <div className="date-time-container">
+                <div className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="requiresPreparation"
+                    className="checkbox-input"
+                    checked={formData.requiresPreparation}
+                    onChange={handleChange}
+                    data-testid="eventmodal-requires-preparation"
+                  />
+                  Requires Preparation
                 </div>
                 
                 {formData.requiresPreparation && (
-                  <div style={{ display: 'flex', alignItems: 'center', marginTop: '8px' }}>
-                    <label htmlFor="preparationHours" style={{ marginRight: '8px' }}>
+                  <div className="date-time-row">
+                    <label htmlFor="preparationHours" className="form-label">
                       Preparation Hours:
                     </label>
                     <input
                       type="number"
                       id="preparationHours"
                       name="preparationHours"
-                      className="form-input"
+                      className="form-input preparation-hours-input"
                       value={formData.preparationHours}
                       onChange={handleChange}
                       placeholder="Enter hours"
                       min="0"
                       step="0.5"
-                      style={{ 
-                        width: '120px', 
-                        height: '32px',
-                        padding: '4px 8px',
-                        fontSize: '14px'
-                      }}
                       data-testid="eventmodal-preparation-hours"
                     />
                   </div>
@@ -331,30 +374,28 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
             {event && (
               <button 
                 type="button" 
-                className="button button-danger"
+                className="button button-danger button-left"
                 data-testid="eventmodal-delete-button" 
                 onClick={handleDelete}
-                style={{ marginRight: 'auto' }}
               >
-                <FontAwesomeIcon icon={faTrashAlt} style={{ marginRight: '5px' }} />
+                <FontAwesomeIcon icon={faTrashAlt} className="button-icon" />
                 Delete
               </button>
             )}
             {event && event.requiresPreparation && event.preparationHours && (
               <button 
                 type="button" 
-                className="button button-secondary"
+                className="button button-secondary button-right"
                 data-testid="eventmodal-trigger-study-suggestions-button" 
                 onClick={handleTriggerStudySuggestions}
-                style={{ marginRight: '10px' }}
               >
-                <FontAwesomeIcon icon={faBookOpen} style={{ marginRight: '5px' }} />
+                <FontAwesomeIcon icon={faBookOpen} className="button-icon" />
                 Generate Study Plan
               </button>
             )}
             <button 
               type="button" 
-              className="button button-secondary"
+              className="button button-secondary button-right"
               data-testid="eventmodal-cancel-button" 
               onClick={onClose}
             >
@@ -362,7 +403,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
             </button>
             <button 
               type="submit" 
-              className="button button-primary"
+              className="button button-primary button-right"
               data-testid="eventmodal-save-button"
             >
               {event ? 'Save' : 'Save'}
