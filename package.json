@@ -12,6 +12,7 @@
     "@google/genai": "^0.7.0",
     "@google/generative-ai": "^0.24.0",
     "@react-oauth/google": "^0.12.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
@@ -24,13 +25,15 @@
     "express": "^4.21.2",
     "gapi-script": "^1.2.0",
     "https-browserify": "^1.0.0",
-    "mongoose": "^8.13.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.15.0",
+    "mongoose": "^8.13.2",
     "node-fetch": "^2.7.0",
     "openai": "^4.87.3",
     "pdfjs-dist": "^3.4.120",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^7.3.0",
+    "react-router-dom": "^7.4.1",
     "react-scripts": "^5.0.1",
     "stream-http": "^3.2.0",
     "url": "^0.11.4",
@@ -50,6 +53,7 @@
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
     "react-app-rewired": "^2.2.1",
+    "serve": "^14.0.1",
     "stream-browserify": "^3.0.0",
     "util": "^0.12.5"
   },
@@ -58,7 +62,8 @@
     "server": "node server/index.js",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "serve": "serve -s build"
   },
   "eslintConfig": {
     "extends": [

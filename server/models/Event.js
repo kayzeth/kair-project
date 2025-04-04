@@ -1,40 +1,61 @@
 const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({
-    userId: {
-        type: String,
-        required: true,
-        index: true
-    },
-    title: {
-        type: String,
-        required: true
-    },
-    description: String,
-    startDate: {
-        type: Date,
-        required: true
-    },
-    endDate: {
-        type: Date,
-        required: true
-    },
-    canvasEventId: String,
-    courseId: String,
-    googleEventId: String,
-    type: {
-        type: String,
-        enum: ['canvas', 'google', 'custom'],
-        default: 'custom'
-    },
-    color: String,
-    isCompleted: {
-        type: Boolean,
-        default: false
-    },
-    location: String
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  group_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    required: true
+  },
+  title: {
+    type: String,
+    required: true
+  },
+  all_day: {
+    type: Boolean,
+    default: false
+  },
+  start_time: {
+    type: Date,
+    required: true
+  },
+  end_time: {
+    type: Date,
+    required: true
+  },
+  source: {
+    type: String,
+    enum: ['LMS', 'GOOGLE_CALENDAR', 'SYLLABUS', 'PARSER'],
+    required: true
+  },
+  description: {
+    type: String,
+    default: ''
+  },
+  location: {
+    type: String,
+    default: ''
+  },
+  requires_preparation: {
+    type: Boolean,
+    default: false
+  },
+  requires_hours: {
+    type: Number,
+    default: 0
+  }
 }, {
-    timestamps: true
+  timestamps: true
 });
 
-module.exports = mongoose.model('Event', eventSchema);
+// Compound index for efficient querying of user's events
+eventSchema.index({ user_id: 1, start_time: 1 });
+// Index for group events
+eventSchema.index({ group_id: 1, start_time: 1 });
+
+const Event = mongoose.model('Event', eventSchema);
+module.exports = Event;

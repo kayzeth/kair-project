@@ -140,18 +140,6 @@ describe('Canvas Service', () => {
         ])
       });
 
-      // Mock calendar events response
-      fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve([])
-      });
-
-      // Mock MongoDB save response
-      fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true, count: 1 })
-      });
-
       const eventCount = await canvasService.syncWithCalendar();
       expect(eventCount).toBe(1);
       
@@ -168,38 +156,12 @@ describe('Canvas Service', () => {
           courseId: 1,
           assignmentId: 1,
           points: 100,
-          url: 'https://canvas.harvard.edu/courses/1/assignments/1',
-          eventType: 'assignment'
+          url: 'https://canvas.harvard.edu/courses/1/assignments/1'
         }
       }];
 
       expect(localStorage.setItem).toHaveBeenCalledWith('calendarEvents', JSON.stringify(expectedEvents));
 
-      // Verify MongoDB save was called correctly
-      expect(fetch.mock.calls[3]).toEqual([
-        'http://localhost:3001/api/events/',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            events: [{
-              userId: 'test-user-1',
-              title: 'Course 1: Assignment 1',
-              description: 'Test assignment',
-              startDate: new Date('2025-04-01T23:59:59Z'),
-              endDate: new Date('2025-04-01T23:59:59Z'),
-              canvasEventId: '1',
-              courseId: 1,
-              type: 'canvas',
-              color: '#4287f5',
-              isCompleted: false
-            }],
-            userId: 'test-user-1'
-          })
-        }
-      ]);
     });
   });
 

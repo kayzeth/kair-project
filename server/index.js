@@ -1,27 +1,26 @@
 // Load environment variables from .env file
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
+const connectDB = require('./config/database');
 const fetch = require('node-fetch');
-const connectDB = require('./config/db');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 // Connect to MongoDB
 connectDB();
 
+// Middleware
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-canvas-domain', 'user-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-canvas-domain']
 }));
 app.use(express.json({ limit: '16mb' }));
 
-// Event routes
-app.use('/api/events', require('./routes/events'));
+// Routes
+app.use('/api/users', require('./routes/users'));
 
 // Proxy all Canvas API requests
 app.use('/api/canvas/*', async (req, res) => {
@@ -162,6 +161,8 @@ app.post('/api/openai/syllabus-parser', async (req, res) => {
   }
 });
 
+const PORT = process.env.PORT || 3001;
+
 app.listen(PORT, () => {
-  console.log(`Proxy server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
