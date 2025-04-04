@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarAlt, faFileUpload, faUser } from '@fortawesome/free-solid-svg-icons';
 import { LoginForm, SignupForm } from './AuthForms';
@@ -8,13 +8,13 @@ import '../styles/AuthForms.css';
 
 const Landing = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // For now, just navigate to calendar without authentication
-    navigate('/calendar');
-  };
+  // const handleSubmit = (e) => {
+  //   e.preventDefault();
+  //   // For now, just navigate to calendar without authentication
+  //   navigate('/calendar');
+  // };
 
   return (
     <div className="landing-container">
