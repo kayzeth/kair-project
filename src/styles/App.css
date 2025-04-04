@@ -479,16 +479,23 @@ body {
 
 .time-event {
   position: absolute;
-  left: 0;
-  right: 0;
   background-color: var(--primary-color);
   border-radius: var(--border-radius-sm);
   padding: var(--spacing-xs);
   font-size: var(--font-size-xs);
   overflow: hidden;
-  margin: 0 var(--spacing-xs);
+  margin: 0 1px;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  /* Add a subtle border to help distinguish adjacent events */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Add a subtle shadow for depth */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  /* Ensure events don't get too narrow */
+  min-width: 30px;
+  /* Add a transition for smooth width changes */
+  transition: left 0.2s, width 0.2s;
 }
 
 .time-event-content {
