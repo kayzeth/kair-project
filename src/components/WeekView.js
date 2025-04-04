@@ -181,12 +181,73 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
         
         try {
           const eventStart = typeof event.start === 'string' ? parseISO(event.start) : event.start;
-          const eventHour = eventStart.getHours();
-          return eventHour === i;
+          const eventEnd = typeof event.end === 'string' ? parseISO(event.end) : event.end;
+          
+          // Check if the event starts in this hour or spans this hour
+          const eventStartHour = eventStart.getHours();
+          const eventEndHour = eventEnd ? eventEnd.getHours() : eventStartHour + 1;
+          
+          // Event starts in this hour or spans this hour
+          return eventStartHour === i || 
+                 (eventStartHour < i && eventEndHour > i) ||
+                 (eventStartHour < i && eventEndHour === i && eventEnd.getMinutes() > 0);
         } catch (error) {
-          console.error('Error parsing event start time:', error, event);
+          console.error('Error parsing event time:', error, event);
           return false;
         }
+      });
+      
+      // Group overlapping events
+      const groupedEvents = [];
+      
+      // Sort events by start time
+      const sortedEvents = [...hourEvents].sort((a, b) => {
+        const aStart = typeof a.start === 'string' ? parseISO(a.start) : a.start;
+        const bStart = typeof b.start === 'string' ? parseISO(b.start) : b.start;
+        return aStart - bStart;
+      });
+      
+      // Group events that overlap in time
+      sortedEvents.forEach(event => {
+        const eventStart = typeof event.start === 'string' ? parseISO(event.start) : event.start;
+        const eventEnd = typeof event.end === 'string' ? parseISO(event.end) : event.end || new Date(eventStart.getTime() + 60 * 60 * 1000);
+        
+        // Find a group where this event overlaps with any event in the group
+        let foundGroup = false;
+        for (const group of groupedEvents) {
+          // Check if this event overlaps with any event in the group
+          const overlapsWithGroup = group.some(groupEvent => {
+            const groupEventStart = typeof groupEvent.start === 'string' ? parseISO(groupEvent.start) : groupEvent.start;
+            const groupEventEnd = typeof groupEvent.end === 'string' ? parseISO(groupEvent.end) : groupEvent.end || new Date(groupEventStart.getTime() + 60 * 60 * 1000);
+            
+            // Check for overlap: one event starts before the other ends
+            return (eventStart < groupEventEnd && eventEnd > groupEventStart);
+          });
+          
+          if (overlapsWithGroup) {
+            group.push(event);
+            foundGroup = true;
+            break;
+          }
+        }
+        
+        // If no overlapping group found, create a new group
+        if (!foundGroup) {
+          groupedEvents.push([event]);
+        }
+      });
+      
+      // Flatten groups and add position information
+      const positionedEvents = [];
+      groupedEvents.forEach(group => {
+        const groupSize = group.length;
+        group.forEach((event, index) => {
+          positionedEvents.push({
+            ...event,
+            groupSize,
+            groupIndex: index
+          });
+        });
       });
       
       hourSlots.push(
@@ -198,7 +259,7 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
             onAddEvent(newDate);
           }}
         >
-          {hourEvents.map(event => {
+          {positionedEvents.map(event => {
             try {
               // Create a stable reference to the event
               const stableEvent = event;
@@ -215,6 +276,8 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
                   style={{ 
                     backgroundColor: stableEvent.color || 'var(--primary-color)',
                     top: `${(eventStart.getMinutes() / 60) * 100}%`,
+                    left: stableEvent.groupSize > 1 ? `${(stableEvent.groupIndex / stableEvent.groupSize) * 90}%` : '0',
+                    width: stableEvent.groupSize > 1 ? `${(1 / stableEvent.groupSize) * 90}%` : '90%',
                     height: `${(() => {
                       try {
                         const eventEnd = typeof stableEvent.end === 'string' ? parseISO(stableEvent.end) : stableEvent.end;
