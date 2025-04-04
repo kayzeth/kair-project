@@ -1,16 +1,32 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarAlt, faUserCircle, faFileAlt } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarAlt, faUserCircle, faFileAlt, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 import logo2 from '../assets/images/logo2.png';
 import Tooltip from '../tooltip';
+import { useAuth } from '../context/AuthContext';
 
 const Header = ({ activeTab, onTabChange }) => {
+  // Always call hooks at the top level
+  const location = useLocation();
+  const navigate = useNavigate();
+  const auth = useAuth();
+
+  // Provide fallback values for testing environment
+  const isLoggedIn = auth?.isLoggedIn ?? false;
+  const logout = auth?.logout ?? (() => {});
+  const isLandingPage = location?.pathname === '/';
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   return (
     <header className="header" data-testid="header">
       <div className="logo-container">
         <Link 
-          to="/" 
+          to={isLoggedIn ? '/calendar' : '/'} 
           style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}
         >
           <img src={logo2} alt="Kairos Logo" className="logo" data-testid="header-logo" />
@@ -19,21 +35,30 @@ const Header = ({ activeTab, onTabChange }) => {
       </div>
 
       <div className="nav-links">
-        <Link to="/" className="nav-link" data-testid="header-nav-calendar">
-          <Tooltip text="Calendar">
-            <FontAwesomeIcon icon={faCalendarAlt} />
-          </Tooltip>
-        </Link>
-        <Link to="/syllabusParser" className="nav-link" data-testid="header-nav-syllabus">
-          <Tooltip text="Syllabus Parser">
-            <FontAwesomeIcon icon={faFileAlt} />
-          </Tooltip>
-        </Link>
-        <Link to="/account" className="nav-link" data-testid="header-nav-account">
-          <Tooltip text="Account">
-            <FontAwesomeIcon icon={faUserCircle} size="lg" />
-          </Tooltip>
-        </Link>
+        {!isLandingPage && (
+          <>
+            <Link to="/calendar" className="nav-link" data-testid="header-nav-calendar">
+              <Tooltip text="Calendar">
+                <FontAwesomeIcon icon={faCalendarAlt} />
+              </Tooltip>
+            </Link>
+            <Link to="/syllabusParser" className="nav-link" data-testid="header-nav-syllabus">
+              <Tooltip text="Syllabus Parser">
+                <FontAwesomeIcon icon={faFileAlt} />
+              </Tooltip>
+            </Link>
+            <Link to="/account" className="nav-link" data-testid="header-nav-account">
+              <Tooltip text="Account">
+                <FontAwesomeIcon icon={faUserCircle} size="lg" />
+              </Tooltip>
+            </Link>
+            <button onClick={handleLogout} className="nav-link logout-button" data-testid="header-nav-logout">
+              <Tooltip text="Log Out">
+                <FontAwesomeIcon icon={faSignOutAlt} />
+              </Tooltip>
+            </button>
+          </>
+        )}
       </div>
     </header>
   );
