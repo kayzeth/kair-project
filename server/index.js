@@ -4,24 +4,17 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const connectDB = require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// Connect to MongoDB
-connectDB();
 
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-canvas-domain', 'user-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-canvas-domain']
 }));
 app.use(express.json({ limit: '16mb' }));
-
-// Event routes
-app.use('/api/events', require('./routes/events'));
 
 // Proxy all Canvas API requests
 app.use('/api/canvas/*', async (req, res) => {

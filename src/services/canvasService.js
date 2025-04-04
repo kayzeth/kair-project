@@ -1,5 +1,3 @@
-import eventService from './eventService';
-
 const PROXY_URL = process.env.NODE_ENV === 'production' 
   ? '/api/canvas/'  // In production, use relative path
   : 'http://localhost:3001/api/canvas/';  // In development, use full URL
@@ -236,7 +234,6 @@ const canvasService = {
               assignmentId: assignment.id,
               points: assignment.points_possible,
               url: assignment.html_url,
-              eventType: 'assignment'
             }
           };
         });
@@ -267,8 +264,7 @@ const canvasService = {
             metadata: {
               courseId: event.context_code?.replace('course_', ''),
               eventId: event.id,
-              url: event.html_url,
-              eventType: 'class'
+              url: event.html_url
             }
           };
         });
@@ -283,28 +279,6 @@ const canvasService = {
       
       // Store all events in localStorage
       localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
-
-      // Also save Canvas events to MongoDB
-      try {
-        // Use a test user ID for now - you'll want to replace this with actual user authentication later
-        const testUserId = 'test-user-1';
-        await eventService.saveEvents(allCanvasEvents.map(event => ({
-          userId: testUserId,
-          title: event.title,
-          description: event.description,
-          startDate: event.start,
-          endDate: event.end,
-          canvasEventId: String(event.metadata.assignmentId || event.metadata.eventId),
-          courseId: event.metadata.courseId,
-          type: 'canvas',
-          color: event.color,
-          isCompleted: false
-        })), testUserId);
-        console.log('Successfully saved Canvas events to MongoDB');
-      } catch (error) {
-        console.error('Failed to save events to MongoDB:', error);
-        // Don't throw the error - we still want to keep the localStorage functionality working
-      }
 
       // Return the total number of events for display in the UI
       return allCanvasEvents.length;
