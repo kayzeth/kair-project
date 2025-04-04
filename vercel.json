@@ -14,6 +14,22 @@
   "routes": [
     { "handle": "filesystem" },
     {
+      "src": "/api/users/(.*)",
+      "dest": "server/index.js"
+    },
+    {
+      "src": "/api/events/(.*)",
+      "dest": "server/index.js"
+    },
+    {
+      "src": "/api/groups/(.*)",
+      "dest": "server/index.js"
+    },
+    {
+      "src": "/api/lmsintegration/(.*)",
+      "dest": "server/index.js"
+    },
+    {
       "src": "/api/canvas/(.*)",
       "dest": "server/index.js"
     },
