@@ -12,7 +12,10 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'https://kairos-public-project.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-canvas-domain']
@@ -21,6 +24,9 @@ app.use(express.json({ limit: '16mb' }));
 
 // Routes
 app.use('/api/users', require('./routes/users'));
+app.use('/api/events', require('./routes/events'));
+app.use('/api/groups', require('./routes/groups'));
+app.use('/api/lmsintegration', require('./routes/lmsintegration'));
 
 // Proxy all Canvas API requests
 app.use('/api/canvas/*', async (req, res) => {
