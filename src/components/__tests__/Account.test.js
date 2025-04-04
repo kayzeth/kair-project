@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Account from '../Account';
+// Import the real AuthContext to see its implementation
+import { useAuth, AuthProvider } from '../../context/AuthContext';
 
 // Mock the dependencies before importing them
 jest.mock('../../services/googleCalendarService');
@@ -19,6 +21,43 @@ import { isConfigured as isCanvasConfigured } from '../../config/canvasConfig';
 jest.mock('@fortawesome/react-fontawesome', () => ({
   FontAwesomeIcon: () => <div data-testid="mock-icon" />
 }));
+
+// Create AuthContext for testing
+const TestAuthContext = React.createContext(null);
+
+// Mock AuthContext provider
+const MockAuthProvider = ({ children }) => {
+  const mockAuthValue = {
+    user: { _id: 'test-user-id', email: 'test@example.com', name: 'Test User' },
+    isAuthenticated: true,
+    authToken: 'test-token',
+    login: jest.fn(),
+    logout: jest.fn()
+  };
+
+  return (
+    <TestAuthContext.Provider value={mockAuthValue}>
+      {children}
+    </TestAuthContext.Provider>
+  );
+};
+
+// Mock the useAuth hook to return our test values
+jest.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { _id: 'test-user-id', email: 'test@example.com', name: 'Test User' },
+    isAuthenticated: true,
+    authToken: 'test-token',
+    login: jest.fn(),
+    logout: jest.fn()
+  }),
+  AuthProvider: ({ children }) => <>{children}</>
+}));
+
+// Custom render function 
+const renderWithAuth = (ui) => {
+  return render(ui);
+};
 
 describe('Account Component', () => {
   beforeEach(() => {
@@ -45,7 +84,7 @@ describe('Account Component', () => {
 
   test('renders account title', async () => {
     await act(() => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     expect(screen.getByTestId('account-title')).toBeInTheDocument();
   });
@@ -53,21 +92,21 @@ describe('Account Component', () => {
   test('shows API credentials warning when not configured', async () => {
     isGoogleConfigured.mockReturnValue(false);
     await act(() => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     expect(screen.getByTestId('api-credentials-warning')).toBeInTheDocument(); // This is an error state message
   });
 
   test('initializes Google Calendar service on mount', async () => {
     await act(() => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     expect(googleCalendarService.initialize).toHaveBeenCalled();
   });
 
   test('shows sign-in button when not signed in', async () => {
     await act(() => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     expect(screen.getByTestId('google-sign-in-button')).toBeInTheDocument();
   });
@@ -98,7 +137,7 @@ describe('Account Component', () => {
 
     // Render component inside act to catch initial renders
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Trigger the sign-in callback inside act
@@ -123,7 +162,7 @@ describe('Account Component', () => {
 
   test('handles sign-in button click', async () => {
       await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Click the sign-in button
@@ -143,7 +182,7 @@ describe('Account Component', () => {
     });
 
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Click the sign-out button
@@ -170,7 +209,7 @@ describe('Account Component', () => {
   
     // Render the component within act
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Wait for the component to finish initializing
@@ -213,7 +252,7 @@ describe('Account Component', () => {
   
     // Render the component within act
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Wait for the component to finish initializing
@@ -251,7 +290,7 @@ describe('Account Component', () => {
     });
     
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Verify signed-out UI
@@ -303,7 +342,7 @@ describe('Canvas Integration', () => {
     });
 
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Form should be visible since we're not connected
@@ -322,7 +361,7 @@ describe('Canvas Integration', () => {
     // Mock successful connection
     canvasService.testConnection.mockResolvedValue(true);
     
-    render(<Account />);
+    renderWithAuth(<Account />);
     
     // Fill in the form
     const tokenInput = screen.getByTestId('account-canvas-token-input');
@@ -353,7 +392,7 @@ describe('Canvas Integration', () => {
     canvasService.testConnection.mockRejectedValue(new Error('Invalid token'));
     
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Fill in the form
@@ -385,7 +424,7 @@ describe('Canvas Integration', () => {
     });
     
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Click disconnect button
@@ -410,7 +449,7 @@ describe('Canvas Integration', () => {
     canvasService.syncWithCalendar.mockResolvedValue(5);
     
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Click sync button
@@ -436,7 +475,7 @@ describe('Canvas Integration', () => {
     canvasService.syncWithCalendar.mockRejectedValue(new Error('Sync failed'));
     
     await act(async () => {
-      render(<Account />);
+      renderWithAuth(<Account />);
     });
     
     // Click sync button

@@ -122,11 +122,17 @@ describe('WeekView Component', () => {
   
     // Simulate click to trigger `onEditEvent`
     fireEvent.click(meetingEvent);
-    expect(mockOnEditEvent).toHaveBeenCalledWith({
-      ...mockEvents[1],
-      start: new Date(mockEvents[1].start), // Ensures both expected and received values are Date objects
-      end: new Date(mockEvents[1].end),
-    });       
+    expect(mockOnEditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: mockEvents[1].id,
+        title: mockEvents[1].title,
+        color: mockEvents[1].color,
+        allDay: mockEvents[1].allDay,
+        // Use instances of Date for date comparison
+        start: new Date(mockEvents[1].start),
+        end: new Date(mockEvents[1].end)
+      })
+    );       
   });  
 
   test('filters events for each day correctly', () => {

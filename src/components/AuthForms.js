@@ -16,8 +16,9 @@ export const LoginForm = () => {
     setError('');
     
     try {
-      await authService.login({ email, password });
-      authLogin(); // Update auth context
+      const response = await authService.login({ email, password });
+      // Store user data and token in auth context
+      authLogin(response.user, response.token);
       navigate('/calendar');
     } catch (error) {
       setError(error.message);
@@ -68,8 +69,9 @@ export const SignupForm = () => {
     try {
       await authService.register({ name, email, password });
       // Auto-login after successful registration
-      await authService.login({ email, password });
-      authLogin(); // Update auth context
+      const loginResponse = await authService.login({ email, password });
+      // Store user data and token in auth context
+      authLogin(loginResponse.user, loginResponse.token);
       navigate('/calendar');
     } catch (error) {
       setError(error.message);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faTrashAlt, faClock, faAlignLeft, faBookOpen, faChevronDown, faMinus } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faTrashAlt, faClock, faAlignLeft, faBookOpen, faChevronDown, faMinus, faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
 import '../styles/EventModal.css';
 
 const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, event, selectedDate = new Date() }) => {
@@ -264,7 +264,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 </div>
               </div>
             </div>
-            {/* <div className="form-group form-group-flex form-group-border-top">
+            <div className="form-group form-group-flex">
               <div className="form-icon">
                 <FontAwesomeIcon icon={faMapMarkerAlt} />
               </div>
@@ -278,7 +278,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 onChange={handleChange}
                 placeholder="Add location"
               />
-            </div> */}
+            </div>
             <div className="form-group form-group-flex">
               <div className="form-icon">
                 <FontAwesomeIcon icon={faAlignLeft} />
