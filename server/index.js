@@ -14,12 +14,20 @@ connectDB();
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://kairos-public-project.vercel.app'
+    'http://localhost:3002', // Adding another possible dev port
+    'https://kairos-public-project.vercel.app',
+    'https://*.vercel.app' // Support all Vercel preview deployments
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-canvas-domain']
 }));
+
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
 app.use(express.json({ limit: '16mb' }));
 
 // Routes

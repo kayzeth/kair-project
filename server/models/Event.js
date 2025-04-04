@@ -9,7 +9,7 @@ const eventSchema = new mongoose.Schema({
   group_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group',
-    required: true
+    required: false // Changed to false to make it optional
   },
   title: {
     type: String,
@@ -29,7 +29,7 @@ const eventSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['LMS', 'GOOGLE_CALENDAR', 'SYLLABUS', 'PARSER'],
+    enum: ['LMS', 'GOOGLE_CALENDAR', 'SYLLABUS'],
     required: true
   },
   description: {
@@ -47,6 +47,14 @@ const eventSchema = new mongoose.Schema({
   requires_hours: {
     type: Number,
     default: 0
+  },
+  color: {
+    type: String,
+    default: '#d2b48c'
+  },
+  google_event_id: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

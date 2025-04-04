@@ -3,12 +3,15 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import googleCalendarService from '../services/googleCalendarService';
+import { storeGoogleEventsInDb } from '../services/googleCalendarDbService';
 import canvasService from '../services/canvasService';
+import { useAuth } from '../context/AuthContext';
 import { isConfigured } from '../config/googleCalendarConfig';
 import { isConfigured as isCanvasConfigured } from '../config/canvasConfig';
 import ApiKeyInput from './ApiKeyInput';
 
 const Account = () => {
+  const { user: authUser } = useAuth();
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', message: '' });
@@ -120,16 +123,41 @@ const Account = () => {
       const importedEvents = await googleCalendarService.importEvents(oneMonthAgo, oneMonthFromNow);
       console.log(`Imported ${importedEvents.length} events from Google Calendar`);
       
-      // Here you would typically:  
-      // 1. Get all local events
-      // 2. Compare with imported events to avoid duplicates
-      // 3. Add new Google events to local storage
-      // 4. Export local events that don't exist in Google Calendar
-      
-      setSyncStatus({
-        status: 'success',
-        message: `Successfully synced with Google Calendar. Imported ${importedEvents.length} events.`
-      });
+      // Store imported events in MongoDB
+      if (importedEvents.length > 0 && authUser?.id) {
+        try {
+          setSyncStatus({ 
+            status: 'loading', 
+            message: 'Storing events in database...' 
+          });
+          
+          const dbResults = await storeGoogleEventsInDb(importedEvents, authUser.id);
+          
+          console.log(`Database sync results:`);
+          console.log(`- Added: ${dbResults.imported} events`);
+          console.log(`- Updated: ${dbResults.updated} events`);
+          console.log(`- Errors: ${dbResults.errors.length} events`);
+          
+          // Trigger an update to refresh the calendar
+          window.dispatchEvent(new Event('calendarEventsUpdated'));
+          
+          setSyncStatus({
+            status: 'success',
+            message: `Successfully synced with Google Calendar. Imported ${importedEvents.length} events. Added ${dbResults.imported} to database, updated ${dbResults.updated}.`
+          });
+        } catch (dbError) {
+          console.error('Error storing events in database:', dbError);
+          setSyncStatus({
+            status: 'warning',
+            message: `Imported ${importedEvents.length} events from Google Calendar, but failed to store in database.`
+          });
+        }
+      } else {
+        setSyncStatus({
+          status: 'success',
+          message: `Successfully synced with Google Calendar. No new events to import.`
+        });
+      }
       
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
