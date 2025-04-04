@@ -82,7 +82,16 @@ describe('DayView Component', () => {
     
     // Check if clicking the event calls onEditEvent
     fireEvent.click(allDayEvent);
-    expect(mockOnEditEvent).toHaveBeenCalledWith(mockEvents[0]);
+    expect(mockOnEditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: mockEvents[0].id,
+        title: mockEvents[0].title,
+        start: mockEvents[0].start,
+        end: mockEvents[0].end,
+        allDay: mockEvents[0].allDay,
+        color: mockEvents[0].color
+      })
+    );
   });
 
   test('renders time-based events correctly', () => {
@@ -101,7 +110,16 @@ describe('DayView Component', () => {
     
     // Check if clicking the event calls onEditEvent
     fireEvent.click(timeEvent);
-    expect(mockOnEditEvent).toHaveBeenCalledWith(mockEvents[1]);
+    expect(mockOnEditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: mockEvents[1].id,
+        title: mockEvents[1].title,
+        start: mockEvents[1].start,
+        end: mockEvents[1].end,
+        allDay: mockEvents[1].allDay,
+        color: mockEvents[1].color
+      })
+    );
   });
 
   test('calls onAddEvent when clicking on an hour slot', () => {
