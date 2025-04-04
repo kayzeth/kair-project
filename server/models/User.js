@@ -13,17 +13,16 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   password_hash: {
     type: String,
     required: true
   }
 }, {
-  timestamps: true // Adds createdAt and updatedAt fields
+  timestamps: true
 });
 
-// Pre-save middleware to hash password
+// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password_hash')) return next();
   
@@ -38,9 +37,12 @@ userSchema.pre('save', async function(next) {
 
 // Method to compare password for login
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password_hash);
+  try {
+    return await bcrypt.compare(candidatePassword, this.password_hash);
+  } catch (error) {
+    throw error;
+  }
 };
 
 const User = mongoose.model('User', userSchema);
-
 module.exports = User;
