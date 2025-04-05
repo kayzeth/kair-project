@@ -11,13 +11,14 @@ import StudySuggestions from './StudySuggestions';
 import googleCalendarService from '../services/googleCalendarService';
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
+import eventService from '../services/eventService'; 
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
-const Calendar = ({ initialEvents = [] }) => {
+const Calendar = ({ initialEvents = [], userId }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month'); // 'month', 'week', or 'day'
-  const [events, setEvents] = useState([]); // Start with empty array, load from localStorage
+  const [events, setEvents] = useState([]); // Start with empty array, load from API
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -29,80 +30,50 @@ const Calendar = ({ initialEvents = [] }) => {
   const [viewDate, setViewDate] = useState(new Date());
   const [studySuggestions, setStudySuggestions] = useState([]);
   const [showStudySuggestions, setShowStudySuggestions] = useState(false);
+  const [loading, setLoading] = useState(true); 
 
-  // Calculate the appropriate view date based on the calendar view type
   useEffect(() => {
     let newViewDate;
     
     if (view === 'day') {
-      // For day view, use the current date directly
       newViewDate = currentDate;
     } else if (view === 'week') {
-      // For week view, use the first day of the week
       newViewDate = startOfWeek(currentDate);
     } else {
-      // For month view, use the first day of the month
       newViewDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     }
     
     setViewDate(newViewDate);
   }, [currentDate, view]);
 
-  // Load events from localStorage when component mounts or when events are updated
-  const loadEvents = useCallback(() => {
-    const savedEvents = localStorage.getItem('calendarEvents');
-    if (savedEvents) {
-      try {
-        const parsedEvents = JSON.parse(savedEvents);
-        // Convert date strings back to Date objects for events
-        const eventsWithDates = parsedEvents.map(event => ({
-          ...event,
-          start: new Date(event.start),
-          end: new Date(event.end)
-        }));
-        console.log('Loaded events from localStorage:', eventsWithDates.length);
-        setEvents(eventsWithDates);
-      } catch (error) {
-        console.error('Error loading events from localStorage:', error);
-      }
+  const loadEvents = useCallback(async () => {
+    if (!userId) {
+      console.log('No userId provided, cannot load events');
+      setLoading(false);
+      return;
     }
-  }, []);
-
-  // Handle initialEvents prop
-  useEffect(() => {
-    if (initialEvents && initialEvents.length > 0) {
-      console.log('Received initialEvents:', initialEvents.length);
-      // Combine with existing events from localStorage
-      loadEvents();
-      setEvents(prevEvents => {
-        const combinedEvents = [...prevEvents, ...initialEvents];
-        // Save combined events to localStorage
-        try {
-          localStorage.setItem('calendarEvents', JSON.stringify(combinedEvents));
-          console.log('Saved combined events to localStorage:', combinedEvents.length);
-        } catch (error) {
-          console.error('Error saving combined events to localStorage:', error);
-        }
-        return combinedEvents;
-      });
+    
+    try {
+      setLoading(true);
+      const userEvents = await eventService.getUserEvents(userId);
+      console.log('Loaded events from API:', userEvents.length);
+      setEvents(userEvents);
+    } catch (error) {
+      console.error('Error loading events from API:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [initialEvents, loadEvents]);
+  }, [userId]);
 
-  // Load events from localStorage on component mount
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
 
-  // Only save events to localStorage when they are explicitly updated through setEvents
-  const updateEvents = useCallback((newEvents) => {
-    setEvents(newEvents);
-    try {
-      localStorage.setItem('calendarEvents', JSON.stringify(newEvents));
-      console.log('Saved events to localStorage:', newEvents.length);
-    } catch (error) {
-      console.error('Error saving events to localStorage:', error);
+  useEffect(() => {
+    if (initialEvents && initialEvents.length > 0 && userId) {
+      console.log('Received initialEvents:', initialEvents.length);
     }
-  }, []);
+  }, [initialEvents, userId]);
 
   const nextHandler = () => {
     if (view === 'month') {
@@ -139,95 +110,64 @@ const Calendar = ({ initialEvents = [] }) => {
     setSelectedEvent(null);
   };
 
-  // Google Calendar cache state
-  const [googleCalendarCache, setGoogleCalendarCache] = useState({
-    startDate: null,
-    endDate: null,
-    lastFetched: null
-  });
-
-  const importGoogleCalendarEvents = useCallback(async (forceRefresh = false) => {
+  const checkGoogleCalendarConnection = useCallback(async () => {
     try {
-      setSyncStatus({ status: 'loading', message: 'Importing events from Google Calendar...' });
+      const isConnected = await googleCalendarService.isConnected();
       
-      // Use viewDate as the reference point instead of currentDate
-      // viewDate is calculated based on the calendar view type
-      const oneYearAgo = new Date(viewDate.getFullYear() - 1, viewDate.getMonth(), viewDate.getDate());
-      const oneYearFromNow = new Date(viewDate.getFullYear() + 1, viewDate.getMonth(), viewDate.getDate());
-      
-      let googleEvents = [];
-      
-      // Check if the current view date is within our cached range and if the cache is still valid
-      const isCacheValid = googleCalendarCache.startDate && googleCalendarCache.endDate && 
-        viewDate >= googleCalendarCache.startDate && viewDate <= googleCalendarCache.endDate &&
-        googleCalendarCache.lastFetched && 
-        (new Date() - googleCalendarCache.lastFetched < 24 * 60 * 60 * 1000); // Cache valid for 24 hours
-      
-      if (!isCacheValid || forceRefresh) {
-        // Cache is invalid or forced refresh, fetch new data
-        googleEvents = await googleCalendarService.importEvents(oneYearAgo, oneYearFromNow);
+      if (isConnected) {
+        const now = new Date();
+        const cachedData = localStorage.getItem('googleCalendarCache');
+        let shouldFetch = true;
         
-        // Update the cache
-        setGoogleCalendarCache({
-          startDate: oneYearAgo,
-          endDate: oneYearFromNow,
-          lastFetched: new Date()
-        });
-        
-        // Get current events from localStorage to ensure we have the latest state
-        const savedEvents = localStorage.getItem('calendarEvents');
-        let currentEvents = events; // Default to current state
-        
-        if (savedEvents) {
-          try {
-            const parsedEvents = JSON.parse(savedEvents);
-            currentEvents = parsedEvents.map(event => ({
-              ...event,
-              start: new Date(event.start),
-              end: new Date(event.end)
-            }));
-          } catch (error) {
-            console.error('Error parsing events from localStorage:', error);
-          }
+        if (cachedData) {
+          const cache = JSON.parse(cachedData);
+          const lastFetched = new Date(cache.lastFetched);
+          const hoursSinceLastFetch = (now - lastFetched) / (1000 * 60 * 60);
+          
+          shouldFetch = hoursSinceLastFetch > 1;
         }
         
-        // Keep all non-Google events (Canvas and custom events)
-        const nonGoogleEvents = currentEvents.filter(event => event.type !== 'google');
-        
-        // Add the new Google events
-        const updatedEvents = [...nonGoogleEvents, ...googleEvents];
-        
-        // Update state and localStorage
-        updateEvents(updatedEvents);
-        
-        setSyncStatus({ 
-          status: 'success', 
-          message: `Successfully imported ${googleEvents.length} events from Google Calendar` 
-        });
-      } else {
-        // Cache is valid, no need to fetch
-        setSyncStatus({ 
-          status: 'success', 
-          message: 'Calendar is up to date with Google Calendar' 
-        });
+        if (shouldFetch) {
+          setSyncStatus({ status: 'loading', message: 'Syncing with Google Calendar...' });
+          
+          const googleEvents = await googleCalendarService.getEvents();
+          
+          localStorage.setItem('googleCalendarCache', JSON.stringify({
+            lastFetched: new Date()
+          }));
+          
+          const savedEvents = await eventService.getUserEvents(userId);
+          let currentEvents = savedEvents; 
+          
+          const nonGoogleEvents = currentEvents.filter(event => event.type !== 'google');
+          
+          const updatedEvents = [...nonGoogleEvents, ...googleEvents];
+          
+          setEvents(updatedEvents);
+          
+          setSyncStatus({ 
+            status: 'success', 
+            message: `Synced ${googleEvents.length} events from Google Calendar` 
+          });
+          
+          setTimeout(() => {
+            setSyncStatus({ status: 'idle', message: '' });
+          }, 3000);
+        }
       }
-      
-      setTimeout(() => {
-        setSyncStatus({ status: 'idle', message: '' });
-      }, 3000);
-        
     } catch (error) {
-      console.error('Error importing Google Calendar events:', error);
+      console.error('Error checking Google Calendar connection:', error);
+      
       setSyncStatus({ 
         status: 'error', 
-        message: 'Failed to import events from Google Calendar' 
+        message: 'Error syncing with Google Calendar' 
       });
-        
+      
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
     }
-  }, [events, updateEvents, setSyncStatus, viewDate, googleCalendarCache]);
+  }, [setSyncStatus, viewDate, userId]);
 
   useEffect(() => {
     const checkGoogleCalendarConnection = async () => {
@@ -241,7 +181,7 @@ const Calendar = ({ initialEvents = [] }) => {
         });
         
         if (isSignedIn) {
-          importGoogleCalendarEvents();
+          checkGoogleCalendarConnection();
         }
       } catch (error) {
         console.error('Error checking Google Calendar connection:', error);
@@ -249,9 +189,8 @@ const Calendar = ({ initialEvents = [] }) => {
     };
     
     checkGoogleCalendarConnection();
-  }, [importGoogleCalendarEvents]);
+  }, [checkGoogleCalendarConnection]);
 
-  // Check for dismissed events that should be reminded again
   useEffect(() => {
     const checkDismissedEvents = () => {
       const now = new Date().getTime();
@@ -270,10 +209,8 @@ const Calendar = ({ initialEvents = [] }) => {
       }
     };
 
-    // Check every minute
     const intervalId = setInterval(checkDismissedEvents, 60000);
     
-    // Initial check
     checkDismissedEvents();
     
     return () => clearInterval(intervalId);
@@ -281,7 +218,6 @@ const Calendar = ({ initialEvents = [] }) => {
 
   useEffect(() => {
     const studyPlan = nudgerService.getStudyPlan(events);
-    // Filter events needing preparation that haven't been dismissed
     const pendingEvents = studyPlan.events.filter(event => 
       event.needsPreparationInput && 
       !dismissedEvents[event.id]
@@ -298,7 +234,6 @@ const Calendar = ({ initialEvents = [] }) => {
     console.log('[KAIR-15] Nudger study plan updated:', studyPlan);
   }, [events, showModal, dismissedEvents]);
 
-  // Manually trigger study suggestions for an event
   const triggerStudySuggestions = async (event) => {
     if (event && event.requiresPreparation && event.preparationHours) {
       await generateStudySuggestions(
@@ -310,185 +245,118 @@ const Calendar = ({ initialEvents = [] }) => {
   };
 
   const saveEvent = async (eventData) => {
-    const { id: _, ...cleanEventData } = eventData;
-
     try {
-      let updatedEvent = null;
+      console.log('Saving event with data:', eventData);
+      console.log('Current user ID:', userId);
       
-      if (selectedEvent) {
-        // Check if preparation hours were added or changed
-        const preparationHoursChanged = 
-          (selectedEvent.preparationHours !== cleanEventData.preparationHours) && 
-          cleanEventData.requiresPreparation && 
-          cleanEventData.preparationHours;
+      let savedEvent;
+      
+      if (eventData.id) {
+        console.log('Updating existing event with ID:', eventData.id);
+        savedEvent = await eventService.updateEvent(eventData.id, eventData);
         
-        const updatedEvents = events.map(event => 
-          event.id === selectedEvent.id ? { 
-            ...cleanEventData, 
-            ...eventData,
-            // For all-day events, ensure we're using the date string directly to avoid timezone issues
-            // For time-specific events, create a proper datetime string
-            start: cleanEventData.allDay ? cleanEventData.start : `${cleanEventData.start}T${cleanEventData.startTime}`,
-            end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`,
-            // Store the original date strings to ensure consistent display
-            startDate: cleanEventData.start,
-            endDate: cleanEventData.end
-          } : event
+        // Update events state
+        setEvents(prevEvents => 
+          prevEvents.map(event => 
+            event.id === savedEvent.id ? savedEvent : event
+          )
         );
-        updateEvents(updatedEvents);
         
-        // Get the updated event for study suggestions
-        if (preparationHoursChanged) {
-          updatedEvent = updatedEvents.find(event => event.id === selectedEvent.id);
-        }
-        
-        if (isGoogleCalendarConnected && selectedEvent.googleEventId) {
-          try {
-            await googleCalendarService.updateEvent({
-              ...cleanEventData,
-              googleEventId: selectedEvent.googleEventId,
-              start: cleanEventData.allDay ? cleanEventData.start : `${cleanEventData.start}T${cleanEventData.startTime}`,
-              end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`
-            });
-          } catch (error) {
-            console.error('Error updating event in Google Calendar:', error);
-          }
-        }
+        console.log('Updated event:', savedEvent);
       } else {
-        const newEvent = {
-          id: Date.now().toString(),
-          ...cleanEventData,
-          // For all-day events, ensure we're using the date string directly to avoid timezone issues
-          // For time-specific events, create a proper datetime string
-          start: cleanEventData.allDay ? cleanEventData.start : `${cleanEventData.start}T${cleanEventData.startTime}`,
-          end: cleanEventData.allDay ? cleanEventData.end : `${cleanEventData.end}T${cleanEventData.endTime}`,
-          // Store the original date strings to ensure consistent display
-          startDate: cleanEventData.start,
-          endDate: cleanEventData.end
-        };
+        console.log('Creating new event');
+        savedEvent = await eventService.createEvent(eventData, userId);
         
-        if (isGoogleCalendarConnected) {
-          try {
-            const googleEvent = await googleCalendarService.exportEvent(newEvent);
-            newEvent.googleEventId = googleEvent.id;
-            newEvent.source = 'google';
-          } catch (error) {
-            console.error('Error creating event in Google Calendar:', error);
-          }
-        }
+        // Add to events state
+        setEvents(prevEvents => [...prevEvents, savedEvent]);
         
-        updateEvents([...events, newEvent]);
-        
-        // Check if the new event requires preparation and has preparation hours
-        if (newEvent.requiresPreparation && newEvent.preparationHours) {
-          updatedEvent = newEvent;
-        }
-        
-        setTimeout(() => {
-          const singleEventStudyPlan = nudgerService.getStudyPlan([newEvent]);
-          if (singleEventStudyPlan.eventCount > 0) {
-            console.log('[KAIR-15] New event may require study time:', singleEventStudyPlan.events[0]);
-          }
-        }, 0);
+        console.log('Created new event:', savedEvent);
       }
       
-      // Generate study suggestions if preparation hours were added or changed
-      if (updatedEvent && updatedEvent.preparationHours) {
-        // Check if the event is within 8 days
-        const eventDate = new Date(updatedEvent.start instanceof Date ? updatedEvent.start : updatedEvent.start);
-        const now = new Date();
-        const daysUntilEvent = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
+      // Close the modal
+      setShowModal(false);
+      
+      // Check if the event requires preparation
+      if (savedEvent.requiresPreparation && !savedEvent.preparationHours) {
+        // Add to events needing preparation
+        setEventsNeedingPreparation(prev => {
+          // Check if this event is already in the list
+          if (!prev.some(e => e.id === savedEvent.id)) {
+            return [...prev, savedEvent];
+          }
+          return prev;
+        });
         
-        console.log(`Event is ${daysUntilEvent} days away`);
-        
-        if (daysUntilEvent <= 8) {
-          // Event is within 8 days, show study suggestions now
-          closeModal();
-          setTimeout(() => {
-            generateStudySuggestions(
-              events, 
-              updatedEvent, 
-              parseFloat(updatedEvent.preparationHours)
-            );
-          }, 500); // Short delay to ensure the modal is closed first
-        } else {
-          // Event is more than 8 days away, don't show study suggestions yet
-          console.log('Event is more than 8 days away, not showing study suggestions yet');
-          closeModal();
+        // Show preparation prompt if not already showing
+        if (!showPreparationPrompt) {
+          setShowPreparationPrompt(true);
         }
-        return; // Skip the normal closeModal call since we're handling it separately
       }
+      
+      return savedEvent;
     } catch (error) {
       console.error('Error saving event:', error);
+      // You might want to show an error message to the user here
+      return null;
     }
-    
-    closeModal();
+  };
+
+  const deleteEvent = async (id) => {
+    try {
+      await eventService.deleteEvent(id);
+      
+      setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
+      
+      setShowModal(false);
+      
+      console.log('Event deleted successfully:', id);
+    } catch (error) {
+      console.error('Error deleting event:', error);
+    }
   };
 
   const savePreparationHours = async (eventId, hours) => {
-    // Update the event with preparation hours
-    const updatedEvents = events.map(event => {
-      if (event.id === eventId) {
-        return {
-          ...event,
-          preparationHours: hours.toString(),
-          requiresPreparation: true,
-          needsPreparationInput: false
-        };
-      }
-      return event;
-    });
-    
-    updateEvents(updatedEvents);
-    
-    // Find the updated event
-    const updatedEvent = updatedEvents.find(event => event.id === eventId);
-    
-    // Show success message
-    setSyncStatus({
-      status: 'success',
-      message: `Added ${hours} preparation hours to event`
-    });
-    
-    // Clear the status after 3 seconds
-    setTimeout(() => {
-      setSyncStatus({ status: 'idle', message: '' });
-    }, 3000);
-    
-    // Generate study suggestions for this event
-    if (updatedEvent) {
-      // Check if the event is within 8 days
-      const eventDate = new Date(updatedEvent.start instanceof Date ? updatedEvent.start : updatedEvent.start);
-      const now = new Date();
-      const daysUntilEvent = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
+    try {
+      const eventToUpdate = events.find(event => event.id === eventId);
       
-      console.log(`Event is ${daysUntilEvent} days away`);
-      
-      if (daysUntilEvent <= 8) {
-        // Event is within 8 days, show study suggestions now
-        await generateStudySuggestions(updatedEvents, updatedEvent, hours);
-      } else {
-        // Event is more than 8 days away, don't show study suggestions yet
-        console.log('Event is more than 8 days away, not showing study suggestions yet');
-        setSyncStatus({
-          status: 'info',
-          message: `Added ${hours} preparation hours. Study suggestions will be available 8 days before the event.`
-        });
+      if (!eventToUpdate) {
+        console.error('Event not found:', eventId);
+        return;
       }
-    }
-    
-    // Remove the event from the list of events needing preparation
-    setEventsNeedingPreparation(prev => prev.filter(event => event.id !== eventId));
-    
-    // If no more events need preparation, close the prompt
-    if (eventsNeedingPreparation.length <= 1) {
-      setShowPreparationPrompt(false);
+      
+      const updatedEvent = {
+        ...eventToUpdate,
+        preparationHours: hours
+      };
+      
+      const savedEvent = await eventService.updateEvent(eventId, updatedEvent);
+      
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === savedEvent.id ? savedEvent : event
+        )
+      );
+      
+      setEventsNeedingPreparation(prev => 
+        prev.filter(event => event.id !== eventId)
+      );
+      
+      if (eventsNeedingPreparation.length <= 1) {
+        setShowPreparationPrompt(false);
+      }
+      
+      if (hours > 0) {
+        await generateStudySuggestions(events, savedEvent, hours);
+      }
+      
+      return savedEvent;
+    } catch (error) {
+      console.error('Error saving preparation hours:', error);
+      return null;
     }
   };
-  
-  // Generate study suggestions for an event
+
   const generateStudySuggestions = async (allEvents, event, preparationHours) => {
-    // Show loading status
     setSyncStatus({
       status: 'loading',
       message: 'Generating smart study suggestions...'
@@ -505,13 +373,11 @@ const Calendar = ({ initialEvents = [] }) => {
         setStudySuggestions(suggestions);
         setShowStudySuggestions(true);
         
-        // Show success message
         setSyncStatus({
           status: 'success',
           message: `Generated ${suggestions.length} study suggestions`
         });
       } else {
-        // Show message if no suggestions could be generated
         setSyncStatus({
           status: 'info',
           message: 'Could not generate study suggestions. Try adjusting preparation hours.'
@@ -525,136 +391,47 @@ const Calendar = ({ initialEvents = [] }) => {
       });
     }
     
-    // Clear status after 3 seconds
     setTimeout(() => {
       setSyncStatus({ status: 'idle', message: '' });
     }, 3000);
   };
 
-  // Handle accepting study suggestions
-  const handleAcceptStudySuggestions = (acceptedSuggestions) => {
-    // Create calendar events from the suggestions
-    const studyEvents = acceptedSuggestions.map((suggestion, index) => {
-      const { event, suggestedStartTime, suggestedEndTime, message } = suggestion;
+  const handleAcceptStudySuggestions = async (acceptedSuggestions) => {
+    try {
+      console.log('Accepted study suggestions:', acceptedSuggestions);
       
-      // Format dates to match how regular events are stored
-      // Use the exact Date objects from the suggestions to ensure consistency
-      const startDate = format(suggestedStartTime, 'yyyy-MM-dd');
-      const startTime = format(suggestedStartTime, 'HH:mm');
-      const endDate = format(suggestedEndTime, 'yyyy-MM-dd');
-      const endTime = format(suggestedEndTime, 'HH:mm');
+      const createdEvents = [];
       
-      // Create a new event with the same structure as regular events
-      // Use a unique timestamp for each study session
-      const uniqueId = Date.now() + index;
+      for (const suggestion of acceptedSuggestions) {
+        const eventData = {
+          title: suggestion.title,
+          start: suggestion.start,
+          end: suggestion.end,
+          allDay: false,
+          description: suggestion.description || '',
+          location: '',
+          color: '#6a4c93', 
+          requiresPreparation: false
+        };
+        
+        const savedEvent = await eventService.createEvent(eventData, userId);
+        createdEvents.push(savedEvent);
+      }
       
-      return {
-        id: `study-${uniqueId}`,
-        title: message,
-        description: `Study session for ${event.title}`,
-        location: '',
-        start: suggestedStartTime, // Use the exact Date object
-        end: suggestedEndTime, // Use the exact Date object
-        startDate,
-        endDate,
-        startTime,
-        endTime,
-        allDay: false,
-        color: '#4287f5', // Blue color for study events
-        relatedEventId: event.id,
-        relatedEventTitle: event.title,
-        type: 'study',
-        isStudySession: true,
-        requiresPreparation: false,
-        // Add a unique batch ID to identify which sessions were added together
-        // but still allow them to be deleted individually
-        studyBatchId: `batch-${Date.now()}`
-      };
-    });
-    
-    // Add the study events to the calendar one by one
-    let updatedEvents = [...events];
-    
-    // Add each study event individually to ensure they have separate entries
-    studyEvents.forEach(studyEvent => {
-      updatedEvents = [...updatedEvents, studyEvent];
-    });
-    
-    updateEvents(updatedEvents);
-    
-    // Show success message
-    setSyncStatus({
-      status: 'success',
-      message: `Added ${acceptedSuggestions.length} study sessions to your calendar`
-    });
-    
-    // Clear the status after 3 seconds
-    setTimeout(() => {
-      setSyncStatus({ status: 'idle', message: '' });
-    }, 3000);
+      setEvents(prevEvents => [...prevEvents, ...createdEvents]);
+      
+      setShowStudySuggestions(false);
+      setStudySuggestions([]);
+      
+      console.log('Created study session events:', createdEvents.length);
+    } catch (error) {
+      console.error('Error creating study session events:', error);
+    }
   };
 
   const handleRejectStudySuggestions = () => {
     setShowStudySuggestions(false);
     setStudySuggestions([]);
-  };
-
-  const deleteEvent = async (id) => {
-    const eventToDelete = events.find(event => event.id === id);
-    
-    if (!eventToDelete) {
-      console.error('Event not found for deletion:', id);
-      return;
-    }
-    
-    console.log('Deleting event:', eventToDelete);
-    
-    // If this is a regular event, check if it has related study sessions
-    if (!eventToDelete.isStudySession && eventToDelete.requiresPreparation) {
-      // Get all study sessions related to this event
-      const relatedStudySessions = events.filter(
-        event => event.isStudySession && event.relatedEventId === eventToDelete.id
-      );
-      
-      if (relatedStudySessions.length > 0) {
-        console.log(`Deleting ${relatedStudySessions.length} related study sessions`);
-        
-        // Remove the main event and all its related study sessions
-        updateEvents(events.filter(event => 
-          event.id !== id && !(event.isStudySession && event.relatedEventId === eventToDelete.id)
-        ));
-      } else {
-        // Just remove the main event
-        updateEvents(events.filter(event => event.id !== id));
-      }
-    } else {
-      // This is either a study session or a regular event without study sessions
-      // Only remove this specific event by its unique ID
-      updateEvents(events.filter(event => event.id !== id));
-    }
-    
-    // If it's a Google Calendar event, delete it from Google Calendar as well
-    if (isGoogleCalendarConnected && eventToDelete && eventToDelete.googleEventId) {
-      try {
-        await googleCalendarService.deleteEvent(eventToDelete);
-      } catch (error) {
-        console.error('Error deleting event from Google Calendar:', error);
-      }
-    }
-    
-    // Show success message for study events
-    if (eventToDelete && eventToDelete.isStudySession) {
-      setSyncStatus({
-        status: 'success',
-        message: 'Study session removed from calendar'
-      });
-      
-      setTimeout(() => {
-        setSyncStatus({ status: 'idle', message: '' });
-      }, 3000);
-    }
-    
-    closeModal();
   };
 
   const editEvent = (event) => {
@@ -663,7 +440,6 @@ const Calendar = ({ initialEvents = [] }) => {
   };
 
   const dismissPreparationPrompt = (eventId) => {
-    // Set a reminder for 3 hours from now
     const reminderTime = new Date().getTime() + (3 * 60 * 60 * 1000);
     
     setDismissedEvents(prev => ({

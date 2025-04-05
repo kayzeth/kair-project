@@ -123,51 +123,80 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // For preparation hours, ensure it's a positive number or empty
-    if (name === 'preparationHours') {
-      // Allow empty string or positive numbers
-      if (value === '' || (Number(value) >= 0 && !isNaN(Number(value)))) {
-        setFormData({
-          ...formData,
-          [name]: value
-        });
-      }
-      return;
+    if (type === 'checkbox') {
+      setFormData({
+        ...formData,
+        [name]: checked
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
     }
-    
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
-    });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Manually check if required fields are empty
+    console.log('Form data before submission:', formData);
+    
+    // Validate required fields
     if (!formData.title.trim()) {
+      console.log('Title is required');
       return; // Stop submission if title is empty
     }
-  
-    onSave({
+    
+    // Format dates properly for submission
+    let startDateTime, endDateTime;
+    
+    if (formData.allDay) {
+      // For all-day events, use the date without time
+      startDateTime = new Date(formData.start);
+      startDateTime.setHours(0, 0, 0, 0);
+      
+      endDateTime = new Date(formData.end);
+      endDateTime.setHours(23, 59, 59, 999);
+    } else {
+      // For time-specific events, combine date and time
+      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+      const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
+      
+      startDateTime = new Date(formData.start);
+      startDateTime.setHours(startHours, startMinutes, 0, 0);
+      
+      endDateTime = new Date(formData.end);
+      endDateTime.setHours(endHours, endMinutes, 0, 0);
+    }
+    
+    // Prepare the event data for saving
+    const eventData = {
       ...formData,
-      id: event ? event.id : undefined
-    });
+      // If this is an existing event, include its ID
+      ...(event && { id: event.id }),
+      // Replace string dates with Date objects
+      start: startDateTime,
+      end: endDateTime,
+      // Remove startTime and endTime as they're now incorporated into start and end
+      startTime: undefined,
+      endTime: undefined
+    };
+    
+    console.log('Formatted event data for submission:', eventData);
+    
+    onSave(eventData);
   };
 
   const handleDelete = () => {
     if (event && event.id) {
-      console.log('Deleting event from modal:', event);
       onDelete(event.id);
     }
   };
 
   const handleTriggerStudySuggestions = () => {
     if (event && event.id) {
-      onClose(); // Close the modal first
-      setTimeout(() => {
-        onTriggerStudySuggestions(event); // Then trigger study suggestions
-      }, 300);
+      onTriggerStudySuggestions(event);
+      onClose();
     }
   };
 
