@@ -22,14 +22,17 @@ const Calendar = ({ initialEvents = [], userId }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  // eslint-disable-next-line no-unused-vars
   const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', message: '' });
   const [showPreparationPrompt, setShowPreparationPrompt] = useState(false);
   const [eventsNeedingPreparation, setEventsNeedingPreparation] = useState([]);
   const [dismissedEvents, setDismissedEvents] = useState({});
+  // eslint-disable-next-line no-unused-vars
   const [viewDate, setViewDate] = useState(new Date());
   const [studySuggestions, setStudySuggestions] = useState([]);
   const [showStudySuggestions, setShowStudySuggestions] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [loading, setLoading] = useState(true); 
 
   useEffect(() => {
@@ -113,61 +116,29 @@ const Calendar = ({ initialEvents = [], userId }) => {
   const checkGoogleCalendarConnection = useCallback(async () => {
     try {
       const isConnected = await googleCalendarService.isConnected();
+      setIsGoogleCalendarConnected(isConnected);
+      
+      googleCalendarService.addSignInListener((isSignedIn) => {
+        setIsGoogleCalendarConnected(isSignedIn);
+      });
       
       if (isConnected) {
-        const now = new Date();
-        const cachedData = localStorage.getItem('googleCalendarCache');
-        let shouldFetch = true;
-        
-        if (cachedData) {
-          const cache = JSON.parse(cachedData);
-          const lastFetched = new Date(cache.lastFetched);
-          const hoursSinceLastFetch = (now - lastFetched) / (1000 * 60 * 60);
-          
-          shouldFetch = hoursSinceLastFetch > 1;
-        }
-        
-        if (shouldFetch) {
-          setSyncStatus({ status: 'loading', message: 'Syncing with Google Calendar...' });
-          
-          const googleEvents = await googleCalendarService.getEvents();
-          
-          localStorage.setItem('googleCalendarCache', JSON.stringify({
-            lastFetched: new Date()
-          }));
-          
-          const savedEvents = await eventService.getUserEvents(userId);
-          let currentEvents = savedEvents; 
-          
-          const nonGoogleEvents = currentEvents.filter(event => event.type !== 'google');
-          
-          const updatedEvents = [...nonGoogleEvents, ...googleEvents];
-          
-          setEvents(updatedEvents);
-          
-          setSyncStatus({ 
-            status: 'success', 
-            message: `Synced ${googleEvents.length} events from Google Calendar` 
-          });
-          
-          setTimeout(() => {
-            setSyncStatus({ status: 'idle', message: '' });
-          }, 3000);
+        try {
+          setSyncStatus({ status: 'syncing', message: 'Syncing with Google Calendar...' });
+          const importedEvents = await googleCalendarService.importEvents();
+          setSyncStatus({ status: 'success', message: `Imported ${importedEvents.length} events from Google Calendar` });
+          setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
+          loadEvents(); // Reload events after import
+        } catch (error) {
+          console.error('Error importing events from Google Calendar:', error);
+          setSyncStatus({ status: 'error', message: 'Failed to import events from Google Calendar' });
+          setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
         }
       }
     } catch (error) {
       console.error('Error checking Google Calendar connection:', error);
-      
-      setSyncStatus({ 
-        status: 'error', 
-        message: 'Error syncing with Google Calendar' 
-      });
-      
-      setTimeout(() => {
-        setSyncStatus({ status: 'idle', message: '' });
-      }, 3000);
     }
-  }, [setSyncStatus, viewDate, userId]);
+  }, [loadEvents]); // Removed viewDate as it's not used in this function
 
   useEffect(() => {
     const checkGoogleCalendarConnection = async () => {
