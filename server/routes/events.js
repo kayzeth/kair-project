@@ -13,6 +13,18 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get events by user_id
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const events = await Event.find({ user_id: userId });
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching user events:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get event by ID
 router.get('/:id', async (req, res) => {
   try {
