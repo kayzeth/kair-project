@@ -187,31 +187,71 @@ const Calendar = ({ initialEvents = [], userId }) => {
     return () => clearInterval(intervalId);
   }, [dismissedEvents]);
 
-  useEffect(() => {
-    const studyPlan = nudgerService.getStudyPlan(events);
-    const pendingEvents = studyPlan.events.filter(event => 
-      event.needsPreparationInput && 
-      !dismissedEvents[event.id]
-    );
-    
-    if (pendingEvents.length > 0 && !showModal) {
-      setEventsNeedingPreparation(pendingEvents);
-      setShowPreparationPrompt(true);
-    } else {
-      setShowPreparationPrompt(false);
+  const checkForEventsNeedingPreparation = useCallback(async () => {
+    try {
+      // Get study plan from nudger service using userId instead of events array
+      const studyPlan = await nudgerService.getStudyPlan(userId);
+      
+      console.log('Study plan:', studyPlan);
+      
+      if (studyPlan && studyPlan.events) {
+        // Filter out events that have been dismissed and are not within 8 days
+        const nonDismissedEvents = studyPlan.events.filter(event => {
+          // Check if event is dismissed
+          if (dismissedEvents[event.id]) return false;
+          
+          // Check if event needs preparation input
+          if (!event.needsPreparationInput) return false;
+          
+          // Check if event is within 8 days
+          return studySuggesterService.isEventWithin8Days(event);
+        });
+        
+        if (nonDismissedEvents.length > 0) {
+          setEventsNeedingPreparation(nonDismissedEvents);
+          setShowPreparationPrompt(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for events needing preparation:', error);
     }
-    
-    window.studyPlan = studyPlan;
-    console.log('[KAIR-15] Nudger study plan updated:', studyPlan);
-  }, [events, showModal, dismissedEvents]);
+  }, [userId, dismissedEvents]);
+
+  useEffect(() => {
+    if (events.length > 0 && userId) {
+      checkForEventsNeedingPreparation();
+    }
+  }, [events, userId, checkForEventsNeedingPreparation]);
 
   const triggerStudySuggestions = async (event) => {
     if (event && event.requiresPreparation && event.preparationHours) {
-      await generateStudySuggestions(
-        events,
-        event,
-        parseFloat(event.preparationHours)
-      );
+      try {
+        // Check if the event is within 8 days
+        const isWithin8Days = studySuggesterService.isEventWithin8Days(event);
+        
+        if (!isWithin8Days) {
+          console.log('Event is more than 8 days away - not showing study suggestions yet');
+          return;
+        }
+        
+        console.log('Generating study suggestions for event:', event);
+        
+        // Use userId instead of events array for database-driven approach
+        const suggestions = await studySuggesterService.generateStudySuggestions(
+          userId, 
+          event, 
+          Number(event.preparationHours)
+        );
+        
+        if (suggestions && suggestions.length > 0) {
+          setStudySuggestions(suggestions);
+          setShowStudySuggestions(true);
+        } else {
+          console.log('No study suggestions generated');
+        }
+      } catch (error) {
+        console.error('Error generating study suggestions:', error);
+      }
     }
   };
 
@@ -278,28 +318,60 @@ const Calendar = ({ initialEvents = [], userId }) => {
       // Close the modal
       setShowModal(false);
       
-      // Check if the event requires preparation
-      if (savedEvent.requiresPreparation && !savedEvent.preparationHours) {
-        // Add to events needing preparation
-        setEventsNeedingPreparation(prev => {
-          // Check if this event is already in the list
-          if (!prev.some(e => e.id === savedEvent.id)) {
-            return [...prev, savedEvent];
-          }
-          return prev;
-        });
+      // Check if the event requires preparation and is within 2 weeks
+      if (savedEvent.requiresPreparation) {
+        // Check if event is within 2 weeks
+        const isWithinTwoWeeks = isEventWithinTwoWeeks(savedEvent);
         
-        // Show preparation prompt if not already showing
-        if (!showPreparationPrompt) {
-          setShowPreparationPrompt(true);
+        // If the event has preparation hours and is within 8 days, trigger study suggestions
+        if (savedEvent.preparationHours && studySuggesterService.isEventWithin8Days(savedEvent)) {
+          console.log('Event has preparation hours and is within 8 days, triggering study suggestions');
+          triggerStudySuggestions(savedEvent);
+        }
+        // If the event doesn't have preparation hours and is within 2 weeks, show preparation prompt
+        else if (!savedEvent.preparationHours && isWithinTwoWeeks) {
+          // Add to events needing preparation
+          setEventsNeedingPreparation(prev => {
+            // Check if this event is already in the list
+            if (!prev.some(e => e.id === savedEvent.id)) {
+              return [...prev, savedEvent];
+            }
+            return prev;
+          });
+          
+          // Show preparation prompt if not already showing
+          if (!showPreparationPrompt) {
+            setShowPreparationPrompt(true);
+          }
         }
       }
       
       return savedEvent;
     } catch (error) {
       console.error('Error saving event:', error);
-      // You might want to show an error message to the user here
       return null;
+    }
+  };
+
+  // Helper function to check if an event is within 2 weeks
+  const isEventWithinTwoWeeks = (event) => {
+    try {
+      // Get event start time
+      const eventStart = event.start instanceof Date 
+        ? new Date(event.start) 
+        : new Date(event.start);
+      
+      // Get current time
+      const now = new Date();
+      
+      // Calculate days until the event
+      const daysUntilEvent = Math.ceil((eventStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Check if the event is within 2 weeks (14 days)
+      return daysUntilEvent <= 14 && daysUntilEvent > 0;
+    } catch (error) {
+      console.error('Error checking if event is within 2 weeks:', error);
+      return false;
     }
   };
 
@@ -348,7 +420,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
       }
       
       if (hours > 0) {
-        await generateStudySuggestions(events, savedEvent, hours);
+        await triggerStudySuggestions(savedEvent);
       }
       
       return savedEvent;
@@ -358,76 +430,26 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
   };
 
-  const generateStudySuggestions = async (allEvents, event, preparationHours) => {
-    setSyncStatus({
-      status: 'loading',
-      message: 'Generating smart study suggestions...'
-    });
-    
-    try {
-      const suggestions = await studySuggesterService.generateStudySuggestions(
-        allEvents, 
-        event, 
-        preparationHours
-      );
-      
-      if (suggestions && suggestions.length > 0) {
-        setStudySuggestions(suggestions);
-        setShowStudySuggestions(true);
-        
-        setSyncStatus({
-          status: 'success',
-          message: `Generated ${suggestions.length} study suggestions`
-        });
-      } else {
-        setSyncStatus({
-          status: 'info',
-          message: 'Could not generate study suggestions. Try adjusting preparation hours.'
-        });
-      }
-    } catch (error) {
-      console.error('Error generating study suggestions:', error);
-      setSyncStatus({
-        status: 'error',
-        message: 'Error generating study suggestions'
-      });
-    }
-    
-    setTimeout(() => {
-      setSyncStatus({ status: 'idle', message: '' });
-    }, 3000);
-  };
-
   const handleAcceptStudySuggestions = async (acceptedSuggestions) => {
     try {
       console.log('Accepted study suggestions:', acceptedSuggestions);
       
-      const createdEvents = [];
+      // Create study events in the database
+      const createdEvents = await studySuggesterService.createStudyEvents(acceptedSuggestions, userId);
       
-      for (const suggestion of acceptedSuggestions) {
-        const eventData = {
-          title: suggestion.title,
-          start: suggestion.start,
-          end: suggestion.end,
-          allDay: false,
-          description: suggestion.description || '',
-          location: '',
-          color: '#6a4c93', 
-          requiresPreparation: false
-        };
+      if (createdEvents && createdEvents.length > 0) {
+        // Add the created events to the local state
+        setEvents(prevEvents => [...prevEvents, ...createdEvents]);
         
-        const savedEvent = await eventService.createEvent(eventData, userId);
-        createdEvents.push(savedEvent);
+        console.log('Study events created:', createdEvents);
+      } else {
+        console.log('No study events created');
       }
       
-      setEvents(prevEvents => [...prevEvents, ...createdEvents]);
-      
+      // Close the suggestions modal
       setShowStudySuggestions(false);
-      setStudySuggestions([]);
-      
-      console.log('Created study session events:', createdEvents.length);
     } catch (error) {
-      console.error('Error creating study session events:', error);
+      console.error('Error accepting study suggestions:', error);
     }
   };
 
