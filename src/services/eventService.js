@@ -66,13 +66,45 @@ const createEvent = async (eventData, userId) => {
     console.log(`Creating event for user ID: ${userId}`);
     console.log('Event data received:', eventData);
     
+    // Ensure dates are properly formatted with timezone preservation
+    let startTime, endTime;
+    
+    // If start/end are Date objects, ensure we preserve the exact date
+    if (eventData.start instanceof Date) {
+      // Format the date in ISO format but preserve the local date part
+      const year = eventData.start.getFullYear();
+      const month = String(eventData.start.getMonth() + 1).padStart(2, '0');
+      const day = String(eventData.start.getDate()).padStart(2, '0');
+      const hours = String(eventData.start.getHours()).padStart(2, '0');
+      const minutes = String(eventData.start.getMinutes()).padStart(2, '0');
+      
+      startTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+    } else {
+      startTime = eventData.start;
+    }
+    
+    if (eventData.end instanceof Date) {
+      // Format the date in ISO format but preserve the local date part
+      const year = eventData.end.getFullYear();
+      const month = String(eventData.end.getMonth() + 1).padStart(2, '0');
+      const day = String(eventData.end.getDate()).padStart(2, '0');
+      const hours = String(eventData.end.getHours()).padStart(2, '0');
+      const minutes = String(eventData.end.getMinutes()).padStart(2, '0');
+      
+      endTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+    } else {
+      endTime = eventData.end;
+    }
+    
+    console.log('Formatted dates for DB:', { startTime, endTime });
+    
     // Transform from Calendar format to MongoDB format
     const eventForDb = {
       user_id: userId,
       title: eventData.title,
       all_day: eventData.allDay,
-      start_time: eventData.start,
-      end_time: eventData.end,
+      start_time: startTime,
+      end_time: endTime,
       description: eventData.description || '',
       location: eventData.location || '',
       requires_preparation: eventData.requiresPreparation || false,
@@ -140,12 +172,44 @@ const updateEvent = async (eventId, eventData) => {
     console.log(`Updating event ID: ${eventId}`);
     console.log('Updated event data:', eventData);
     
+    // Ensure dates are properly formatted with timezone preservation
+    let startTime, endTime;
+    
+    // If start/end are Date objects, ensure we preserve the exact date
+    if (eventData.start instanceof Date) {
+      // Format the date in ISO format but preserve the local date part
+      const year = eventData.start.getFullYear();
+      const month = String(eventData.start.getMonth() + 1).padStart(2, '0');
+      const day = String(eventData.start.getDate()).padStart(2, '0');
+      const hours = String(eventData.start.getHours()).padStart(2, '0');
+      const minutes = String(eventData.start.getMinutes()).padStart(2, '0');
+      
+      startTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+    } else {
+      startTime = eventData.start;
+    }
+    
+    if (eventData.end instanceof Date) {
+      // Format the date in ISO format but preserve the local date part
+      const year = eventData.end.getFullYear();
+      const month = String(eventData.end.getMonth() + 1).padStart(2, '0');
+      const day = String(eventData.end.getDate()).padStart(2, '0');
+      const hours = String(eventData.end.getHours()).padStart(2, '0');
+      const minutes = String(eventData.end.getMinutes()).padStart(2, '0');
+      
+      endTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+    } else {
+      endTime = eventData.end;
+    }
+    
+    console.log('Formatted dates for DB:', { startTime, endTime });
+    
     // Transform from Calendar format to MongoDB format
     const eventForDb = {
       title: eventData.title,
       all_day: eventData.allDay,
-      start_time: eventData.start,
-      end_time: eventData.end,
+      start_time: startTime,
+      end_time: endTime,
       description: eventData.description || '',
       location: eventData.location || '',
       requires_preparation: eventData.requiresPreparation || false,
