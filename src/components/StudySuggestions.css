@@ -69,6 +69,48 @@
   font-size: 16px;
 }
 
+.parent-event-info {
+  background-color: #f8f9ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border-left: 4px solid #4287f5;
+}
+
+.parent-event-info h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.parent-event-info .event-title {
+  font-weight: 700;
+  color: #4287f5;
+}
+
+.parent-event-info .event-details {
+  display: flex;
+  align-items: center;
+  margin: 0 0 8px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.parent-event-info .event-icon {
+  margin-right: 8px;
+  color: #4287f5;
+}
+
+.parent-event-info .event-location {
+  color: #666;
+}
+
+.parent-event-info .preparation-details {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
 .suggestions-list {
   margin-bottom: 24px;
 }

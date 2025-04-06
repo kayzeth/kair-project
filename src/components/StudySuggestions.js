@@ -11,6 +11,10 @@ import './StudySuggestions.css';
 const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
   const [selectedSuggestions, setSelectedSuggestions] = useState([]);
 
+  // Extract parent event information from the first suggestion
+  // All suggestions should be for the same event
+  const parentEvent = suggestions && suggestions.length > 0 ? suggestions[0].event : null;
+
   const toggleSuggestion = (suggestionId) => {
     setSelectedSuggestions(prev => {
       if (prev.includes(suggestionId)) {
@@ -89,6 +93,22 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
           <FontAwesomeIcon icon={faBook} className="suggestions-icon" />
           <h3 data-testid="suggestions-title">Smart Study Plan</h3>
         </div>
+        
+        {parentEvent && (
+          <div className="parent-event-info" data-testid="parent-event-info">
+            <h4>Study Plan for: <span className="event-title">{parentEvent.title}</span></h4>
+            <p className="event-details">
+              <FontAwesomeIcon icon={faClock} className="event-icon" />
+              {format(new Date(parentEvent.start), 'EEEE, MMMM d')} at {format(new Date(parentEvent.start), 'h:mm a')}
+              {parentEvent.location && (
+                <span className="event-location"> • {parentEvent.location}</span>
+              )}
+            </p>
+            <p className="preparation-details">
+              <strong>{parentEvent.preparationHours}</strong> hour{parentEvent.preparationHours !== 1 ? 's' : ''} of preparation required
+            </p>
+          </div>
+        )}
         
         <p className="suggestions-instruction" data-testid="suggestions-instruction">
           Based on your preparation needs, we've created a personalized study plan:
