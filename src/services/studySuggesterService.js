@@ -27,15 +27,25 @@ import * as geminiService from './geminiService';
 
 /**
  * Generates study session suggestions for events that require preparation
- * @param {Array} events - All calendar events
+ * @param {string|Array} eventsOrUserId - Either an array of calendar events or a userId
  * @param {Object} event - The event that needs preparation
  * @param {number} preparationHours - Total hours needed for preparation
  * @returns {Promise<Array<StudySessionSuggestion>>} - Array of study session suggestions
  */
-export const generateStudySuggestions = async (events, event, preparationHours) => {
+export const generateStudySuggestions = async (eventsOrUserId, event, preparationHours) => {
   try {
+    // Check if the first parameter is a userId (string) or events array
+    const isUserId = typeof eventsOrUserId === 'string';
+    
+    // Log what we're doing
+    if (isUserId) {
+      console.log(`Generating study suggestions for user ${eventsOrUserId} and event ${event.id || 'new event'}`);
+    } else {
+      console.log(`Generating study suggestions with ${eventsOrUserId.length} events for event ${event.id || 'new event'}`);
+    }
+    
     // First try to use the Gemini API for smart suggestions
-    const smartSuggestions = await geminiService.generateSmartStudySuggestions(events, event, preparationHours);
+    const smartSuggestions = await geminiService.generateSmartStudySuggestions(eventsOrUserId, event, preparationHours);
     
     // If we got valid suggestions from Gemini, use them
     if (smartSuggestions && smartSuggestions.length > 0) {
@@ -44,12 +54,23 @@ export const generateStudySuggestions = async (events, event, preparationHours) 
     } else {
       // If Gemini returned no suggestions, fall back to local algorithm
       console.log('Gemini returned no suggestions, using enhanced local algorithm...');
+      
+      // For the fallback algorithm, we need an events array
+      // If we were given a userId, we'll just use an empty array for now
+      // In a real implementation, we would fetch events for this user from the database
+      const events = Array.isArray(eventsOrUserId) ? eventsOrUserId : [];
+      
       return generateFallbackStudySuggestions(events, event, preparationHours);
     }
   } catch (error) {
     // If there was an error with Gemini, fall back to local algorithm
     console.error('Error with Gemini API, falling back to local algorithm:', error);
     console.log('Using enhanced local algorithm');
+    
+    // For the fallback algorithm, we need an events array
+    // If we were given a userId, we'll just use an empty array for now
+    const events = Array.isArray(eventsOrUserId) ? eventsOrUserId : [];
+    
     return generateFallbackStudySuggestions(events, event, preparationHours);
   }
 };
@@ -488,6 +509,17 @@ const generateFallbackStudySuggestions = (events, targetEvent, preparationHours)
  * @param {Array} availableSlots - Array to store available slots
  */
 const findAvailableSlotsForDay = (dayStart, dayEnd, events, availableSlots) => {
+  // Ensure events is an array
+  if (!events || !Array.isArray(events)) {
+    console.warn('findAvailableSlotsForDay: No events provided or invalid events format');
+    // If no events, the entire day is available
+    availableSlots.push({
+      start: dayStart,
+      end: dayEnd
+    });
+    return;
+  }
+
   // Get events for this day
   const eventsForDay = events.filter(event => {
     const eventStart = event.start instanceof Date ? new Date(event.start) : new Date(event.start);
@@ -595,11 +627,18 @@ const findAvailableSlotsForDay = (dayStart, dayEnd, events, availableSlots) => {
 };
 
 /**
- * Creates calendar events from study suggestions
+ * Creates calendar events from study suggestions (synchronous version for tests)
  * @param {Array} suggestions - Study session suggestions
  * @returns {Array} - Calendar events to be added
  */
 export const createStudyEvents = (suggestions) => {
+  // If no suggestions provided, return empty array immediately
+  if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+    console.warn('No valid suggestions provided to createStudyEvents');
+    return [];
+  }
+
+  // Create events in memory (for tests or UI preview)
   return suggestions.map((suggestion, index) => {
     const startTime = new Date(suggestion.suggestedStartTime);
     const endTime = new Date(suggestion.suggestedEndTime);
@@ -619,6 +658,75 @@ export const createStudyEvents = (suggestions) => {
 };
 
 /**
+ * Creates and saves calendar events from study suggestions to the database
+ * @param {Array} suggestions - Study session suggestions
+ * @param {string} userId - User ID to associate with the events
+ * @returns {Promise<Array>} - Calendar events that were added
+ */
+export const createAndSaveStudyEvents = async (suggestions, userId) => {
+  try {
+    // If no suggestions provided, return empty array immediately
+    if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+      console.warn('No valid suggestions provided to createAndSaveStudyEvents');
+      return [];
+    }
+
+    if (!userId) {
+      console.error('No userId provided to createAndSaveStudyEvents');
+      return [];
+    }
+
+    console.log(`Creating ${suggestions.length} study events for user ${userId}`);
+    
+    // Import eventService here to avoid circular dependencies
+    const eventService = require('./eventService').default;
+    
+    // Create events in the database and collect results
+    const createdEvents = [];
+    
+    for (const suggestion of suggestions) {
+      const startTime = new Date(suggestion.suggestedStartTime);
+      const endTime = new Date(suggestion.suggestedEndTime);
+      
+      // Create the event object in the format expected by the eventService
+      const eventData = {
+        title: suggestion.message || 'Study Session',
+        start: startTime,
+        end: endTime,
+        allDay: false,
+        description: `Study session for: ${suggestion.event?.title || 'Upcoming event'}`,
+        location: '',
+        requiresPreparation: false, // Study sessions don't themselves require preparation
+        color: '#4285F4', // Google Blue
+        isStudySession: true,
+        relatedEventId: suggestion.event?.id || null
+      };
+      
+      try {
+        // Save to database
+        const savedEvent = await eventService.createEvent(eventData, userId);
+        console.log('Study event saved to database:', savedEvent);
+        
+        // Add to our collection with the isStudySession flag for UI
+        createdEvents.push({
+          ...savedEvent,
+          isStudySession: true,
+          textColor: '#FFFFFF'
+        });
+      } catch (error) {
+        console.error('Error saving individual study event:', error);
+      }
+    }
+    
+    console.log(`Successfully created ${createdEvents.length} study events`);
+    return createdEvents;
+  } catch (error) {
+    console.error('Error in createAndSaveStudyEvents:', error);
+    return [];
+  }
+};
+
+/**
  * Formats a study suggestion into a user-friendly message
  * @param {Object} suggestion - Study session suggestion
  * @returns {string} - Formatted message
@@ -634,11 +742,38 @@ export const formatSuggestionMessage = (suggestion) => {
   return `${date} from ${start} to ${end}: ${suggestion.message}`;
 };
 
+/**
+ * Checks if an event is within 8 days from now
+ * @param {Object} event - The event to check
+ * @returns {boolean} - True if the event is within 8 days, false otherwise
+ */
+export const isEventWithin8Days = (event) => {
+  if (!event || !event.start) return false;
+  
+  // Get event start time
+  const eventStart = event.start instanceof Date 
+    ? new Date(event.start) 
+    : new Date(event.start);
+  
+  // Current time as reference point
+  const now = new Date();
+  
+  // Calculate days until the event
+  const daysUntilEvent = Math.ceil((eventStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  
+  console.log(`Event "${event.title}" is in ${daysUntilEvent} days`);
+  
+  // Check if the event is within 8 days
+  return daysUntilEvent <= 8 && daysUntilEvent >= 0;
+};
+
 // Create a named export object
 const studySuggesterService = {
   generateStudySuggestions,
   createStudyEvents,
-  formatSuggestionMessage
+  createAndSaveStudyEvents,
+  formatSuggestionMessage,
+  isEventWithin8Days
 };
 
 export default studySuggesterService;

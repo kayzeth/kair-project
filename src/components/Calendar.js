@@ -189,8 +189,8 @@ const Calendar = ({ initialEvents = [], userId }) => {
 
   const checkForEventsNeedingPreparation = useCallback(async () => {
     try {
-      // Get study plan from nudger service using userId instead of events array
-      const studyPlan = await nudgerService.getStudyPlan(userId);
+      // Get study plan from nudger service using events array
+      const studyPlan = await nudgerService.getStudyPlan(events);
       
       console.log('Study plan:', studyPlan);
       
@@ -218,7 +218,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
     } catch (error) {
       console.error('Error checking for events needing preparation:', error);
     }
-  }, [userId, dismissedEvents]);
+  }, [events, dismissedEvents]);
 
   useEffect(() => {
     if (events.length > 0 && userId) {
@@ -227,7 +227,8 @@ const Calendar = ({ initialEvents = [], userId }) => {
   }, [events, userId, checkForEventsNeedingPreparation]);
 
   const triggerStudySuggestions = async (event) => {
-    if (event && event.requiresPreparation && event.preparationHours) {
+    // Check if the event requires preparation (regardless of hours value)
+    if (event && event.requiresPreparation && event.preparationHours !== undefined) {
       try {
         // Check if the event is within 8 days
         const isWithin8Days = studySuggesterService.isEventWithin8Days(event);
@@ -238,6 +239,22 @@ const Calendar = ({ initialEvents = [], userId }) => {
         }
         
         console.log('Generating study suggestions for event:', event);
+        
+        // If hours is 0, show a message instead of generating suggestions
+        if (Number(event.preparationHours) === 0) {
+          console.log('No study time needed for this event');
+          // Show a message to the user that no study time is needed
+          setSyncStatus({
+            status: 'success',
+            message: 'Saved: No study time needed for this event'
+          });
+          
+          setTimeout(() => {
+            setSyncStatus({ status: 'idle', message: '' });
+          }, 3000);
+          
+          return;
+        }
         
         // Use userId instead of events array for database-driven approach
         const suggestions = await studySuggesterService.generateStudySuggestions(
@@ -326,13 +343,15 @@ const Calendar = ({ initialEvents = [], userId }) => {
         // Check if event is within 2 weeks
         const isWithinTwoWeeks = isEventWithinTwoWeeks(savedEvent);
         
-        // If the event has preparation hours and is within 8 days, trigger study suggestions
-        if (savedEvent.preparationHours && studySuggesterService.isEventWithin8Days(savedEvent)) {
+        // If the event has preparation hours (including 0) and is within 8 days, trigger study suggestions
+        if (savedEvent.preparationHours !== undefined && savedEvent.preparationHours !== null && savedEvent.preparationHours !== '' && 
+            studySuggesterService.isEventWithin8Days(savedEvent)) {
           console.log('Event has preparation hours and is within 8 days, triggering study suggestions');
           triggerStudySuggestions(savedEvent);
         }
-        // If the event doesn't have preparation hours and is within 2 weeks, show preparation prompt
-        else if (!savedEvent.preparationHours && isWithinTwoWeeks) {
+        // If the event doesn't have preparation hours set yet and is within 2 weeks, show preparation prompt
+        else if ((savedEvent.preparationHours === undefined || savedEvent.preparationHours === null || savedEvent.preparationHours === '') && 
+                isWithinTwoWeeks) {
           // Add to events needing preparation
           setEventsNeedingPreparation(prev => {
             // Check if this event is already in the list
@@ -353,42 +372,6 @@ const Calendar = ({ initialEvents = [], userId }) => {
     } catch (error) {
       console.error('Error saving event:', error);
       return null;
-    }
-  };
-
-  // Helper function to check if an event is within 2 weeks
-  const isEventWithinTwoWeeks = (event) => {
-    try {
-      // Get event start time
-      const eventStart = event.start instanceof Date 
-        ? new Date(event.start) 
-        : new Date(event.start);
-      
-      // Get current time
-      const now = new Date();
-      
-      // Calculate days until the event
-      const daysUntilEvent = Math.ceil((eventStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Check if the event is within 2 weeks (14 days)
-      return daysUntilEvent <= 14 && daysUntilEvent > 0;
-    } catch (error) {
-      console.error('Error checking if event is within 2 weeks:', error);
-      return false;
-    }
-  };
-
-  const deleteEvent = async (id) => {
-    try {
-      await eventService.deleteEvent(id);
-      
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
-      
-      setShowModal(false);
-      
-      console.log('Event deleted successfully:', id);
-    } catch (error) {
-      console.error('Error deleting event:', error);
     }
   };
 
@@ -422,9 +405,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
         setShowPreparationPrompt(false);
       }
       
-      if (hours > 0) {
-        await triggerStudySuggestions(savedEvent);
-      }
+      // Always trigger study suggestions when requiresPreparation is true,
+      // even for 0 hours (which will show a message that no study time is needed)
+      await triggerStudySuggestions(savedEvent);
       
       return savedEvent;
     } catch (error) {
@@ -433,26 +416,166 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
   };
 
+  const deleteEvent = async (id) => {
+    try {
+      console.log('Deleting event with ID:', id);
+      
+      // Check if this is a study event (study events have IDs that start with "study-" or have isStudySession=true)
+      const eventToDelete = events.find(event => event.id === id);
+      const isStudyEvent = eventToDelete?.isStudySession || (id && typeof id === 'string' && id.startsWith('study-'));
+      
+      // First, update the UI immediately to provide instant feedback
+      if (isStudyEvent) {
+        // For study events, just remove that specific event
+        setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
+      } else {
+        // For regular events, remove both the main event and all related study sessions
+        setEvents(prevEvents => prevEvents.filter(event => 
+          event.id !== id && !(event.isStudySession && event.relatedEventId === id)
+        ));
+      }
+      
+      // Close the modal immediately for better UX
+      setShowModal(false);
+      
+      // Now handle the actual database operations
+      if (isStudyEvent) {
+        console.log('Deleting study event:', id);
+        // Delete the study session from the database
+        await eventService.deleteEvent(id);
+        console.log('Study session deleted successfully');
+      } else {
+        // This is a regular event - first find any related study sessions
+        console.log('Looking for study sessions related to event:', id);
+        
+        // Find study sessions in the current events state (before we filtered them out)
+        const relatedStudySessions = events.filter(event => 
+          event.isStudySession && event.relatedEventId === id
+        );
+        
+        if (relatedStudySessions.length > 0) {
+          console.log(`Found ${relatedStudySessions.length} related study sessions to delete:`, 
+            relatedStudySessions.map(s => s.id));
+          
+          // Delete each related study session from the database
+          const deletePromises = relatedStudySessions.map(studySession => {
+            return eventService.deleteEvent(studySession.id)
+              .then(() => console.log(`Deleted related study session: ${studySession.id}`))
+              .catch(error => console.error(`Error deleting related study session ${studySession.id}:`, error));
+          });
+          
+          // Wait for all study sessions to be deleted
+          await Promise.all(deletePromises);
+        } else {
+          console.log('No related study sessions found in memory, checking database...');
+          
+          try {
+            // Get all events for this user to ensure we have the latest data
+            const allEvents = await eventService.getUserEvents(userId);
+            
+            // Filter for study sessions related to this event
+            const dbRelatedSessions = allEvents.filter(event => 
+              event.isStudySession && event.relatedEventId === id
+            );
+            
+            if (dbRelatedSessions.length > 0) {
+              console.log(`Found ${dbRelatedSessions.length} related study sessions in database`);
+              
+              // Delete each related study session from the database
+              const deletePromises = dbRelatedSessions.map(studySession => {
+                return eventService.deleteEvent(studySession.id)
+                  .then(() => console.log(`Deleted related study session from database: ${studySession.id}`))
+                  .catch(error => console.error(`Error deleting related study session ${studySession.id}:`, error));
+              });
+              
+              // Wait for all study sessions to be deleted
+              await Promise.all(deletePromises);
+            } else {
+              console.log('No related study sessions found in database');
+            }
+          } catch (error) {
+            console.error('Error checking for related study sessions in database:', error);
+          }
+        }
+        
+        // Now delete the main event from the database
+        await eventService.deleteEvent(id);
+        console.log(`Deleted event ${id} and its related study sessions`);
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      
+      // Show error message only for errors
+      setSyncStatus({
+        status: 'error',
+        message: 'Error deleting event'
+      });
+      
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 3000);
+    }
+  };
+
   const handleAcceptStudySuggestions = async (acceptedSuggestions) => {
     try {
       console.log('Accepted study suggestions:', acceptedSuggestions);
       
-      // Create study events in the database
-      const createdEvents = await studySuggesterService.createStudyEvents(acceptedSuggestions, userId);
+      if (!userId) {
+        console.error('No userId available for creating study events');
+        setShowStudySuggestions(false);
+        return;
+      }
+      
+      // Create study events in the database with userId
+      const createdEvents = await studySuggesterService.createAndSaveStudyEvents(acceptedSuggestions, userId);
       
       if (createdEvents && createdEvents.length > 0) {
         // Add the created events to the local state
         setEvents(prevEvents => [...prevEvents, ...createdEvents]);
         
-        console.log('Study events created:', createdEvents);
+        console.log('Study events created and saved to database:', createdEvents);
+        
+        // Show success message
+        setSyncStatus({
+          status: 'success',
+          message: `Created ${createdEvents.length} study sessions`
+        });
+        
+        setTimeout(() => {
+          setSyncStatus({ status: 'idle', message: '' });
+        }, 3000);
       } else {
         console.log('No study events created');
+        
+        // Show error message
+        setSyncStatus({
+          status: 'error',
+          message: 'Failed to create study sessions'
+        });
+        
+        setTimeout(() => {
+          setSyncStatus({ status: 'idle', message: '' });
+        }, 3000);
       }
       
       // Close the suggestions modal
       setShowStudySuggestions(false);
     } catch (error) {
       console.error('Error accepting study suggestions:', error);
+      
+      // Show error message
+      setSyncStatus({
+        status: 'error',
+        message: 'Error creating study sessions'
+      });
+      
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 3000);
+      
+      // Close the modal even on error
+      setShowStudySuggestions(false);
     }
   };
 
@@ -520,6 +643,28 @@ const Calendar = ({ initialEvents = [], userId }) => {
         );
       default:
         return null;
+    }
+  };
+
+  // Helper function to check if an event is within 2 weeks
+  const isEventWithinTwoWeeks = (event) => {
+    try {
+      // Get event start time
+      const eventStart = event.start instanceof Date 
+        ? new Date(event.start) 
+        : new Date(event.start);
+      
+      // Get current time
+      const now = new Date();
+      
+      // Calculate days until the event
+      const daysUntilEvent = Math.ceil((eventStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Check if the event is within 2 weeks (14 days)
+      return daysUntilEvent <= 14 && daysUntilEvent > 0;
+    } catch (error) {
+      console.error('Error checking if event is within 2 weeks:', error);
+      return false;
     }
   };
 

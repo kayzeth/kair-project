@@ -55,6 +55,15 @@ const eventSchema = new mongoose.Schema({
   google_event_id: {
     type: String,
     default: null
+  },
+  // Add fields for study sessions
+  is_study_session: {
+    type: Boolean,
+    default: false
+  },
+  related_event_id: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true
@@ -64,6 +73,10 @@ const eventSchema = new mongoose.Schema({
 eventSchema.index({ user_id: 1, start_time: 1 });
 // Index for group events
 eventSchema.index({ group_id: 1, start_time: 1 });
+// Index for finding study sessions related to a specific event
+eventSchema.index({ related_event_id: 1 });
+// Index for finding all study sessions
+eventSchema.index({ is_study_session: 1 });
 
 const Event = mongoose.model('Event', eventSchema);
 module.exports = Event;

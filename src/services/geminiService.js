@@ -6,7 +6,8 @@
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
+import eventService from './eventService';
 
 // Global variable to store the Gemini API client
 let genAI = null;
@@ -126,12 +127,12 @@ const determineEventType = (event) => {
 
 /**
  * Generates smart study suggestions using Gemini AI
- * @param {Array} events - All calendar events
+ * @param {Array|string} eventsOrUserId - All calendar events or a userId
  * @param {Object} targetEvent - The event that needs preparation
  * @param {number} preparationHours - Total hours needed for preparation
  * @returns {Promise<Array>} - Array of study session suggestions
  */
-export const generateSmartStudySuggestions = async (events, targetEvent, preparationHours) => {
+export const generateSmartStudySuggestions = async (eventsOrUserId, targetEvent, preparationHours) => {
   try {
     // Initialize Gemini API if not already initialized
     if (!genAI) {
@@ -156,15 +157,73 @@ export const generateSmartStudySuggestions = async (events, targetEvent, prepara
     // Calculate days until the event
     const daysUntilEvent = Math.ceil((targetEventStart - now) / (1000 * 60 * 60 * 24));
     
+    // Get all relevant events
+    let relevantEvents = [];
+    
+    // Check if we were given a userId or an events array
+    if (typeof eventsOrUserId === 'string') {
+      // We were given a userId, fetch events from the database
+      try {
+        console.log(`Fetching events for user ${eventsOrUserId}`);
+        const userEvents = await eventService.getUserEvents(eventsOrUserId);
+        console.log(`Retrieved ${userEvents.length} events for user ${eventsOrUserId}`);
+        relevantEvents = userEvents;
+      } catch (error) {
+        console.error('Error fetching user events:', error);
+        // Continue with an empty events array
+        relevantEvents = [];
+      }
+    } else if (Array.isArray(eventsOrUserId)) {
+      // We were given an events array
+      relevantEvents = eventsOrUserId;
+    } else {
+      console.warn('Invalid eventsOrUserId parameter:', eventsOrUserId);
+      relevantEvents = [];
+    }
+    
     // Filter events to only include those between now and the target event
-    const relevantEvents = events.filter(event => {
-      const eventStart = new Date(event.start);
-      return eventStart >= now && eventStart <= targetEventStart && event.id !== targetEvent.id;
+    const filteredEvents = relevantEvents.filter(event => {
+      // Skip the target event itself
+      if (event.id === targetEvent.id) return false;
+      
+      // Parse event start date - handle both Date objects and string dates
+      let eventStart;
+      if (event.start instanceof Date) {
+        eventStart = new Date(event.start);
+      } else if (typeof event.start === 'string') {
+        eventStart = new Date(event.start);
+      } else {
+        console.error('Invalid event start date format', event);
+        return false;
+      }
+      
+      // Include events from now until the target event
+      return eventStart >= now && eventStart <= targetEventStart;
     });
     
+    console.log(`Found ${filteredEvents.length} relevant events between now and the target event`);
+    
     // Format the relevant events for the prompt
-    const formattedEvents = relevantEvents.map((event, index) => {
-      return `${index + 1}. ${event.title}: ${formatDate(event.start)} - ${formatDate(event.end)}`;
+    const formattedEvents = filteredEvents.map((event, index) => {
+      // Format the event times, handling different formats
+      let startTime, endTime;
+      
+      if (event.allDay) {
+        startTime = format(new Date(event.start), 'yyyy-MM-dd');
+        endTime = format(new Date(event.end), 'yyyy-MM-dd');
+        return `${index + 1}. ${event.title} (All Day): ${startTime}`;
+      } else {
+        // Handle events with specific times
+        if (event.startTime && event.endTime) {
+          // If we have specific time strings
+          const startDate = format(new Date(event.start), 'yyyy-MM-dd');
+          const endDate = format(new Date(event.end), 'yyyy-MM-dd');
+          return `${index + 1}. ${event.title}: ${startDate} ${event.startTime} - ${endDate} ${event.endTime}`;
+        } else {
+          // Use the full date objects
+          return `${index + 1}. ${event.title}: ${formatDate(event.start)} - ${formatDate(event.end)}`;
+        }
+      }
     }).join('\n');
     
     // Create the prompt for Gemini
@@ -184,11 +243,13 @@ ${formattedEvents || "No other events scheduled"}
 STUDY PLAN RULES:
 - Total study time MUST EXACTLY add up to ${preparationHours} hours
 - Don't schedule any sessions in the past
-- Don't schedule any sessions that overlap with the existing calendar events listed above
+- CRITICAL: Do NOT schedule any study sessions that overlap with the existing calendar events listed above
+- Ensure at least 30 minutes buffer time before and after existing calendar events
 - Don't schedule anything between 1:00 AM and 8:00 AM (respect natural sleep schedule)
 - Maximum session length should be 4 hours
 - Schedule all sessions to start and end on 15-minute increments (e.g., 9:00, 9:15, 9:30, 9:45)
 - Limit study to a maximum of ${Math.max(1, Math.ceil(preparationHours / 2))} different days
+- If there are too many conflicts in the calendar, it's better to schedule fewer, longer sessions on days with fewer conflicts
 
 EVENT TYPE SPECIFIC RULES:
 ${eventType === 'exam' || eventType === 'quiz' ? `
