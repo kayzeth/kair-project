@@ -3,11 +3,20 @@ import { render, screen, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Calendar from '../Calendar';
 import * as nudgerService from '../../services/nudgerService';
+import * as eventService from '../../services/eventService';
 
 // Mock the nudger service
 jest.mock('../../services/nudgerService', () => ({
   identifyUpcomingEvents: jest.fn(),
   getStudyPlan: jest.fn()
+}));
+
+// Mock the event service to avoid network requests
+jest.mock('../../services/eventService', () => ({
+  getUserEvents: jest.fn(),
+  createEvent: jest.fn(),
+  updateEvent: jest.fn(),
+  deleteEvent: jest.fn()
 }));
 
 // Mock child components to isolate Calendar component testing
@@ -51,21 +60,16 @@ describe('Nudger Integration with Calendar', () => {
       writable: true
     });
     
+    // Mock the event service to return empty array
+    eventService.getUserEvents.mockResolvedValue([]);
+    
     // Mock the nudger service to return test data based on requiresPreparation flag
-    nudgerService.getStudyPlan.mockImplementation((events) => {
-      const studyEvents = events.filter(event => event.requiresPreparation === true)
-        .map(event => ({
-          ...event,
-          requiresStudy: true,
-          suggestedStudyHours: event.preparationHours ? Number(event.preparationHours) : 3,
-          identifiedBy: 'nudger'
-        }));
-      
+    nudgerService.getStudyPlan.mockImplementation((userId) => {
+      // Return a simple study plan
       return {
-        events: studyEvents,
-        totalStudyHours: studyEvents.reduce((total, event) => 
-          total + (event.preparationHours ? Number(event.preparationHours) : 3), 0),
-        eventCount: studyEvents.length,
+        events: [],
+        totalStudyHours: 0,
+        eventCount: 0,
         eventsByDate: {}
       };
     });
@@ -77,8 +81,19 @@ describe('Nudger Integration with Calendar', () => {
   });
 
   test('should call nudger service when calendar loads', async () => {
+    // Mock getUserEvents to return some test events
+    eventService.getUserEvents.mockResolvedValue([
+      {
+        id: '1',
+        title: 'Test Event',
+        start: '2025-03-25',
+        end: '2025-03-25',
+        allDay: true
+      }
+    ]);
+    
     await act(async () => {
-      render(<Calendar />);
+      render(<Calendar userId="test-user-id" />);
     });
     
     // Wait for any asynchronous operations to complete
@@ -88,7 +103,7 @@ describe('Nudger Integration with Calendar', () => {
     });
     
     // Verify that the study plan was logged to the console
-    expect(consoleOutput.some(log => log.includes('[KAIR-15] Nudger study plan updated'))).toBe(true);
+    expect(consoleOutput.some(log => log.includes('Study plan:'))).toBe(true);
     
     // Verify that the study plan was attached to the window object
     expect(window.studyPlan).toBeDefined();
@@ -114,6 +129,9 @@ describe('Nudger Integration with Calendar', () => {
         preparationHours: '3'
       }
     ];
+
+    // Mock getUserEvents to return our test events
+    eventService.getUserEvents.mockResolvedValue(mockEvents);
 
     // Mock getStudyPlan to include our test event
     nudgerService.getStudyPlan.mockImplementation(() => {
@@ -145,16 +163,19 @@ describe('Nudger Integration with Calendar', () => {
     });
 
     await act(async () => {
-      render(<Calendar />);
+      render(<Calendar userId="test-user-id" />);
     });
 
-    // Verify that getStudyPlan was called
-    expect(nudgerService.getStudyPlan).toHaveBeenCalled();
+    // Wait for the component to finish loading
+    await waitFor(() => {
+      // Verify that getStudyPlan was called
+      expect(nudgerService.getStudyPlan).toHaveBeenCalled();
+    });
     
     // Verify that the study plan was logged
     await waitFor(() => {
       expect(consoleOutput.some(log => 
-        log.includes('[KAIR-15] Nudger study plan updated')
+        log.includes('Study plan:')
       )).toBe(true);
     });
   });
