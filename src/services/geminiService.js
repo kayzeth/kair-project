@@ -6,7 +6,7 @@
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import eventService from './eventService';
 
 // Global variable to store the Gemini API client
@@ -206,11 +206,10 @@ export const generateSmartStudySuggestions = async (eventsOrUserId, targetEvent,
     // Format the relevant events for the prompt
     const formattedEvents = filteredEvents.map((event, index) => {
       // Format the event times, handling different formats
-      let startTime, endTime;
+      let startTime;
       
       if (event.allDay) {
         startTime = format(new Date(event.start), 'yyyy-MM-dd');
-        endTime = format(new Date(event.end), 'yyyy-MM-dd');
         return `${index + 1}. ${event.title} (All Day): ${startTime}`;
       } else {
         // Handle events with specific times

@@ -430,9 +430,22 @@ const Calendar = ({ initialEvents = [], userId }) => {
         setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
       } else {
         // For regular events, remove both the main event and all related study sessions
-        setEvents(prevEvents => prevEvents.filter(event => 
-          event.id !== id && !(event.isStudySession && event.relatedEventId === id)
-        ));
+        setEvents(prevEvents => {
+          // Find all study sessions related to this event for logging
+          const relatedStudySessions = prevEvents.filter(event => 
+            event.isStudySession && event.relatedEventId === id
+          );
+          
+          if (relatedStudySessions.length > 0) {
+            console.log(`Removing ${relatedStudySessions.length} study sessions from UI:`, 
+              relatedStudySessions.map(s => s.id));
+          }
+          
+          // Return the filtered events list
+          return prevEvents.filter(event => 
+            event.id !== id && !(event.isStudySession && event.relatedEventId === id)
+          );
+        });
       }
       
       // Close the modal immediately for better UX
@@ -484,7 +497,11 @@ const Calendar = ({ initialEvents = [], userId }) => {
               // Delete each related study session from the database
               const deletePromises = dbRelatedSessions.map(studySession => {
                 return eventService.deleteEvent(studySession.id)
-                  .then(() => console.log(`Deleted related study session from database: ${studySession.id}`))
+                  .then(() => {
+                    console.log(`Deleted related study session from database: ${studySession.id}`);
+                    // Also ensure it's removed from the UI state
+                    setEvents(prevEvents => prevEvents.filter(event => event.id !== studySession.id));
+                  })
                   .catch(error => console.error(`Error deleting related study session ${studySession.id}:`, error));
               });
               
@@ -501,11 +518,25 @@ const Calendar = ({ initialEvents = [], userId }) => {
         // Now delete the main event from the database
         await eventService.deleteEvent(id);
         console.log(`Deleted event ${id} and its related study sessions`);
+        
+        // Double-check that all related study sessions are removed from the UI
+        setEvents(prevEvents => {
+          const remainingStudySessions = prevEvents.filter(event => 
+            event.isStudySession && event.relatedEventId === id
+          );
+          
+          if (remainingStudySessions.length > 0) {
+            console.log(`Found ${remainingStudySessions.length} remaining study sessions in UI, removing them now`);
+            return prevEvents.filter(event => !(event.isStudySession && event.relatedEventId === id));
+          }
+          
+          return prevEvents;
+        });
       }
     } catch (error) {
       console.error('Error deleting event:', error);
       
-      // Show error message only for errors
+      // Show error message
       setSyncStatus({
         status: 'error',
         message: 'Error deleting event'
