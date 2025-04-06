@@ -14,11 +14,16 @@
   "routes": [
     { "handle": "filesystem" },
     {
-      "src": "/api/users/(.*)",
+      "src": "/api/events",
+      "methods": ["POST", "OPTIONS"],
       "dest": "server/index.js"
     },
     {
       "src": "/api/events/(.*)",
+      "dest": "server/index.js"
+    },
+    {
+      "src": "/api/users/(.*)",
       "dest": "server/index.js"
     },
     {
