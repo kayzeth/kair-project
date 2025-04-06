@@ -42,7 +42,10 @@ const getUserEvents = async (userId) => {
       requiresPreparation: event.requires_preparation,
       preparationHours: event.requires_hours,
       googleEventId: event.google_event_id,
-      userId: event.user_id
+      userId: event.user_id,
+      // Map the study session fields
+      isStudySession: event.is_study_session || false,
+      relatedEventId: event.related_event_id || null
     }));
   } catch (error) {
     console.error('Error fetching user events:', error);
@@ -78,9 +81,13 @@ const createEvent = async (eventData, userId) => {
       description: eventData.description || '',
       location: eventData.location || '',
       requires_preparation: eventData.requiresPreparation || false,
-      requires_hours: eventData.preparationHours ? Number(eventData.preparationHours) : 0,
+      requires_hours: eventData.preparationHours !== undefined && eventData.preparationHours !== '' ? 
+        Number(eventData.preparationHours) : null,
       color: eventData.color || '#d2b48c',
-      source: eventData.source || 'LMS' // Use provided source or default to LMS
+      source: eventData.source || 'LMS', // Use provided source or default to LMS
+      // Add fields for study sessions
+      is_study_session: eventData.isStudySession || false,
+      related_event_id: eventData.relatedEventId || null
     };
     
     console.log('Sending to server:', {
@@ -157,8 +164,12 @@ const updateEvent = async (eventId, eventData) => {
       description: eventData.description || '',
       location: eventData.location || '',
       requires_preparation: eventData.requiresPreparation || false,
-      requires_hours: eventData.preparationHours ? Number(eventData.preparationHours) : 0,
-      color: eventData.color || '#d2b48c'
+      requires_hours: eventData.preparationHours !== undefined && eventData.preparationHours !== '' ? 
+        Number(eventData.preparationHours) : null,
+      color: eventData.color || '#d2b48c',
+      // Add fields for study sessions
+      is_study_session: eventData.isStudySession || false,
+      related_event_id: eventData.relatedEventId || null
     };
     
     console.log('Sending to server:', {
@@ -200,7 +211,10 @@ const updateEvent = async (eventId, eventData) => {
       requiresPreparation: updatedEvent.requires_preparation,
       preparationHours: updatedEvent.requires_hours,
       googleEventId: updatedEvent.google_event_id,
-      userId: updatedEvent.user_id
+      userId: updatedEvent.user_id,
+      // Map the study session fields
+      isStudySession: updatedEvent.is_study_session || false,
+      relatedEventId: updatedEvent.related_event_id || null
     };
   } catch (error) {
     console.error('Error updating event:', error);

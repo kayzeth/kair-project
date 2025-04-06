@@ -119,10 +119,8 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         allDay: event.allDay || false,
         color: event.color || '#d2b48c',
         requiresPreparation: event.requiresPreparation || false,
-        preparationHours: event.preparationHours || '',
-        // Store original date objects to preserve exact timestamps
-        originalStart: event.start,
-        originalEnd: event.end
+        // Handle 0 as a valid value for preparationHours
+        preparationHours: event.preparationHours !== undefined ? event.preparationHours : ''
       });
     }
   }, [event]);
@@ -160,7 +158,11 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       allDay: formData.allDay,
       color: formData.color,
       requiresPreparation: formData.requiresPreparation,
-      preparationHours: formData.requiresPreparation ? formData.preparationHours : ''
+      // Only include preparationHours if it's actually entered by the user
+      // This ensures empty values remain empty and don't get converted to 0
+      preparationHours: formData.requiresPreparation ? 
+        (formData.preparationHours === '' ? '' : formData.preparationHours) : 
+        ''
     };
     
     // Check if we're only toggling the preparation checkbox without changing dates/times
@@ -494,7 +496,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 Delete
               </button>
             )}
-            {event && event.requiresPreparation && event.preparationHours && (
+            {event && event.requiresPreparation && (event.preparationHours !== undefined && event.preparationHours !== null && event.preparationHours !== '') && (
               <button 
                 type="button" 
                 className="button button-secondary button-right"

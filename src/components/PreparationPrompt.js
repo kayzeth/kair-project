@@ -58,7 +58,7 @@ const PreparationPrompt = ({ events, onSave, onClose, onDismiss }) => {
     e.preventDefault();
     
     // Validate input before saving
-    if (!preparationHours[eventId] || preparationHours[eventId] === '') {
+    if (preparationHours[eventId] === undefined || preparationHours[eventId] === '') {
       setErrors(prev => ({
         ...prev,
         [eventId]: 'Please enter preparation hours'
@@ -78,7 +78,7 @@ const PreparationPrompt = ({ events, onSave, onClose, onDismiss }) => {
     // Save the preparation hours
     onSave(eventId, hours);
     
-    // Clear the input field and focus the next one if available
+    // Clear the input field after saving
     setPreparationHours(prev => ({
       ...prev,
       [eventId]: ''
@@ -86,7 +86,7 @@ const PreparationPrompt = ({ events, onSave, onClose, onDismiss }) => {
     
     // Find the next event that still needs hours
     const remainingEvents = events.filter(
-      event => event.id !== eventId && (!preparationHours[event.id] || preparationHours[event.id] === '')
+      event => event.id !== eventId && (preparationHours[event.id] === undefined || preparationHours[event.id] === '')
     );
     
     if (remainingEvents.length > 0 && inputRefs.current[remainingEvents[0].id]) {
