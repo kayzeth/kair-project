@@ -194,6 +194,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
       
       console.log('Study plan:', studyPlan);
       
+      // Attach study plan to window object for global access
+      window.studyPlan = studyPlan;
+      
       if (studyPlan && studyPlan.events) {
         // Filter out events that have been dismissed and are not within 8 days
         const nonDismissedEvents = studyPlan.events.filter(event => {

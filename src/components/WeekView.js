@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format, startOfWeek, endOfWeek, addDays, addHours, startOfDay, isSameDay, parseISO, isAfter, isBefore, getHours, getMinutes } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, addHours, isSameDay, parseISO, isAfter, isBefore, getHours, getMinutes } from 'date-fns';
 
 const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Monday
@@ -170,177 +170,104 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     // Filter events for this day, including recurring events
     const dayEvents = events.filter(event => shouldShowEventOnDay(event, currentDay));
     
+    // Time-based events (not all-day)
+    const timeEvents = dayEvents.filter(event => !event.allDay);
+    
     const hourSlots = [];
     for (let i = 0; i < 24; i++) {
-      // Capture day in a closure to avoid the loop reference issue
-      const currentDay = day;
-      
-      // Filter events for this hour
-      const hourEvents = dayEvents.filter(event => {
-        if (event.allDay) return false;
-        
-        try {
-          const eventStart = typeof event.start === 'string' ? parseISO(event.start) : event.start;
-          const eventEnd = typeof event.end === 'string' ? parseISO(event.end) : event.end;
-          
-          // Check if the event starts in this hour or spans this hour
-          const eventStartHour = eventStart.getHours();
-          const eventEndHour = eventEnd ? eventEnd.getHours() : eventStartHour + 1;
-          
-          // Event starts in this hour or spans this hour
-          return eventStartHour === i || 
-                 (eventStartHour < i && eventEndHour > i) ||
-                 (eventStartHour < i && eventEndHour === i && eventEnd.getMinutes() > 0);
-        } catch (error) {
-          console.error('Error parsing event time:', error, event);
-          return false;
-        }
-      });
-      
-      // Group overlapping events
-      const groupedEvents = [];
-      
-      // Sort events by start time
-      const sortedEvents = [...hourEvents].sort((a, b) => {
-        const aStart = typeof a.start === 'string' ? parseISO(a.start) : a.start;
-        const bStart = typeof b.start === 'string' ? parseISO(b.start) : b.start;
-        return aStart - bStart;
-      });
-      
-      // Group events that overlap in time
-      sortedEvents.forEach(event => {
-        const eventStart = typeof event.start === 'string' ? parseISO(event.start) : event.start;
-        const eventEnd = typeof event.end === 'string' ? parseISO(event.end) : event.end || new Date(eventStart.getTime() + 60 * 60 * 1000);
-        
-        // Find a group where this event overlaps with any event in the group
-        let foundGroup = false;
-        for (const group of groupedEvents) {
-          // Check if this event overlaps with any event in the group
-          const overlapsWithGroup = group.some(groupEvent => {
-            const groupEventStart = typeof groupEvent.start === 'string' ? parseISO(groupEvent.start) : groupEvent.start;
-            const groupEventEnd = typeof groupEvent.end === 'string' ? parseISO(groupEvent.end) : groupEvent.end || new Date(groupEventStart.getTime() + 60 * 60 * 1000);
-            
-            // Check for overlap: one event starts before the other ends
-            return (eventStart < groupEventEnd && eventEnd > groupEventStart);
-          });
-          
-          if (overlapsWithGroup) {
-            group.push(event);
-            foundGroup = true;
-            break;
-          }
-        }
-        
-        // If no overlapping group found, create a new group
-        if (!foundGroup) {
-          groupedEvents.push([event]);
-        }
-      });
-      
-      // Flatten groups and add position information
-      const positionedEvents = [];
-      groupedEvents.forEach(group => {
-        const groupSize = group.length;
-        group.forEach((event, index) => {
-          positionedEvents.push({
-            ...event,
-            groupSize,
-            groupIndex: index
-          });
-        });
-      });
-      
+      // Create the hour slot container
       hourSlots.push(
         <div 
           className="hour-slot" 
           key={i}
           onClick={() => {
-            const newDate = addHours(startOfDay(currentDay), i);
+            // Create a new date at this hour
+            const newDate = new Date(currentDay);
+            newDate.setHours(i, 0, 0, 0);
             onAddEvent(newDate);
           }}
-        >
-          {positionedEvents.map(event => {
-            try {
-              // Create a stable reference to the event
-              const stableEvent = event;
-              const eventStart = typeof stableEvent.start === 'string' ? parseISO(stableEvent.start) : stableEvent.start;
-              return (
-                <div
-                  key={stableEvent.id}
-                  className="time-event"
-                  data-testid={`weekview-time-event-${stableEvent.id}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEditEvent(stableEvent);
-                  }}
-                  style={{ 
-                    backgroundColor: stableEvent.color || 'var(--primary-color)',
-                    top: `${(eventStart.getMinutes() / 60) * 100}%`,
-                    left: stableEvent.groupSize > 1 ? `${(stableEvent.groupIndex / stableEvent.groupSize) * 90}%` : '0',
-                    width: stableEvent.groupSize > 1 ? `${(1 / stableEvent.groupSize) * 90}%` : '90%',
-                    height: `${(() => {
-                      try {
-                        const eventEnd = typeof stableEvent.end === 'string' ? parseISO(stableEvent.end) : stableEvent.end;
-                        
-                        // If no end time, default to 1 hour
-                        if (!eventEnd) {
-                          return 60;
-                        }
-                        
-                        // Calculate duration in minutes
-                        const durationMinutes = (eventEnd - eventStart) / (1000 * 60);
-                        
-                        // Calculate height based on duration (60px per hour)
-                        const heightInPixels = (durationMinutes / 60) * 60;
-                        
-                        // Ensure minimum height
-                        return Math.max(heightInPixels, 30);
-                      } catch (error) {
-                        console.error('Error calculating event height:', error, stableEvent);
-                        return 30; // Default height
-                      }
-                    })()}px`
-                  }}
-                >
-                  <div className="time-event-content">
-                    <div className="time-event-title">{stableEvent.title}</div>
-                    {(() => {
-                      try {
-                        const eventEnd = typeof stableEvent.end === 'string' ? parseISO(stableEvent.end) : stableEvent.end;
-                        
-                        // If no end time, default to 1 hour
-                        if (!eventEnd) {
-                          return null;
-                        }
-                        
-                        // Calculate duration in minutes
-                        const durationMinutes = (eventEnd - eventStart) / (1000 * 60);
-                        
-                        // Only show time if event is at least 45 minutes long (enough space for two lines)
-                        if (durationMinutes >= 45) {
-                          return (
-                            <div className="time-event-time">
-                              {formatTime(eventStart)} - {formatTime(eventEnd)}
-                            </div>
-                          );
-                        }
-                        return null;
-                      } catch (error) {
-                        console.error('Error calculating event duration:', error, stableEvent);
-                        return null;
-                      }
-                    })()}
-                  </div>
-                </div>
-              );
-            } catch (error) {
-              console.error('Error rendering event:', error, event);
-              return null; // Skip rendering this event
-            }
-          })}
-        </div>
+        ></div>
       );
     }
+    
+    // Render time-based events separately from hour slots
+    const renderedEvents = timeEvents.map(event => {
+      try {
+        // Create a stable reference to the event to avoid unsafe references in callbacks
+        const stableEvent = { ...event };
+        
+        const eventStart = typeof stableEvent.start === 'string' ? parseISO(stableEvent.start) : stableEvent.start;
+        const eventEnd = typeof stableEvent.end === 'string' ? parseISO(stableEvent.end) : stableEvent.end;
+        
+        // If no end time, default to 1 hour
+        const effectiveEnd = eventEnd || addHours(eventStart, 1);
+        
+        // Calculate position and height
+        const startHour = eventStart.getHours() + (eventStart.getMinutes() / 60);
+        const endHour = effectiveEnd.getHours() + (effectiveEnd.getMinutes() / 60);
+        
+        // Calculate top position (60px per hour)
+        const topPosition = startHour * 60;
+        
+        // Calculate height based on duration (60px per hour)
+        const heightInPixels = (endHour - startHour) * 60;
+        
+        // Ensure minimum height
+        const finalHeight = Math.max(heightInPixels, 30);
+        
+        return (
+          <div
+            key={stableEvent.id}
+            className="time-event"
+            data-testid={`weekview-event-${stableEvent.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditEvent({
+                ...stableEvent,
+                // Convert ISO strings back to Date objects to maintain compatibility with tests
+                start: typeof stableEvent.start === 'string' ? new Date(stableEvent.start) : stableEvent.start,
+                end: typeof stableEvent.end === 'string' ? new Date(stableEvent.end) : stableEvent.end,
+              });
+            }}
+            style={{
+              top: `${topPosition}px`,
+              height: `${finalHeight}px`,
+              backgroundColor: stableEvent.color || 'var(--primary-color)',
+              position: 'absolute',
+              left: '1px',
+              right: '1px',
+              zIndex: 1
+            }}
+          >
+            <div className="time-event-content">
+              <div className="time-event-title">{stableEvent.title}</div>
+              {(() => {
+                try {
+                  // Calculate duration in minutes
+                  const durationMinutes = (effectiveEnd - eventStart) / (1000 * 60);
+                  
+                  // Only show time if event is at least 45 minutes long (enough space for two lines)
+                  if (durationMinutes >= 45) {
+                    return (
+                      <div className="time-event-time">
+                        {formatTime(eventStart)} - {formatTime(effectiveEnd)}
+                      </div>
+                    );
+                  }
+                  return null;
+                } catch (error) {
+                  console.error('Error calculating event duration:', error, stableEvent);
+                  return null;
+                }
+              })()}
+            </div>
+          </div>
+        );
+      } catch (error) {
+        console.error('Error rendering event:', error, event);
+        return null; // Skip rendering this event
+      }
+    });
     
     // All-day events
     const allDayEvents = dayEvents.filter(event => event.allDay);
@@ -385,6 +312,8 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
         {/* Time grid */}
         <div className="week-day-content">
           {hourSlots}
+          {/* Render events on top of the hour slots */}
+          {renderedEvents}
         </div>
       </div>
     );
