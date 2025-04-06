@@ -42,8 +42,34 @@ router.get('/:id', async (req, res) => {
 // Create new event
 router.post('/', async (req, res) => {
   try {
-    const event = new Event(req.body);
+    console.log('Creating event with data:', req.body);
+    
+    // Ensure dates are properly preserved with their exact values
+    const eventData = { ...req.body };
+    
+    // Handle date strings to preserve exact time
+    if (eventData.start_time && typeof eventData.start_time === 'string') {
+      // Keep the exact string format to preserve timezone information
+      console.log('Preserving exact start_time string:', eventData.start_time);
+    }
+    
+    if (eventData.end_time && typeof eventData.end_time === 'string') {
+      // Keep the exact string format to preserve timezone information
+      console.log('Preserving exact end_time string:', eventData.end_time);
+    }
+    
+    // Create the event with the exact date values from the client
+    const event = new Event(eventData);
     await event.save();
+    
+    // Log the saved event dates for debugging
+    console.log('Saved event dates:', {
+      start: event.start_time,
+      end: event.end_time,
+      startISO: event.start_time.toISOString(),
+      startLocal: event.start_time.toString()
+    });
+    
     res.status(201).json(event);
   } catch (error) {
     console.error('Error creating event:', error);
@@ -54,14 +80,40 @@ router.post('/', async (req, res) => {
 // Update event
 router.put('/:id', async (req, res) => {
   try {
+    console.log('Updating event with data:', req.body);
+    
+    // Ensure dates are properly preserved with their exact values
+    const eventData = { ...req.body };
+    
+    // Handle date strings to preserve exact time
+    if (eventData.start_time && typeof eventData.start_time === 'string') {
+      // Keep the exact string format to preserve timezone information
+      console.log('Preserving exact start_time string for update:', eventData.start_time);
+    }
+    
+    if (eventData.end_time && typeof eventData.end_time === 'string') {
+      // Keep the exact string format to preserve timezone information
+      console.log('Preserving exact end_time string for update:', eventData.end_time);
+    }
+    
     const event = await Event.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      eventData,
       { new: true }
     );
+    
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
+    
+    // Log the updated event dates for debugging
+    console.log('Updated event dates:', {
+      start: event.start_time,
+      end: event.end_time,
+      startISO: event.start_time.toISOString(),
+      startLocal: event.start_time.toString()
+    });
+    
     res.json(event);
   } catch (error) {
     console.error('Error updating event:', error);

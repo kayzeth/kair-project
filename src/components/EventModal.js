@@ -74,11 +74,14 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       let startDate, endDate, startTime, endTime;
       
       if (event.start instanceof Date) {
+        // Store the original date objects to preserve exact timestamps
         startDate = format(event.start, 'yyyy-MM-dd');
         startTime = format(event.start, 'HH:mm');
       } else if (typeof event.start === 'string') {
-        startDate = event.start.split('T')[0];
-        startTime = event.start.includes('T') ? event.start.split('T')[1].substring(0, 5) : '09:00';
+        // If it's a string (like from the database), parse it carefully
+        const startDateTime = new Date(event.start);
+        startDate = format(startDateTime, 'yyyy-MM-dd');
+        startTime = format(startDateTime, 'HH:mm');
       } else {
         startDate = format(new Date(), 'yyyy-MM-dd');
         startTime = '09:00';
@@ -88,8 +91,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         endDate = format(event.end, 'yyyy-MM-dd');
         endTime = format(event.end, 'HH:mm');
       } else if (typeof event.end === 'string') {
-        endDate = event.end.split('T')[0];
-        endTime = event.end.includes('T') ? event.end.split('T')[1].substring(0, 5) : '10:00';
+        const endDateTime = new Date(event.end);
+        endDate = format(endDateTime, 'yyyy-MM-dd');
+        endTime = format(endDateTime, 'HH:mm');
       } else {
         endDate = format(new Date(), 'yyyy-MM-dd');
         endTime = '10:00';
@@ -115,7 +119,10 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         allDay: event.allDay || false,
         color: event.color || '#d2b48c',
         requiresPreparation: event.requiresPreparation || false,
-        preparationHours: event.preparationHours || ''
+        preparationHours: event.preparationHours || '',
+        // Store original date objects to preserve exact timestamps
+        originalStart: event.start,
+        originalEnd: event.end
       });
     }
   }, [event]);
@@ -124,15 +131,15 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     const { name, value, type, checked } = e.target;
     
     if (type === 'checkbox') {
-      setFormData({
-        ...formData,
+      setFormData(prevData => ({
+        ...prevData,
         [name]: checked
-      });
+      }));
     } else {
-      setFormData({
-        ...formData,
+      setFormData(prevData => ({
+        ...prevData,
         [name]: value
-      });
+      }));
     }
   };
 
@@ -144,11 +151,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       return;
     }
     
-    // Create date objects from the form data strings, preserving the original date
-    const startDate = new Date(formData.start + 'T00:00:00');
-    const endDate = new Date(formData.end + 'T00:00:00');
-    
-    // Prepare the event object with all properties
+    // Start with a base object that preserves the original event properties
     const eventObject = {
       id: event ? event.id : null,
       title: formData.title,
@@ -160,35 +163,107 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       preparationHours: formData.requiresPreparation ? formData.preparationHours : ''
     };
     
-    if (formData.allDay) {
-      // For all-day events, use the date without time
-      eventObject.start = startDate;
-      eventObject.end = endDate;
+    // Check if we're only toggling the preparation checkbox without changing dates/times
+    let isJustTogglingPreparation = false;
+    
+    if (event) {
+      // Get the original date and time strings for comparison
+      const originalStartDate = format(new Date(event.start), 'yyyy-MM-dd');
+      const originalEndDate = format(new Date(event.end), 'yyyy-MM-dd');
+      
+      // Get original times, handling different formats
+      let originalStartTime, originalEndTime;
+      
+      if (event.startTime) {
+        originalStartTime = event.startTime;
+      } else if (event.start instanceof Date) {
+        originalStartTime = format(event.start, 'HH:mm');
+      } else if (typeof event.start === 'string') {
+        const startDate = new Date(event.start);
+        originalStartTime = format(startDate, 'HH:mm');
+      }
+      
+      if (event.endTime) {
+        originalEndTime = event.endTime;
+      } else if (event.end instanceof Date) {
+        originalEndTime = format(event.end, 'HH:mm');
+      } else if (typeof event.end === 'string') {
+        const endDate = new Date(event.end);
+        originalEndTime = format(endDate, 'HH:mm');
+      }
+      
+      console.log('Time comparison:', {
+        formStartTime: formData.startTime,
+        originalStartTime,
+        formEndTime: formData.endTime,
+        originalEndTime,
+        formStart: formData.start,
+        originalStartDate,
+        formEnd: formData.end,
+        originalEndDate
+      });
+      
+      // Only consider it "just toggling preparation" if ALL date and time values are unchanged
+      isJustTogglingPreparation = 
+        formData.start === originalStartDate &&
+        formData.end === originalEndDate &&
+        formData.startTime === originalStartTime &&
+        formData.endTime === originalEndTime;
+    }
+    
+    console.log('Is just toggling preparation:', isJustTogglingPreparation);
+    
+    if (isJustTogglingPreparation) {
+      console.log('Just toggling preparation - preserving original timestamps');
+      eventObject.start = event.start;
+      eventObject.end = event.end;
+      
+      // Preserve time strings if they exist
+      if (event.startTime) eventObject.startTime = event.startTime;
+      if (event.endTime) eventObject.endTime = event.endTime;
     } else {
-      // For time-specific events, combine date and time while preserving the timezone
-      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
-      const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
-      
-      // Create new Date objects to avoid mutating the original dates
-      const start = new Date(formData.start + 'T00:00:00');
-      start.setHours(startHours, startMinutes, 0);
-      
-      const end = new Date(formData.end + 'T00:00:00');
-      end.setHours(endHours, endMinutes, 0);
-      
-      eventObject.start = start;
-      eventObject.end = end;
-      
-      // Store time separately for easier access
-      eventObject.startTime = formData.startTime;
-      eventObject.endTime = formData.endTime;
+      // Handle date changes normally
+      if (formData.allDay) {
+        // For all-day events, create date objects with timezone offset preserved
+        const [year, month, day] = formData.start.split('-').map(Number);
+        // Create date using local time to avoid timezone shifts
+        const startDate = new Date(year, month - 1, day, 0, 0, 0);
+        
+        const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
+        const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59);
+        
+        eventObject.start = startDate;
+        eventObject.end = endDate;
+      } else {
+        // For time-specific events, combine date and time with timezone preservation
+        const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+        const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
+        
+        // Parse date components to avoid timezone issues
+        const [startYear, startMonth, startDay] = formData.start.split('-').map(Number);
+        
+        // Create date using local time components
+        // This ensures the time shown to the user is exactly what they selected
+        const startDate = new Date(startYear, startMonth - 1, startDay, startHours, startMinutes, 0);
+        
+        const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
+        const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes, 0);
+        
+        eventObject.start = startDate;
+        eventObject.end = endDate;
+        eventObject.startTime = formData.startTime;
+        eventObject.endTime = formData.endTime;
+      }
     }
     
     console.log('Submitting event with dates:', {
-      start: eventObject.start.toISOString(),
-      end: eventObject.end.toISOString(),
-      formStart: formData.start,
-      formEnd: formData.end
+      start: eventObject.start,
+      startISOString: eventObject.start instanceof Date ? eventObject.start.toISOString() : null,
+      startLocalString: eventObject.start instanceof Date ? eventObject.start.toString() : null,
+      startTime: formData.startTime,
+      end: eventObject.end,
+      isJustTogglingPreparation,
+      formStartDate: formData.start
     });
     
     onSave(eventObject);
