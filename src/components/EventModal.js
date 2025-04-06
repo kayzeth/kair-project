@@ -139,52 +139,60 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    console.log('Form data before submission:', formData);
-    
-    // Validate required fields
     if (!formData.title.trim()) {
-      console.log('Title is required');
-      return; // Stop submission if title is empty
+      alert('Event title is required');
+      return;
     }
     
-    // Format dates properly for submission
-    let startDateTime, endDateTime;
+    // Create date objects from the form data strings, preserving the original date
+    const startDate = new Date(formData.start + 'T00:00:00');
+    const endDate = new Date(formData.end + 'T00:00:00');
+    
+    // Prepare the event object with all properties
+    const eventObject = {
+      id: event ? event.id : null,
+      title: formData.title,
+      description: formData.description,
+      location: formData.location,
+      allDay: formData.allDay,
+      color: formData.color,
+      requiresPreparation: formData.requiresPreparation,
+      preparationHours: formData.requiresPreparation ? formData.preparationHours : ''
+    };
     
     if (formData.allDay) {
       // For all-day events, use the date without time
-      startDateTime = new Date(formData.start);
-      startDateTime.setHours(0, 0, 0, 0);
-      
-      endDateTime = new Date(formData.end);
-      endDateTime.setHours(23, 59, 59, 999);
+      eventObject.start = startDate;
+      eventObject.end = endDate;
     } else {
-      // For time-specific events, combine date and time
+      // For time-specific events, combine date and time while preserving the timezone
       const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
       const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
       
-      startDateTime = new Date(formData.start);
-      startDateTime.setHours(startHours, startMinutes, 0, 0);
+      // Create new Date objects to avoid mutating the original dates
+      const start = new Date(formData.start + 'T00:00:00');
+      start.setHours(startHours, startMinutes, 0);
       
-      endDateTime = new Date(formData.end);
-      endDateTime.setHours(endHours, endMinutes, 0, 0);
+      const end = new Date(formData.end + 'T00:00:00');
+      end.setHours(endHours, endMinutes, 0);
+      
+      eventObject.start = start;
+      eventObject.end = end;
+      
+      // Store time separately for easier access
+      eventObject.startTime = formData.startTime;
+      eventObject.endTime = formData.endTime;
     }
     
-    // Prepare the event data for saving
-    const eventData = {
-      ...formData,
-      // If this is an existing event, include its ID
-      ...(event && { id: event.id }),
-      // Replace string dates with Date objects
-      start: startDateTime,
-      end: endDateTime,
-      // Remove startTime and endTime as they're now incorporated into start and end
-      startTime: undefined,
-      endTime: undefined
-    };
+    console.log('Submitting event with dates:', {
+      start: eventObject.start.toISOString(),
+      end: eventObject.end.toISOString(),
+      formStart: formData.start,
+      formEnd: formData.end
+    });
     
-    console.log('Formatted event data for submission:', eventData);
-    
-    onSave(eventData);
+    onSave(eventObject);
+    onClose();
   };
 
   const handleDelete = () => {
