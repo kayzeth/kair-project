@@ -80,7 +80,7 @@ const createEvent = async (eventData, userId) => {
       requires_preparation: eventData.requiresPreparation || false,
       requires_hours: eventData.preparationHours ? Number(eventData.preparationHours) : 0,
       color: eventData.color || '#d2b48c',
-      source: 'LMS' // Default source, can be changed as needed
+      source: eventData.source || 'LMS' // Use provided source or default to LMS
     };
     
     console.log('Sending to server:', {

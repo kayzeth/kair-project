@@ -4,6 +4,8 @@ import { faUpload, faSpinner, faCalendarPlus } from '@fortawesome/free-solid-svg
 // Import pdf.js with specific version
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import 'pdfjs-dist/legacy/build/pdf.worker.entry';
+import eventService from '../services/eventService';
+import { getCurrentUserId } from '../services/userService';
 
 
 const SyllabusParser = ({ onAddEvents }) => {
@@ -16,6 +18,7 @@ const SyllabusParser = ({ onAddEvents }) => {
   const [repeatUntilDate, setRepeatUntilDate] = useState('');
   const [shouldRepeat, setShouldRepeat] = useState(true);
   const [openAiError, setOpenAiError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -723,22 +726,86 @@ const SyllabusParser = ({ onAddEvents }) => {
                       className="add-to-calendar-button"
                       data-testid="syllabus-add-to-calendar-button" 
                       disabled={calendarEvents.length === 0}
-                      onClick={() => {
-                        if (onAddEvents && calendarEvents.length > 0) {
-                          // Apply repeat settings to events
-                          const eventsToAdd = calendarEvents.map(event => {
-                            // Only apply repeat settings to class meetings (not assignments or exams)
-                            if (event.recurring && shouldRepeat) {
-                              return {
-                                ...event,
-                                repeatUntil: repeatUntilDate || null
-                              };
+                      onClick={async () => {
+                        if (calendarEvents.length > 0) {
+                          try {
+                            setIsLoading(true);
+                            setSaveSuccess(false);
+                            
+                            // Get current user ID
+                            const userId = getCurrentUserId();
+                            console.log('👤 Current user ID for saving events:', userId);
+                            if (!userId) {
+                              throw new Error('User ID not found. Please log in to save events.');
                             }
-                            return event;
-                          });
-                          
-                          onAddEvents(eventsToAdd);
-                          alert('Events added to calendar successfully!');
+                            
+                            // Apply repeat settings to events
+                            const eventsToAdd = calendarEvents.map(event => {
+                              // Only apply repeat settings to class meetings (not assignments or exams)
+                              if (event.recurring && shouldRepeat) {
+                                return {
+                                  ...event,
+                                  repeatUntil: repeatUntilDate || null
+                                };
+                              }
+                              return event;
+                            });
+                            
+                            // Save each event to the database
+                            const savedEvents = [];
+                            for (const event of eventsToAdd) {
+                              // Convert to the format expected by the eventService
+                              // Ensure we have valid Date objects for start and end times
+                              const start = event.start ? new Date(event.start) : null;
+                              const end = event.end ? new Date(event.end) : null;
+                              
+                              // Skip events with invalid dates
+                              if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+                                console.error('Skipping event with invalid dates:', event.title);
+                                continue;
+                              }
+                              
+                              const eventToSave = {
+                                title: event.title,
+                                start: start,
+                                end: end,
+                                allDay: event.allDay || false,
+                                description: event.description || '',
+                                location: event.location || '',
+                                requiresPreparation: event.requiresPreparation || false,
+                                color: event.color || '#d2b48c',
+                                source: 'SYLLABUS' // Match the enum values in the database schema
+                              };
+                              
+                              // Save to database
+                              console.log(`💾 Saving event to database: ${eventToSave.title}`);
+                              const savedEvent = await eventService.createEvent(eventToSave, userId);
+                              console.log(`✅ Event saved with ID: ${savedEvent.id}`);
+                              savedEvents.push(savedEvent);
+                            }
+                            
+                            console.log(`💾 Successfully saved ${savedEvents.length} events to database!`);
+                            setSaveSuccess(true);
+                            alert('Events added to calendar successfully!');
+                            
+                            // Also pass events to parent component if onAddEvents prop is provided
+                            // This maintains compatibility with the local state approach
+                            if (onAddEvents && typeof onAddEvents === 'function') {
+                              onAddEvents(savedEvents);
+                            }
+                            
+                            // Clear the form after successful save
+                            setFile(null);
+                            setExtractedInfo(null);
+                            setCalendarEvents([]);
+                            setApiResponse(null);
+                            setOpenAiError(null);
+                          } catch (error) {
+                            console.error('Error saving events to database:', error);
+                            setError(`Failed to save events: ${error.message}`);
+                          } finally {
+                            setIsLoading(false);
+                          }
                         }
                       }}
                     >
@@ -750,6 +817,14 @@ const SyllabusParser = ({ onAddEvents }) => {
                       {shouldRepeat && calendarEvents.some(e => e.recurring) && 
                         ` (class meetings will repeat weekly${repeatUntilDate ? ` until ${new Date(repeatUntilDate).toLocaleDateString()}` : ''})`}
                     </p>
+                    
+                    {saveSuccess && (
+                      <div className="success-message" style={{ marginTop: '10px', padding: '10px', backgroundColor: '#e8f5e9', border: '1px solid #4caf50', borderRadius: '4px', color: '#2e7d32' }}>
+                        <p style={{ margin: 0 }}>
+                          <strong>Success!</strong> Events have been saved to the database and will appear on your calendar.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
