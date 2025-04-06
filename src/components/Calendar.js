@@ -220,26 +220,57 @@ const Calendar = ({ initialEvents = [], userId }) => {
       console.log('Saving event with data:', eventData);
       console.log('Current user ID:', userId);
       
+      // Ensure time properties are properly preserved
+      const eventToSave = {
+        ...eventData,
+        // Preserve startTime and endTime properties if they exist
+        startTime: eventData.startTime || (eventData.start instanceof Date ? format(eventData.start, 'HH:mm') : null),
+        endTime: eventData.endTime || (eventData.end instanceof Date ? format(eventData.end, 'HH:mm') : null)
+      };
+      
+      console.log('Event to save with preserved times:', {
+        id: eventToSave.id,
+        start: eventToSave.start,
+        startTime: eventToSave.startTime,
+        end: eventToSave.end,
+        endTime: eventToSave.endTime
+      });
+      
       let savedEvent;
       
-      if (eventData.id) {
-        console.log('Updating existing event with ID:', eventData.id);
-        savedEvent = await eventService.updateEvent(eventData.id, eventData);
+      if (eventToSave.id) {
+        console.log('Updating existing event with ID:', eventToSave.id);
+        savedEvent = await eventService.updateEvent(eventToSave.id, eventToSave);
         
-        // Update events state
+        // Update events state with proper time handling
         setEvents(prevEvents => 
-          prevEvents.map(event => 
-            event.id === savedEvent.id ? savedEvent : event
-          )
+          prevEvents.map(event => {
+            if (event.id === savedEvent.id) {
+              // Ensure the updated event retains its time properties
+              return {
+                ...savedEvent,
+                startTime: savedEvent.startTime || eventToSave.startTime,
+                endTime: savedEvent.endTime || eventToSave.endTime
+              };
+            }
+            return event;
+          })
         );
         
         console.log('Updated event:', savedEvent);
       } else {
         console.log('Creating new event');
-        savedEvent = await eventService.createEvent(eventData, userId);
+        savedEvent = await eventService.createEvent(eventToSave, userId);
         
-        // Add to events state
-        setEvents(prevEvents => [...prevEvents, savedEvent]);
+        // Add to events state with proper time handling
+        setEvents(prevEvents => [
+          ...prevEvents, 
+          {
+            ...savedEvent,
+            startTime: savedEvent.startTime || eventToSave.startTime,
+            endTime: savedEvent.endTime || eventToSave.endTime
+          }
+        ]);
         
         console.log('Created new event:', savedEvent);
       }

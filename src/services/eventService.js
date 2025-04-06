@@ -66,45 +66,15 @@ const createEvent = async (eventData, userId) => {
     console.log(`Creating event for user ID: ${userId}`);
     console.log('Event data received:', eventData);
     
-    // Ensure dates are properly formatted with timezone preservation
-    let startTime, endTime;
-    
-    // If start/end are Date objects, ensure we preserve the exact date
-    if (eventData.start instanceof Date) {
-      // Format the date in ISO format but preserve the local date part
-      const year = eventData.start.getFullYear();
-      const month = String(eventData.start.getMonth() + 1).padStart(2, '0');
-      const day = String(eventData.start.getDate()).padStart(2, '0');
-      const hours = String(eventData.start.getHours()).padStart(2, '0');
-      const minutes = String(eventData.start.getMinutes()).padStart(2, '0');
-      
-      startTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
-    } else {
-      startTime = eventData.start;
-    }
-    
-    if (eventData.end instanceof Date) {
-      // Format the date in ISO format but preserve the local date part
-      const year = eventData.end.getFullYear();
-      const month = String(eventData.end.getMonth() + 1).padStart(2, '0');
-      const day = String(eventData.end.getDate()).padStart(2, '0');
-      const hours = String(eventData.end.getHours()).padStart(2, '0');
-      const minutes = String(eventData.end.getMinutes()).padStart(2, '0');
-      
-      endTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
-    } else {
-      endTime = eventData.end;
-    }
-    
-    console.log('Formatted dates for DB:', { startTime, endTime });
-    
     // Transform from Calendar format to MongoDB format
     const eventForDb = {
       user_id: userId,
       title: eventData.title,
       all_day: eventData.allDay,
-      start_time: startTime,
-      end_time: endTime,
+      // Preserve the exact local time by using the raw Date object
+      // MongoDB will handle the conversion to UTC
+      start_time: eventData.start,
+      end_time: eventData.end,
       description: eventData.description || '',
       location: eventData.location || '',
       requires_preparation: eventData.requiresPreparation || false,
@@ -112,9 +82,13 @@ const createEvent = async (eventData, userId) => {
       color: eventData.color || '#d2b48c',
       source: 'LMS' // Default source, can be changed as needed
     };
-
-    console.log('Transformed event data for DB:', eventForDb);
-    console.log(`API URL: ${API_URL}/events`);
+    
+    console.log('Sending to server:', {
+      start_time_type: typeof eventForDb.start_time,
+      start_time: eventForDb.start_time instanceof Date ? eventForDb.start_time.toString() : eventForDb.start_time,
+      end_time_type: typeof eventForDb.end_time,
+      end_time: eventForDb.end_time instanceof Date ? eventForDb.end_time.toString() : eventForDb.end_time
+    });
     
     const response = await fetch(`${API_URL}/events`, {
       method: 'POST',
@@ -172,53 +146,27 @@ const updateEvent = async (eventId, eventData) => {
     console.log(`Updating event ID: ${eventId}`);
     console.log('Updated event data:', eventData);
     
-    // Ensure dates are properly formatted with timezone preservation
-    let startTime, endTime;
-    
-    // If start/end are Date objects, ensure we preserve the exact date
-    if (eventData.start instanceof Date) {
-      // Format the date in ISO format but preserve the local date part
-      const year = eventData.start.getFullYear();
-      const month = String(eventData.start.getMonth() + 1).padStart(2, '0');
-      const day = String(eventData.start.getDate()).padStart(2, '0');
-      const hours = String(eventData.start.getHours()).padStart(2, '0');
-      const minutes = String(eventData.start.getMinutes()).padStart(2, '0');
-      
-      startTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
-    } else {
-      startTime = eventData.start;
-    }
-    
-    if (eventData.end instanceof Date) {
-      // Format the date in ISO format but preserve the local date part
-      const year = eventData.end.getFullYear();
-      const month = String(eventData.end.getMonth() + 1).padStart(2, '0');
-      const day = String(eventData.end.getDate()).padStart(2, '0');
-      const hours = String(eventData.end.getHours()).padStart(2, '0');
-      const minutes = String(eventData.end.getMinutes()).padStart(2, '0');
-      
-      endTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
-    } else {
-      endTime = eventData.end;
-    }
-    
-    console.log('Formatted dates for DB:', { startTime, endTime });
-    
     // Transform from Calendar format to MongoDB format
     const eventForDb = {
       title: eventData.title,
       all_day: eventData.allDay,
-      start_time: startTime,
-      end_time: endTime,
+      // Preserve the exact local time by using the raw Date object
+      // MongoDB will handle the conversion to UTC
+      start_time: eventData.start,
+      end_time: eventData.end,
       description: eventData.description || '',
       location: eventData.location || '',
       requires_preparation: eventData.requiresPreparation || false,
       requires_hours: eventData.preparationHours ? Number(eventData.preparationHours) : 0,
       color: eventData.color || '#d2b48c'
     };
-
-    console.log('Transformed event data for DB:', eventForDb);
-    console.log(`API URL: ${API_URL}/events/${eventId}`);
+    
+    console.log('Sending to server:', {
+      start_time_type: typeof eventForDb.start_time,
+      start_time: eventForDb.start_time instanceof Date ? eventForDb.start_time.toString() : eventForDb.start_time,
+      end_time_type: typeof eventForDb.end_time,
+      end_time: eventForDb.end_time instanceof Date ? eventForDb.end_time.toString() : eventForDb.end_time
+    });
     
     const response = await fetch(`${API_URL}/events/${eventId}`, {
       method: 'PUT',
