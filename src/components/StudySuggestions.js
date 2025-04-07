@@ -72,6 +72,16 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
     return acc;
   }, {});
 
+  // Sort suggestions within each day by start time
+  Object.keys(suggestionsByDay).forEach(day => {
+    suggestionsByDay[day].sort((a, b) => 
+      a.suggestedStartTime.getTime() - b.suggestedStartTime.getTime()
+    );
+  });
+
+  // Sort days chronologically
+  const sortedDays = Object.keys(suggestionsByDay).sort();
+
   // If no suggestions, don't render anything
   if (!suggestions || suggestions.length === 0) {
     return null;
@@ -115,63 +125,66 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
         </p>
         
         <div className="suggestions-list">
-          {Object.entries(suggestionsByDay).map(([day, daySuggestions]) => (
-            <div key={day} className="day-group">
-              <h4 className="day-header">
-                {/* Use the actual date from the first suggestion in this group */}
-                {format(daySuggestions[0].suggestedStartTime, 'EEEE, MMMM d')}
-              </h4>
-              
-              {daySuggestions.map(suggestion => {
-                const suggestionId = suggestion.suggestedStartTime.getTime();
-                const isSelected = selectedSuggestions.includes(suggestionId);
+          {sortedDays.map((day, dayIndex) => {
+            const daySuggestions = suggestionsByDay[day];
+            return (
+              <div key={day} className="day-group">
+                <h4 className="day-header">
+                  {/* Use the actual date from the first suggestion in this group */}
+                  {format(daySuggestions[0].suggestedStartTime, 'EEEE, MMMM d')}
+                </h4>
                 
-                return (
-                  <div 
-                    key={suggestionId} 
-                    className={`suggestion-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => toggleSuggestion(suggestionId)}
-                    data-testid={`suggestion-item-${suggestionId}`}
-                  >
-                    <div className="suggestion-checkbox">
-                      <input 
-                        type="checkbox" 
-                        checked={isSelected}
-                        onChange={(e) => {
-                          e.stopPropagation(); // Stop event propagation
-                          toggleSuggestion(suggestionId);
-                        }}
-                        data-testid={`suggestion-checkbox-${suggestionId}`}
-                      />
-                    </div>
-                    
-                    <div className="suggestion-details">
-                      <div className="suggestion-time">
-                        <FontAwesomeIcon icon={faClock} />
-                        <span data-testid={`suggestion-time-${suggestionId}`}>
-                          {format(suggestion.suggestedStartTime, 'h:mm a')} - {format(suggestion.suggestedEndTime, 'h:mm a')}
-                        </span>
+                {daySuggestions.map(suggestion => {
+                  const suggestionId = suggestion.suggestedStartTime.getTime();
+                  const isSelected = selectedSuggestions.includes(suggestionId);
+                  
+                  return (
+                    <div 
+                      key={suggestionId} 
+                      className={`suggestion-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => toggleSuggestion(suggestionId)}
+                      data-testid={`suggestion-item-${suggestionId}`}
+                    >
+                      <div className="suggestion-checkbox">
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={(e) => {
+                            e.stopPropagation(); // Stop event propagation
+                            toggleSuggestion(suggestionId);
+                          }}
+                          data-testid={`suggestion-checkbox-${suggestionId}`}
+                        />
                       </div>
                       
-                      <p className="suggestion-message" data-testid={`suggestion-message-${suggestionId}`}>
-                        {suggestion.message}
-                      </p>
-                      
-                      {suggestion.totalSessions > 1 && (
-                        <p className="suggestion-session-info" data-testid={`suggestion-session-info-${suggestionId}`}>
-                          Session {suggestion.sessionNumber} of {suggestion.totalSessions}
+                      <div className="suggestion-details">
+                        <div className="suggestion-time">
+                          <FontAwesomeIcon icon={faClock} />
+                          <span data-testid={`suggestion-time-${suggestionId}`}>
+                            {format(suggestion.suggestedStartTime, 'h:mm a')} - {format(suggestion.suggestedEndTime, 'h:mm a')}
+                          </span>
+                        </div>
+                        
+                        <p className="suggestion-message" data-testid={`suggestion-message-${suggestionId}`}>
+                          {suggestion.message}
                         </p>
-                      )}
-                      
-                      <div className={`suggestion-priority ${suggestion.priority}`} data-testid={`suggestion-priority-${suggestionId}`}>
-                        {suggestion.priority.charAt(0).toUpperCase() + suggestion.priority.slice(1)} priority
+                        
+                        {suggestion.totalSessions > 1 && (
+                          <p className="suggestion-session-info" data-testid={`suggestion-session-info-${suggestionId}`}>
+                            Session {suggestion.sessionNumber} of {suggestion.totalSessions}
+                          </p>
+                        )}
+                        
+                        <div className={`suggestion-priority ${suggestion.priority}`} data-testid={`suggestion-priority-${suggestionId}`}>
+                          {suggestion.priority.charAt(0).toUpperCase() + suggestion.priority.slice(1)} priority
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
         
         <div className="suggestions-actions">

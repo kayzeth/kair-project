@@ -278,10 +278,57 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     }
   };
 
-  const handleTriggerStudySuggestions = () => {
+  const handleTriggerStudySuggestions = async () => {
     if (event && event.id) {
-      onTriggerStudySuggestions(event);
-      onClose();
+      try {
+        // First, save the current form data to update the event in the database
+        // Create a new event object with the current form data
+        const updatedEvent = {
+          ...event,
+          title: formData.title,
+          description: formData.description,
+          location: formData.location,
+          start: formData.allDay 
+            ? new Date(`${formData.start}T00:00:00`) 
+            : new Date(`${formData.start}T${formData.startTime}`),
+          end: formData.allDay 
+            ? new Date(`${formData.end}T23:59:59`) 
+            : new Date(`${formData.end}T${formData.endTime}`),
+          allDay: formData.allDay,
+          color: formData.color,
+          requiresPreparation: formData.requiresPreparation,
+          preparationHours: formData.preparationHours
+        };
+        
+        // Save the updated event to the database
+        console.log('Saving event before generating study plan:', updatedEvent);
+        await onSave(updatedEvent);
+        
+        // Then generate study suggestions using the updated event
+        onTriggerStudySuggestions(updatedEvent);
+        onClose();
+      } catch (error) {
+        console.error('Error saving event before generating study plan:', error);
+        // Still try to generate study suggestions with the form data
+        const tempEvent = {
+          ...event,
+          title: formData.title,
+          description: formData.description,
+          location: formData.location,
+          start: formData.allDay 
+            ? new Date(`${formData.start}T00:00:00`) 
+            : new Date(`${formData.start}T${formData.startTime}`),
+          end: formData.allDay 
+            ? new Date(`${formData.end}T23:59:59`) 
+            : new Date(`${formData.end}T${formData.endTime}`),
+          allDay: formData.allDay,
+          color: formData.color,
+          requiresPreparation: formData.requiresPreparation,
+          preparationHours: formData.preparationHours
+        };
+        onTriggerStudySuggestions(tempEvent);
+        onClose();
+      }
     }
   };
 
@@ -496,7 +543,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 Delete
               </button>
             )}
-            {event && event.requiresPreparation && (event.preparationHours !== undefined && event.preparationHours !== null && event.preparationHours !== '') && (
+            {event && formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
               <button 
                 type="button" 
                 className="button button-secondary button-right"
