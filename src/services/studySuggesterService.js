@@ -643,9 +643,13 @@ export const createStudyEvents = (suggestions) => {
     const startTime = new Date(suggestion.suggestedStartTime);
     const endTime = new Date(suggestion.suggestedEndTime);
     
+    // Format the event title to include the original event name in square brackets
+    const eventTitle = suggestion.event?.title || 'Event';
+    const studySessionTitle = `[${eventTitle}] ${suggestion.message || 'Study Session'}`;
+    
     return {
       id: `study-${Date.now()}-${index}`,
-      title: suggestion.message || 'Study Session',
+      title: studySessionTitle,
       start: startTime,
       end: endTime,
       allDay: false,
@@ -689,8 +693,12 @@ export const createAndSaveStudyEvents = async (suggestions, userId) => {
       const endTime = new Date(suggestion.suggestedEndTime);
       
       // Create the event object in the format expected by the eventService
+      // Format the event title to include the original event name in square brackets
+      const eventTitle = suggestion.event?.title || 'Event';
+      const studySessionTitle = `[${eventTitle}] ${suggestion.message || 'Study Session'}`;
+      
       const eventData = {
-        title: suggestion.message || 'Study Session',
+        title: studySessionTitle,
         start: startTime,
         end: endTime,
         allDay: false,

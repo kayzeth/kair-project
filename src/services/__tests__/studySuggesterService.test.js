@@ -446,7 +446,7 @@ describe('Study Suggester Service', () => {
       
       // Check that the events were created correctly
       expect(calendarEvents.length).toBe(1);
-      expect(calendarEvents[0].title).toBe('Study for Final Exam');
+      expect(calendarEvents[0].title).toBe('[Final Exam] Study for Final Exam');
       expect(calendarEvents[0].start).toEqual(new Date('2025-03-19T10:00:00'));
       expect(calendarEvents[0].end).toEqual(new Date('2025-03-19T12:00:00'));
       expect(calendarEvents[0].isStudySession).toBe(true);
