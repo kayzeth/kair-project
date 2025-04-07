@@ -775,13 +775,39 @@ export const isEventWithin8Days = (event) => {
   return daysUntilEvent <= 8 && daysUntilEvent >= 0;
 };
 
+/**
+ * Checks if an event is between 8 days and 2 weeks away from now
+ * @param {Object} event - The event to check
+ * @returns {boolean} - True if the event is between 8 days and 2 weeks away, false otherwise
+ */
+export const isEventBetween8DaysAnd2Weeks = (event) => {
+  if (!event || !event.start) return false;
+  
+  // Get event start time
+  const eventStart = event.start instanceof Date 
+    ? new Date(event.start) 
+    : new Date(event.start);
+  
+  // Current time as reference point
+  const now = new Date();
+  
+  // Calculate days until the event
+  const daysUntilEvent = Math.ceil((eventStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  
+  console.log(`Event "${event.title}" is in ${daysUntilEvent} days (checking 8-14 day range)`);
+  
+  // Check if the event is between 8 days and 2 weeks away
+  return daysUntilEvent > 8 && daysUntilEvent <= 14;
+};
+
 // Create a named export object
 const studySuggesterService = {
   generateStudySuggestions,
   createStudyEvents,
   createAndSaveStudyEvents,
   formatSuggestionMessage,
-  isEventWithin8Days
+  isEventWithin8Days,
+  isEventBetween8DaysAnd2Weeks
 };
 
 export default studySuggesterService;

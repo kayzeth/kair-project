@@ -124,11 +124,27 @@ router.put('/:id', async (req, res) => {
 // Delete event
 router.delete('/:id', async (req, res) => {
   try {
-    const event = await Event.findByIdAndDelete(req.params.id);
+    const eventId = req.params.id;
+    console.log(`Deleting event ID: ${eventId}`);
+    
+    // First, delete all study sessions associated with this event
+    const studySessionsResult = await Event.deleteMany({
+      related_event_id: eventId,
+      is_study_session: true
+    });
+    
+    console.log(`Deleted ${studySessionsResult.deletedCount} associated study sessions`);
+    
+    // Then delete the main event
+    const event = await Event.findByIdAndDelete(eventId);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    res.json({ message: 'Event deleted successfully' });
+    
+    res.json({ 
+      message: 'Event deleted successfully', 
+      studySessionsDeleted: studySessionsResult.deletedCount 
+    });
   } catch (error) {
     console.error('Error deleting event:', error);
     res.status(500).json({ message: 'Server error' });

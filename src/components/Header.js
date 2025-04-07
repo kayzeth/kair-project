@@ -17,6 +17,9 @@ const Header = ({ activeTab, onTabChange }) => {
   const logout = auth?.logout ?? (() => {});
   const isLandingPage = location?.pathname === '/';
 
+  console.log('DIAGNOSTIC: Header - Current location:', location.pathname);
+  console.log('DIAGNOSTIC: Header - Active tab:', activeTab);
+
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -37,26 +40,46 @@ const Header = ({ activeTab, onTabChange }) => {
       <div className="nav-links">
         {!isLandingPage && (
           <>
-            <Link to="/calendar" className="nav-link" data-testid="header-nav-calendar">
+            <Link 
+              to="/calendar" 
+              className="nav-link" 
+              data-testid="header-nav-calendar"
+              onClick={() => onTabChange('calendar')}
+            >
               <Tooltip text="Calendar">
                 <FontAwesomeIcon icon={faCalendarAlt} />
               </Tooltip>
             </Link>
-            <Link to="/syllabusParser" className="nav-link" data-testid="header-nav-syllabus">
+            <Link 
+              to="/syllabusParser" 
+              className="nav-link" 
+              data-testid="header-nav-syllabus"
+              onClick={() => onTabChange('syllabusParser')}
+            >
               <Tooltip text="Syllabus Parser">
                 <FontAwesomeIcon icon={faFileAlt} />
               </Tooltip>
             </Link>
-            <Link to="/account" className="nav-link" data-testid="header-nav-account">
+            <Link 
+              to="/account" 
+              className="nav-link" 
+              data-testid="header-nav-account"
+              onClick={() => onTabChange('account')}
+            >
               <Tooltip text="Account">
                 <FontAwesomeIcon icon={faUserCircle} size="lg" />
               </Tooltip>
             </Link>
-            <button onClick={handleLogout} className="nav-link logout-button" data-testid="header-nav-logout">
+            <Link 
+              to="/" 
+              className="nav-link logout-button" 
+              data-testid="header-nav-logout"
+              onClick={handleLogout}
+            >
               <Tooltip text="Log Out">
                 <FontAwesomeIcon icon={faSignOutAlt} />
               </Tooltip>
-            </button>
+            </Link>
           </>
         )}
       </div>
