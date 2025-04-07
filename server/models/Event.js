@@ -64,6 +64,24 @@ const eventSchema = new mongoose.Schema({
   related_event_id: {
     type: String,
     default: null
+  },
+  // Add fields for recurring events
+  is_recurring: {
+    type: Boolean,
+    default: false
+  },
+  recurrence_frequency: {
+    type: String,
+    enum: ['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', null],
+    default: null
+  },
+  recurrence_end_date: {
+    type: Date,
+    default: null
+  },
+  recurrence_days: {
+    type: [String], // e.g., ['MONDAY', 'WEDNESDAY']
+    default: []
   }
 }, {
   timestamps: true

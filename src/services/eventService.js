@@ -45,7 +45,12 @@ const getUserEvents = async (userId) => {
       userId: event.user_id,
       // Map the study session fields
       isStudySession: event.is_study_session || false,
-      relatedEventId: event.related_event_id || null
+      relatedEventId: event.related_event_id || null,
+      // Map the recurring event fields
+      isRecurring: event.is_recurring || false,
+      recurrenceFrequency: event.recurrence_frequency || null,
+      recurrenceEndDate: event.recurrence_end_date ? new Date(event.recurrence_end_date) : null,
+      recurrenceDays: event.recurrence_days || []
     }));
   } catch (error) {
     console.error('Error fetching user events:', error);
@@ -87,7 +92,12 @@ const createEvent = async (eventData, userId) => {
       source: eventData.source || 'LMS', // Use provided source or default to LMS
       // Add fields for study sessions
       is_study_session: eventData.isStudySession || false,
-      related_event_id: eventData.relatedEventId || null
+      related_event_id: eventData.relatedEventId || null,
+      // Add fields for recurring events
+      is_recurring: eventData.isRecurring || false,
+      recurrence_frequency: eventData.recurrenceFrequency || null,
+      recurrence_end_date: eventData.recurrenceEndDate || null,
+      recurrence_days: eventData.recurrenceDays || []
     };
     
     console.log('Sending to server:', {
@@ -169,6 +179,11 @@ const updateEvent = async (eventId, eventData) => {
       color: eventData.color || '#d2b48c',
       // Add fields for study sessions
       is_study_session: eventData.isStudySession || false,
+      // Add fields for recurring events
+      is_recurring: eventData.isRecurring || false,
+      recurrence_frequency: eventData.recurrenceFrequency || null,
+      recurrence_end_date: eventData.recurrenceEndDate || null,
+      recurrence_days: eventData.recurrenceDays || [],
       related_event_id: eventData.relatedEventId || null
     };
     

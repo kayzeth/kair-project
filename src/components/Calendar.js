@@ -19,6 +19,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month'); // 'month', 'week', or 'day'
   const [events, setEvents] = useState([]); // Start with empty array, load from API
+  const [displayEvents, setDisplayEvents] = useState([]); // Events with recurring instances expanded
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -49,6 +50,154 @@ const Calendar = ({ initialEvents = [], userId }) => {
     setViewDate(newViewDate);
   }, [currentDate, view]);
 
+  // Generate recurring event instances based on recurrence settings
+  const generateRecurringInstances = useCallback((events, viewStart, viewEnd) => {
+    if (!events || events.length === 0) return events;
+    
+    // Create a new array to hold all events including recurring instances
+    const allEvents = [];
+    
+    events.forEach(event => {
+      // Add the original event
+      allEvents.push(event);
+      
+      // If the event is recurring and has a recurrence end date
+      if (event.isRecurring && event.recurrenceEndDate) {
+        const startDate = new Date(event.start);
+        const endDate = new Date(event.end);
+        const recurrenceEndDate = new Date(event.recurrenceEndDate);
+        const eventDuration = endDate.getTime() - startDate.getTime();
+        
+        // Don't generate instances if the recurrence end date is in the past
+        // FIXED: Don't return from the forEach callback as it only skips this event
+        if (recurrenceEndDate < viewStart) return;
+        
+        // Limit the generation to the view period plus some buffer
+        const generationEndDate = new Date(Math.min(
+          recurrenceEndDate.getTime(),
+          viewEnd.getTime() + 7 * 24 * 60 * 60 * 1000 // Add 1 week buffer
+        ));
+        
+        // For recurring events with specific days, we need a different approach
+        if ((event.recurrenceFrequency === 'WEEKLY' || event.recurrenceFrequency === 'BIWEEKLY') && 
+            event.recurrenceDays && event.recurrenceDays.length > 0) {
+          
+          // Start from the view start date or the event start date, whichever is later
+          let currentDate = new Date(Math.max(viewStart.getTime(), startDate.getTime()));
+          
+          // If we're starting from the event start date, move to the next day to avoid duplicating the original
+          if (currentDate.getTime() === startDate.getTime()) {
+            currentDate = addDays(currentDate, 1);
+          }
+          
+          // Generate instances for each day until the end date
+          while (currentDate <= generationEndDate) {
+            const dayOfWeek = format(currentDate, 'EEEE').toUpperCase();
+            
+            // Check if this day of the week is included in the recurrence days
+            if (event.recurrenceDays.includes(dayOfWeek)) {
+              // For biweekly, we need to check if this is the correct week
+              let isCorrectWeek = true;
+              
+              if (event.recurrenceFrequency === 'BIWEEKLY') {
+                // Calculate weeks between the start date and current date
+                const weeksBetween = Math.round((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                isCorrectWeek = weeksBetween % 2 === 0; // Only include even week numbers
+              }
+              
+              if (isCorrectWeek) {
+                // Create a new instance of the event
+                const instanceStart = new Date(currentDate);
+                instanceStart.setHours(startDate.getHours(), startDate.getMinutes(), 0, 0);
+                
+                const instanceEnd = new Date(instanceStart.getTime() + eventDuration);
+                
+                const eventInstance = {
+                  ...event,
+                  id: `${event.id}-${instanceStart.getTime()}`, // Create a unique ID for this instance
+                  start: instanceStart,
+                  end: instanceEnd,
+                  isRecurringInstance: true, // Mark as a recurring instance
+                  originalEventId: event.id // Reference to the original event
+                };
+                
+                allEvents.push(eventInstance);
+              }
+            }
+            
+            // Move to the next day
+            currentDate = addDays(currentDate, 1);
+          }
+        } else {
+          // Handle simple recurrence without specific days
+          let currentDate = new Date(startDate);
+          
+          // Generate instances based on frequency
+          while (currentDate <= generationEndDate) {
+            // Skip the original event date
+            if (currentDate.getTime() === startDate.getTime()) {
+              // Move to next occurrence based on frequency
+              if (event.recurrenceFrequency === 'DAILY') {
+                currentDate = addDays(currentDate, 1);
+              } else if (event.recurrenceFrequency === 'WEEKLY') {
+                currentDate = addDays(currentDate, 7);
+              } else if (event.recurrenceFrequency === 'BIWEEKLY') {
+                currentDate = addDays(currentDate, 14);
+              } else if (event.recurrenceFrequency === 'MONTHLY') {
+                currentDate = addMonths(currentDate, 1);
+              }
+              continue;
+            }
+            
+            // Skip instances outside the view range
+            if (currentDate < viewStart || currentDate > viewEnd) {
+              // Move to next occurrence based on frequency
+              if (event.recurrenceFrequency === 'DAILY') {
+                currentDate = addDays(currentDate, 1);
+              } else if (event.recurrenceFrequency === 'WEEKLY') {
+                currentDate = addDays(currentDate, 7);
+              } else if (event.recurrenceFrequency === 'BIWEEKLY') {
+                currentDate = addDays(currentDate, 14);
+              } else if (event.recurrenceFrequency === 'MONTHLY') {
+                currentDate = addMonths(currentDate, 1);
+              }
+              continue;
+            }
+            
+            // Create a new instance of the event
+            const instanceStart = new Date(currentDate);
+            const instanceEnd = new Date(instanceStart.getTime() + eventDuration);
+            
+            const eventInstance = {
+              ...event,
+              id: `${event.id}-${instanceStart.getTime()}`, // Create a unique ID for this instance
+              start: instanceStart,
+              end: instanceEnd,
+              isRecurringInstance: true, // Mark as a recurring instance
+              originalEventId: event.id // Reference to the original event
+            };
+            
+            allEvents.push(eventInstance);
+            
+            // Move to next occurrence based on frequency
+            if (event.recurrenceFrequency === 'DAILY') {
+              currentDate = addDays(currentDate, 1);
+            } else if (event.recurrenceFrequency === 'WEEKLY') {
+              currentDate = addDays(currentDate, 7);
+            } else if (event.recurrenceFrequency === 'BIWEEKLY') {
+              currentDate = addDays(currentDate, 14);
+            } else if (event.recurrenceFrequency === 'MONTHLY') {
+              currentDate = addMonths(currentDate, 1);
+            }
+          }
+        }
+      }
+    });
+    
+    console.log(`Generated ${allEvents.length} events including recurring instances`);
+    return allEvents;
+  }, []);
+  
   const loadEvents = useCallback(async () => {
     if (!userId) {
       console.log('No userId provided, cannot load events');
@@ -71,10 +220,48 @@ const Calendar = ({ initialEvents = [], userId }) => {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
+  
+  // Generate recurring event instances whenever events or view changes
+  useEffect(() => {
+    if (events.length === 0) {
+      setDisplayEvents([]);
+      return;
+    }
+    
+    // Determine the view range to generate instances for
+    let viewStart, viewEnd;
+    
+    if (view === 'month') {
+      // For month view, include previous and next month
+      viewStart = subMonths(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 1);
+      viewEnd = addMonths(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0), 1);
+    } else if (view === 'week') {
+      // For week view, include previous and next week
+      viewStart = subWeeks(startOfWeek(currentDate), 1);
+      viewEnd = addWeeks(endOfWeek(currentDate), 1);
+    } else {
+      // For day view, include a week before and after
+      viewStart = subDays(currentDate, 7);
+      viewEnd = addDays(currentDate, 7);
+    }
+    
+    // Generate recurring instances for the view range
+    const eventsWithRecurring = generateRecurringInstances(events, viewStart, viewEnd);
+    setDisplayEvents(eventsWithRecurring);
+    
+  }, [events, view, currentDate, generateRecurringInstances]);
 
   useEffect(() => {
     if (initialEvents && initialEvents.length > 0 && userId) {
       console.log('Received initialEvents:', initialEvents.length);
+      // Combine initialEvents with existing events
+      setEvents(prevEvents => {
+        // Create a map of existing event IDs to avoid duplicates
+        const existingEventIds = new Set(prevEvents.map(e => e.id));
+        // Filter out initialEvents that already exist in prevEvents
+        const newEvents = initialEvents.filter(e => !existingEventIds.has(e.id));
+        return [...prevEvents, ...newEvents];
+      });
     }
   }, [initialEvents, userId]);
 
@@ -616,7 +803,31 @@ const Calendar = ({ initialEvents = [], userId }) => {
   };
 
   const editEvent = (event) => {
-    setSelectedEvent(event);
+    // If this is a recurring event instance, we need to find the original event
+    if (event.isRecurringInstance && event.originalEventId) {
+      // Find the original event from the events array
+      const originalEvent = events.find(e => e.id === event.originalEventId);
+      
+      if (originalEvent) {
+        // Use the original event for editing, but preserve the specific date of this instance
+        const instanceEvent = {
+          ...originalEvent,
+          start: event.start,
+          end: event.end,
+          // Flag to indicate this is a specific instance of a recurring event
+          isEditingInstance: true,
+          instanceDate: event.start
+        };
+        setSelectedEvent(instanceEvent);
+      } else {
+        // If original event not found, just use this instance
+        setSelectedEvent(event);
+      }
+    } else {
+      // Regular event or original recurring event
+      setSelectedEvent(event);
+    }
+    
     setShowModal(true);
   };
 
@@ -649,7 +860,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return (
           <MonthView 
             currentDate={currentDate} 
-            events={events} 
+            events={displayEvents} 
             onAddEvent={addEventHandler}
             onEditEvent={editEvent}
           />
@@ -658,7 +869,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return (
           <WeekView 
             currentDate={currentDate} 
-            events={events} 
+            events={displayEvents} 
             onAddEvent={addEventHandler}
             onEditEvent={editEvent}
           />
@@ -667,7 +878,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return (
           <DayView 
             currentDate={currentDate} 
-            events={events} 
+            events={displayEvents} 
             onAddEvent={addEventHandler}
             onEditEvent={editEvent}
           />
