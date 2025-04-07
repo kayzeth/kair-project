@@ -1,12 +1,158 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faSpinner, faCalendarPlus } from '@fortawesome/free-solid-svg-icons';
+import { faUpload, faSpinner } from '@fortawesome/free-solid-svg-icons';
 // Import pdf.js with specific version
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import 'pdfjs-dist/legacy/build/pdf.worker.entry';
+import eventService from '../services/eventService';
+import { getCurrentUserId } from '../services/userService';
 
 
 const SyllabusParser = ({ onAddEvents }) => {
+  // Get current year for default date handling
+  const currentYear = new Date().getFullYear();
+  
+  // Styles for the event editor modal
+  const eventEditorModalStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    background: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000
+  };
+  
+  const eventEditorContentStyle = {
+    background: 'white',
+    padding: '30px',
+    borderRadius: '12px',
+    maxWidth: '800px',
+    width: '90%',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  };
+  
+  const eventEditorHeaderStyle = {
+    marginTop: 0,
+    marginBottom: '8px',
+    color: '#333',
+    fontSize: '24px'
+  };
+  
+  const eventEditorDescriptionStyle = {
+    marginBottom: '20px',
+    color: '#666',
+    fontSize: '16px'
+  };
+  
+  const eventEditorTableStyle = {
+    width: '100%',
+    borderCollapse: 'collapse',
+    marginTop: '15px',
+    marginBottom: '20px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    borderRadius: '8px',
+    overflow: 'hidden'
+  };
+  
+  const eventEditorTableContainerStyle = {
+    maxHeight: '400px',
+    overflowY: 'auto',
+    marginBottom: '25px',
+    borderRadius: '8px'
+  };
+  
+  const eventEditorButtonsStyle = {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '12px',
+    marginTop: '10px'
+  };
+  
+  const tableCellStyle = {
+    padding: '12px 16px',
+    borderBottom: '1px solid #eaeaea',
+    textAlign: 'left',
+    fontSize: '14px'
+  };
+  
+  const tableHeaderStyle = {
+    backgroundColor: '#f8f9fa',
+    fontWeight: '600',
+    color: '#444',
+    padding: '14px 16px',
+    borderBottom: '2px solid #e0e0e0',
+    fontSize: '15px'
+  };
+  
+  const inputStyle = {
+    padding: '8px 12px',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+    fontSize: '14px',
+    width: '100%',
+    boxSizing: 'border-box'
+  };
+  
+  const checkboxStyle = {
+    margin: '0 auto',
+    display: 'block'
+  };
+  
+  const buttonBaseStyle = {
+    padding: '10px 16px',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    border: 'none',
+    outline: 'none'
+  };
+  
+  const cancelButtonStyle = {
+    ...buttonBaseStyle,
+    backgroundColor: '#f1f3f5',
+    color: '#495057',
+    border: '1px solid #ced4da'
+  };
+  
+  const applyButtonStyle = {
+    ...buttonBaseStyle,
+    backgroundColor: '#4285F4',
+    color: 'white',
+    boxShadow: '0 2px 4px rgba(66, 133, 244, 0.3)'
+  };
+  
+  const editEventsButtonStyle = {
+    ...buttonBaseStyle,
+    backgroundColor: '#f8f9fa',
+    color: '#4285F4',
+    border: '1px solid #4285F4',
+    marginRight: '10px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    transition: 'all 0.2s ease'
+  };
+  
+  const addToCalendarButtonStyle = {
+    ...buttonBaseStyle,
+    backgroundColor: '#4285F4',
+    color: 'white',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: '0 2px 4px rgba(66, 133, 244, 0.3)',
+    transition: 'all 0.2s ease'
+  };
+
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -15,7 +161,10 @@ const SyllabusParser = ({ onAddEvents }) => {
   const [apiResponse, setApiResponse] = useState(null);
   const [repeatUntilDate, setRepeatUntilDate] = useState('');
   const [shouldRepeat, setShouldRepeat] = useState(true);
+  const [editableEvents, setEditableEvents] = useState([]);
+  const [showEventEditor, setShowEventEditor] = useState(false);
   const [openAiError, setOpenAiError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -421,39 +570,43 @@ const SyllabusParser = ({ onAddEvents }) => {
     // Add assignments as events
     if (syllabusData.assignments && Array.isArray(syllabusData.assignments)) {
       syllabusData.assignments.forEach((assignment, index) => {
-        if (assignment.dueDate) {
-          events.push({
-            id: `assignment-${index}`,
-            title: `Due: ${assignment.title || 'Assignment'}`,
-            start: formatDateForEvent(assignment.dueDate, currentYear),
-            end: formatDateForEvent(assignment.dueDate, currentYear),
-            allDay: true,
-            description: assignment.description || '',
-            color: '#0F9D58'
-          });
-        }
+        // Always create an event, even if dueDate is TBD
+        const dueDate = assignment.dueDate || 'TBD';
+        events.push({
+          id: `assignment-${index}`,
+          title: `Due: ${assignment.title || 'Assignment'}`,
+          start: formatDateForEvent(dueDate, currentYear),
+          end: formatDateForEvent(dueDate, currentYear),
+          allDay: true,
+          description: assignment.description || '',
+          color: '#0F9D58'
+        });
       });
     }
 
     // Add exams as events
     if (syllabusData.exams && Array.isArray(syllabusData.exams)) {
       syllabusData.exams.forEach((exam, index) => {
-        if (exam.date) {
-          events.push({
-            id: `exam-${index}`,
-            title: `Exam: ${exam.title || 'Exam'}`,
-            start: exam.time 
-              ? formatDateTimeForEvent(exam.date, exam.time, currentYear) 
-              : formatDateForEvent(exam.date, currentYear),
-            end: exam.time 
-              ? formatDateTimeForEvent(exam.date, addHoursToTime(exam.time, 2), currentYear) 
-              : formatDateForEvent(exam.date, currentYear),
-            allDay: !exam.time,
-            location: exam.location || '',
-            description: exam.description || '',
-            color: '#DB4437'
-          });
-        }
+        // Always create an event, even if date is TBD
+        const examDate = exam.date || 'TBD';
+        // examTime not used in current implementation, but kept for future use
+        // eslint-disable-next-line no-unused-vars
+        const examTime = exam.time || 'TBD';
+        
+        // Default to today's date if TBD
+        const formattedDate = formatDateForEvent(examDate, currentYear) || formatDateForEvent(new Date().toISOString().split('T')[0], currentYear);
+        
+        // Create the event with default values for TBD fields
+        events.push({
+          id: `exam-${index}`,
+          title: `Exam: ${exam.title || 'Exam'}`,
+          start: formattedDate,
+          end: formattedDate,
+          allDay: true,
+          location: exam.location || '',
+          description: exam.description || '',
+          color: '#DB4437'
+        });
       });
     }
 
@@ -464,6 +617,29 @@ const SyllabusParser = ({ onAddEvents }) => {
   const formatDateForEvent = (dateStr, year) => {
     // This is a simplified version - in a real app, you'd want more robust date parsing
     try {
+      // Check for TBD or undefined dates
+      if (!dateStr || dateStr.toLowerCase().includes('tbd') || dateStr.toLowerCase().includes('to be determined')) {
+        // Default to today's date if TBD
+        const today = new Date();
+        return `${currentYear}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+      }
+      
+      // Handle month abbreviations like FEB, MAR, APR
+      const monthMap = {
+        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04', 'MAY': '05', 'JUN': '06',
+        'JUL': '07', 'AUG': '08', 'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+      };
+      
+      // Check for format like "FEB 11, 9:00pm" or "MAY 12"
+      const monthNameRegex = /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d+)(?:,\s+.*)?/i;
+      const monthNameMatch = dateStr.match(monthNameRegex);
+      
+      if (monthNameMatch) {
+        const month = monthMap[monthNameMatch[1].toUpperCase()];
+        const day = parseInt(monthNameMatch[2]).toString().padStart(2, '0');
+        return `${currentYear}-${month}-${day}`;
+      }
+      
       // Handle various date formats
       const cleanDate = dateStr.replace(/(\d+)(st|nd|rd|th)/, '$1').trim();
       const date = new Date(cleanDate);
@@ -471,20 +647,32 @@ const SyllabusParser = ({ onAddEvents }) => {
       // If date is invalid, try some common formats
       if (isNaN(date.getTime())) {
         // Try MM/DD format
-        const parts = cleanDate.split(/[/\-.]/); // Fixed escape characters
+        const parts = cleanDate.split(/[/. -]/); //
         if (parts.length >= 2) {
           const month = parseInt(parts[0], 10) - 1;
           const day = parseInt(parts[1], 10);
-          return `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+          return `${currentYear}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
         }
-        return null;
+        
+        // If all parsing fails, default to today's date
+        const today = new Date();
+        return `${currentYear}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+      }
+      
+      // Check if the year is very old or missing (uses 1970 or 2001, etc.)
+      // If so, use the current year instead
+      const parsedYear = date.getFullYear();
+      if (parsedYear < 2020) {
+        return `${currentYear}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
       }
       
       // Format as YYYY-MM-DD
       return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
     } catch (err) {
       console.error('Error formatting date:', err);
-      return null;
+      // Default to today's date if there's an error
+      const today = new Date();
+      return `${currentYear}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
     }
   };
 
@@ -542,6 +730,7 @@ const SyllabusParser = ({ onAddEvents }) => {
   };
 
   // Helper function to add hours to a time string
+  // eslint-disable-next-line no-unused-vars
   const addHoursToTime = (timeStr, hoursToAdd) => {
     try {
       const timeMatch = timeStr.match(/(\d+):?(\d*)?\s*(am|pm|AM|PM)?/);
@@ -720,36 +909,330 @@ const SyllabusParser = ({ onAddEvents }) => {
                     </div>
                     
                     <button 
+                      className="edit-events-button"
+                      style={{
+                        ...editEventsButtonStyle,
+                        opacity: calendarEvents.length === 0 ? 0.5 : 1,
+                        cursor: calendarEvents.length === 0 ? 'not-allowed' : 'pointer'
+                      }}
+                      disabled={calendarEvents.length === 0}
+                      onMouseOver={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#e8f0fe';
+                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(66, 133, 244, 0.2)';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#f8f9fa';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }
+                      }}
+                      onClick={() => {
+                        // Prepare events for editing
+                        const editableEventsList = calendarEvents.map((event, index) => {
+                          try {
+                            // Get date from event or use current date as fallback
+                            let eventDate;
+                            
+                            try {
+                              eventDate = event.start ? new Date(event.start) : new Date();
+                              
+                              // Check if the date is valid
+                              if (isNaN(eventDate.getTime())) {
+                                console.warn('Invalid date detected:', event.start);
+                                eventDate = new Date(); // Fallback to current date
+                              }
+                            } catch (dateError) {
+                              console.error('Error creating date object:', dateError);
+                              eventDate = new Date(); // Fallback to current date
+                            }
+                            
+                            // If the year is very old (like 2001), update it to current year
+                            if (eventDate.getFullYear() < 2020) {
+                              eventDate.setFullYear(currentYear);
+                            }
+                            
+                            // Format date and time strings safely
+                            let dateString, timeString;
+                            try {
+                              dateString = eventDate.toISOString().split('T')[0];
+                              timeString = event.start && !event.allDay ? eventDate.toISOString().split('T')[1].substring(0, 5) : '';
+                            } catch (formatError) {
+                              console.error('Error formatting date/time:', formatError);
+                              const now = new Date();
+                              dateString = now.toISOString().split('T')[0];
+                              timeString = '';
+                            }
+                            
+                            return {
+                              ...event,
+                              editId: index, // Add unique ID for editing
+                              dateString,
+                              timeString
+                            };
+                          } catch (error) {
+                            console.error('Error processing event for editing:', error, event);
+                            // Return a safe fallback
+                            const now = new Date();
+                            return {
+                              ...event,
+                              editId: index,
+                              dateString: now.toISOString().split('T')[0],
+                              timeString: ''
+                            };
+                          }
+                        });
+                        setEditableEvents(editableEventsList);
+                        setShowEventEditor(true);
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{flexShrink: 0}}>
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#4285F4"/>
+                      </svg>
+                      Review & Edit Events
+                    </button>
+                    
+                    <button 
                       className="add-to-calendar-button"
+                      style={{
+                        ...addToCalendarButtonStyle,
+                        opacity: calendarEvents.length === 0 ? 0.5 : 1,
+                        cursor: calendarEvents.length === 0 ? 'not-allowed' : 'pointer'
+                      }}
                       data-testid="syllabus-add-to-calendar-button" 
                       disabled={calendarEvents.length === 0}
-                      onClick={() => {
-                        if (onAddEvents && calendarEvents.length > 0) {
-                          // Apply repeat settings to events
-                          const eventsToAdd = calendarEvents.map(event => {
-                            // Only apply repeat settings to class meetings (not assignments or exams)
-                            if (event.recurring && shouldRepeat) {
-                              return {
-                                ...event,
-                                repeatUntil: repeatUntilDate || null
-                              };
+                      onMouseOver={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#3367d6';
+                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(66, 133, 244, 0.4)';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#4285F4';
+                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(66, 133, 244, 0.3)';
+                        }
+                      }}
+                      onClick={async () => {
+                        if (calendarEvents.length > 0) {
+                          try {
+                            setIsLoading(true);
+                            setSaveSuccess(false);
+                            
+                            // Get current user ID
+                            const userId = getCurrentUserId();
+                            console.log('👤 Current user ID for saving events:', userId);
+                            if (!userId) {
+                              throw new Error('User ID not found. Please log in to save events.');
                             }
-                            return event;
-                          });
-                          
-                          onAddEvents(eventsToAdd);
-                          alert('Events added to calendar successfully!');
+                            
+                            // Apply repeat settings to events
+                            const eventsToAdd = calendarEvents.map(event => {
+                              // Only apply repeat settings to class meetings (not assignments or exams)
+                              if (event.recurring && shouldRepeat) {
+                                return {
+                                  ...event,
+                                  repeatUntil: repeatUntilDate || null
+                                };
+                              }
+                              return event;
+                            });
+                            
+                            // Save each event to the database
+                            const savedEvents = [];
+                            for (const event of eventsToAdd) {
+                              // Convert to the format expected by the eventService
+                              // Ensure we have valid Date objects for start and end times
+                              const start = event.start ? new Date(event.start) : null;
+                              const end = event.end ? new Date(event.end) : null;
+                              
+                              // Skip events with invalid dates
+                              if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+                                console.error('Skipping event with invalid dates:', event.title);
+                                continue;
+                              }
+                              
+                              const eventToSave = {
+                                title: event.title,
+                                start: start,
+                                end: end,
+                                allDay: event.allDay || false,
+                                description: event.description || '',
+                                location: event.location || '',
+                                requiresPreparation: event.requiresPreparation || false,
+                                color: event.color || '#d2b48c',
+                                source: 'SYLLABUS' // Match the enum values in the database schema
+                              };
+                              
+                              // Save to database
+                              console.log(`💾 Saving event to database: ${eventToSave.title}`);
+                              const savedEvent = await eventService.createEvent(eventToSave, userId);
+                              console.log(`✅ Event saved with ID: ${savedEvent.id}`);
+                              savedEvents.push(savedEvent);
+                            }
+                            
+                            console.log(`💾 Successfully saved ${savedEvents.length} events to database!`);
+                            setSaveSuccess(true);
+                            alert('Events added to calendar successfully!');
+                            
+                            // Also pass events to parent component if onAddEvents prop is provided
+                            // This maintains compatibility with the local state approach
+                            if (onAddEvents && typeof onAddEvents === 'function') {
+                              onAddEvents(savedEvents);
+                            }
+                            
+                            // Clear the form after successful save
+                            setFile(null);
+                            setExtractedInfo(null);
+                            setCalendarEvents([]);
+                            setApiResponse(null);
+                            setOpenAiError(null);
+                          } catch (error) {
+                            console.error('Error saving events to database:', error);
+                            setError(`Failed to save events: ${error.message}`);
+                          } finally {
+                            setIsLoading(false);
+                          }
                         }
                       }}
                     >
-                      <FontAwesomeIcon icon={faCalendarPlus} /> Add to Calendar
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z" fill="white"/>
+                      </svg>
+                      Add to Calendar
                     </button>
+                    
+                    {showEventEditor && (
+                      <div style={eventEditorModalStyle}>
+                        <div style={eventEditorContentStyle}>
+                          <h3 style={eventEditorHeaderStyle}>Review and Edit Events</h3>
+                          <p style={eventEditorDescriptionStyle}>You can adjust the dates and times before adding to your calendar.</p>
+                          
+                          <div style={eventEditorTableContainerStyle}>
+                            <table style={eventEditorTableStyle}>
+                              <thead>
+                                <tr>
+                                  <th style={tableHeaderStyle}>Event</th>
+                                  <th style={tableHeaderStyle}>Date</th>
+                                  <th style={tableHeaderStyle}>Time</th>
+                                  <th style={tableHeaderStyle}>All Day</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {editableEvents.map((event, index) => (
+                                  <tr key={index}>
+                                    <td style={tableCellStyle}>{event.title}</td>
+                                    <td style={tableCellStyle}>
+                                      <input 
+                                        type="date" 
+                                        style={inputStyle}
+                                        value={event.dateString} 
+                                        onChange={(e) => {
+                                          const updatedEvents = [...editableEvents];
+                                          updatedEvents[index].dateString = e.target.value;
+                                          setEditableEvents(updatedEvents);
+                                        }}
+                                      />
+                                    </td>
+                                    <td style={tableCellStyle}>
+                                      <input 
+                                        type="time" 
+                                        style={inputStyle}
+                                        value={event.timeString || ''} 
+                                        disabled={event.allDay}
+                                        onChange={(e) => {
+                                          const updatedEvents = [...editableEvents];
+                                          updatedEvents[index].timeString = e.target.value;
+                                          setEditableEvents(updatedEvents);
+                                        }}
+                                      />
+                                    </td>
+                                    <td style={tableCellStyle}>
+                                      <input 
+                                        type="checkbox" 
+                                        style={checkboxStyle}
+                                        checked={event.allDay} 
+                                        onChange={(e) => {
+                                          const updatedEvents = [...editableEvents];
+                                          updatedEvents[index].allDay = e.target.checked;
+                                          setEditableEvents(updatedEvents);
+                                        }}
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          <div style={eventEditorButtonsStyle}>
+                            <button 
+                              style={cancelButtonStyle}
+                              onClick={() => setShowEventEditor(false)}
+                            >
+                              Cancel
+                            </button>
+                            <button 
+                              style={applyButtonStyle}
+                              onClick={() => {
+                                // Update calendar events with edited values
+                                const updatedCalendarEvents = editableEvents.map(event => {
+                                  // Create new Date objects from the edited values
+                                  const dateObj = new Date(event.dateString);
+                                  let startDate, endDate;
+                                  
+                                  if (event.allDay) {
+                                    // For all-day events
+                                    startDate = event.dateString;
+                                    endDate = event.dateString;
+                                  } else if (event.timeString) {
+                                    // For time-specific events
+                                    const [hours, minutes] = event.timeString.split(':');
+                                    dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+                                    startDate = dateObj.toISOString();
+                                    
+                                    // End time is 1 hour after start by default
+                                    const endDateObj = new Date(dateObj);
+                                    endDateObj.setHours(endDateObj.getHours() + 1);
+                                    endDate = endDateObj.toISOString();
+                                  } else {
+                                    // Fallback for missing time
+                                    startDate = event.dateString;
+                                    endDate = event.dateString;
+                                  }
+                                  
+                                  return {
+                                    ...event,
+                                    start: startDate,
+                                    end: endDate
+                                  };
+                                });
+                                
+                                setCalendarEvents(updatedCalendarEvents);
+                                setShowEventEditor(false);
+                              }}
+                            >
+                              Apply Changes
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     <p className="calendar-events-count">
                       {calendarEvents.length} events will be added to your calendar
                       {shouldRepeat && calendarEvents.some(e => e.recurring) && 
                         ` (class meetings will repeat weekly${repeatUntilDate ? ` until ${new Date(repeatUntilDate).toLocaleDateString()}` : ''})`}
                     </p>
+                    
+                    {saveSuccess && (
+                      <div className="success-message" style={{ marginTop: '10px', padding: '10px', backgroundColor: '#e8f5e9', border: '1px solid #4caf50', borderRadius: '4px', color: '#2e7d32' }}>
+                        <p style={{ margin: 0 }}>
+                          <strong>Success!</strong> Events have been saved to the database and will appear on your calendar.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
