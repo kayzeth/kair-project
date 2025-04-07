@@ -49,6 +49,14 @@ export const storeGoogleEventsInDb = async (events, userId) => {
 
     const result = await response.json();
     console.log('Google Calendar events stored in database:', result);
+    
+    // Dispatch an event to notify the Calendar component to refresh
+    // This is done asynchronously to avoid blocking the UI
+    setTimeout(() => {
+      console.log('Dispatching calendar update event...');
+      window.dispatchEvent(new Event('calendarEventsUpdated'));
+    }, 500);
+    
     return result.results;
   } catch (error) {
     console.error('Error storing Google Calendar events in database:', error);
@@ -71,6 +79,8 @@ export const importAndStoreGoogleEvents = async (googleCalendarService, userId, 
     
     // Store events in MongoDB
     const results = await storeGoogleEventsInDb(events, userId);
+    
+    // No need to dispatch an event here as storeGoogleEventsInDb already does it
     
     return {
       events,
