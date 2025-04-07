@@ -84,7 +84,7 @@ const createEvent = async (eventData, userId) => {
       requires_hours: eventData.preparationHours !== undefined && eventData.preparationHours !== '' ? 
         Number(eventData.preparationHours) : null,
       color: eventData.color || '#d2b48c',
-      source: 'LMS', // Default source, can be changed as needed
+      source: eventData.source || 'LMS', // Use provided source or default to LMS
       // Add fields for study sessions
       is_study_session: eventData.isStudySession || false,
       related_event_id: eventData.relatedEventId || null
