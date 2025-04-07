@@ -124,8 +124,17 @@ router.put('/:id', async (req, res) => {
 // Delete event
 router.delete('/:id', async (req, res) => {
   try {
-    const eventId = req.params.id;
+    let eventId = req.params.id;
     console.log(`Deleting event ID: ${eventId}`);
+    
+    // Check if this is a recurring instance ID (format: originalId-timestamp)
+    let isRecurringInstance = false;
+    if (eventId.includes('-')) {
+      isRecurringInstance = true;
+      // Extract the original event ID
+      eventId = eventId.split('-')[0];
+      console.log(`Recurring instance detected. Original event ID: ${eventId}`);
+    }
     
     // First, delete all study sessions associated with this event
     const studySessionsResult = await Event.deleteMany({
@@ -135,12 +144,23 @@ router.delete('/:id', async (req, res) => {
     
     console.log(`Deleted ${studySessionsResult.deletedCount} associated study sessions`);
     
-    // Then delete the main event
+    // Whether it's a recurring instance or a regular event, delete the original event
     const event = await Event.findByIdAndDelete(eventId);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
     
+    // If it was a recurring instance, inform the client
+    if (isRecurringInstance) {
+      return res.json({ 
+        message: 'Recurring event deleted successfully',
+        originalEventId: eventId,
+        wasRecurring: true,
+        studySessionsDeleted: studySessionsResult.deletedCount
+      });
+    }
+    
+    // For regular events
     res.json({ 
       message: 'Event deleted successfully', 
       studySessionsDeleted: studySessionsResult.deletedCount 

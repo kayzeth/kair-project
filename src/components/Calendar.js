@@ -391,6 +391,8 @@ const Calendar = ({ initialEvents = [], userId }) => {
   // Simplified deleteEvent function
   const deleteEvent = async (id) => {
     try {
+      console.log('Deleting event with ID:', id);
+      
       // Skip in test environment
       if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
         setEvents(prevEvents => prevEvents.filter(event => 
@@ -400,19 +402,50 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
-      // Delete the main event
+      // Extract the original ID if this is a recurring instance
+      const originalId = id.includes('-') ? id.split('-')[0] : id;
+      console.log('Original event ID:', originalId);
+      
+      // Send the ID to the backend - the server will handle parsing if it's a recurring instance
+      console.log('Sending delete request to backend for ID:', id);
       await eventService.deleteEvent(id);
       
-      // Update the UI to remove both the main event and any associated study sessions
-      setEvents(prevEvents => prevEvents.filter(event => 
-        event.id !== id && !(event.isStudySession && String(event.relatedEventId) === String(id))
-      ));
-      
-      // Show success message
-      setSyncStatus({
-        status: 'success',
-        message: 'Event and associated study sessions deleted successfully'
-      });
+      // Check if this is a recurring instance (ID format: originalId-timestamp)
+      if (id.includes('-')) {
+        console.log('Handling recurring event deletion UI update');
+        
+        // For recurring instances, remove ALL instances with the same original ID from the UI
+        setDisplayEvents(prevEvents => prevEvents.filter(event => {
+          // If it's a recurring instance, check if it has the same original ID
+          if (event.isRecurringInstance && event.originalEventId) {
+            return event.originalEventId !== originalId;
+          }
+          // Also remove the original event itself
+          return event.id !== originalId;
+        }));
+        
+        // Also remove from the main events array
+        setEvents(prevEvents => prevEvents.filter(event => 
+          event.id !== originalId && !(event.isStudySession && String(event.relatedEventId) === String(originalId))
+        ));
+        
+        // Show success message
+        setSyncStatus({
+          status: 'success',
+          message: 'Recurring event and all its instances deleted successfully'
+        });
+      } else {
+        // For regular events, update the UI to remove both the main event and any associated study sessions
+        setEvents(prevEvents => prevEvents.filter(event => 
+          event.id !== id && !(event.isStudySession && String(event.relatedEventId) === String(id))
+        ));
+        
+        // Show success message
+        setSyncStatus({
+          status: 'success',
+          message: 'Event and associated study sessions deleted successfully'
+        });
+      }
       
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
@@ -578,239 +611,16 @@ const Calendar = ({ initialEvents = [], userId }) => {
       console.error('Error saving preparation hours:', error);
     }
   };
-<<<<<<< HEAD
 
-  const deleteEvent = async (id) => {
-    try {
-      console.log('Deleting event with ID:', id);
-      
-      // Check if this is a study event (study events have IDs that start with "study-" or have isStudySession=true)
-      const eventToDelete = events.find(event => event.id === id);
-      const isStudyEvent = eventToDelete?.isStudySession || (id && typeof id === 'string' && id.startsWith('study-'));
-      
-      // First, update the UI immediately to provide instant feedback
-      if (isStudyEvent) {
-        // For study events, just remove that specific event
-        setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
-      } else {
-        // For regular events, remove both the main event and all related study sessions
-        setEvents(prevEvents => {
-          // Find all study sessions related to this event for logging
-          const relatedStudySessions = prevEvents.filter(event => 
-            event.isStudySession && event.relatedEventId === id
-          );
-          
-          if (relatedStudySessions.length > 0) {
-            console.log(`Removing ${relatedStudySessions.length} study sessions from UI:`, 
-              relatedStudySessions.map(s => s.id));
-          }
-          
-          // Return the filtered events list
-          return prevEvents.filter(event => 
-            event.id !== id && !(event.isStudySession && event.relatedEventId === id)
-          );
-        });
-      }
-      
-      // Close the modal immediately for better UX
-      setShowModal(false);
-      
-      // Now handle the actual database operations
-      if (isStudyEvent) {
-        console.log('Deleting study event:', id);
-        // Delete the study session from the database
-        await eventService.deleteEvent(id);
-        console.log('Study session deleted successfully');
-      } else {
-        // This is a regular event - first find any related study sessions
-        console.log('Looking for study sessions related to event:', id);
-        
-        // Find study sessions in the current events state (before we filtered them out)
-        const relatedStudySessions = events.filter(event => 
-          event.isStudySession && event.relatedEventId === id
-        );
-        
-        if (relatedStudySessions.length > 0) {
-          console.log(`Found ${relatedStudySessions.length} related study sessions to delete:`, 
-            relatedStudySessions.map(s => s.id));
-          
-          // Delete each related study session from the database
-          const deletePromises = relatedStudySessions.map(studySession => {
-            return eventService.deleteEvent(studySession.id)
-              .then(() => console.log(`Deleted related study session: ${studySession.id}`))
-              .catch(error => console.error(`Error deleting related study session ${studySession.id}:`, error));
-          });
-          
-          // Wait for all study sessions to be deleted
-          await Promise.all(deletePromises);
-        } else {
-          console.log('No related study sessions found in memory, checking database...');
-          
-          try {
-            // Get all events for this user to ensure we have the latest data
-            const allEvents = await eventService.getUserEvents(userId);
-            
-            // Filter for study sessions related to this event
-            const dbRelatedSessions = allEvents.filter(event => 
-              event.isStudySession && event.relatedEventId === id
-            );
-            
-            if (dbRelatedSessions.length > 0) {
-              console.log(`Found ${dbRelatedSessions.length} related study sessions in database`);
-              
-              // Delete each related study session from the database
-              const deletePromises = dbRelatedSessions.map(studySession => {
-                return eventService.deleteEvent(studySession.id)
-                  .then(() => {
-                    console.log(`Deleted related study session from database: ${studySession.id}`);
-                    // Also ensure it's removed from the UI state
-                    setEvents(prevEvents => prevEvents.filter(event => event.id !== studySession.id));
-                  })
-                  .catch(error => console.error(`Error deleting related study session ${studySession.id}:`, error));
-              });
-              
-              // Wait for all study sessions to be deleted
-              await Promise.all(deletePromises);
-            } else {
-              console.log('No related study sessions found in database');
-            }
-          } catch (error) {
-            console.error('Error checking for related study sessions in database:', error);
-          }
-        }
-        
-        // Now delete the main event from the database
-        await eventService.deleteEvent(id);
-        console.log(`Deleted event ${id} and its related study sessions`);
-        
-        // Double-check that all related study sessions are removed from the UI
-        setEvents(prevEvents => {
-          const remainingStudySessions = prevEvents.filter(event => 
-            event.isStudySession && event.relatedEventId === id
-          );
-          
-          if (remainingStudySessions.length > 0) {
-            console.log(`Found ${remainingStudySessions.length} remaining study sessions in UI, removing them now`);
-            return prevEvents.filter(event => !(event.isStudySession && event.relatedEventId === id));
-          }
-          
-          return prevEvents;
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting event:', error);
-      
-      // Show error message
-      setSyncStatus({
-        status: 'error',
-        message: 'Error deleting event'
-      });
-      
-      setTimeout(() => {
-        setSyncStatus({ status: 'idle', message: '' });
-      }, 3000);
-    }
-  };
 
-  const handleAcceptStudySuggestions = async (acceptedSuggestions) => {
-    try {
-      console.log('Accepted study suggestions:', acceptedSuggestions);
-      
-      if (!userId) {
-        console.error('No userId available for creating study events');
-        setShowStudySuggestions(false);
-        return;
-      }
-      
-      // Create study events in the database with userId
-      const createdEvents = await studySuggesterService.createAndSaveStudyEvents(acceptedSuggestions, userId);
-      
-      if (createdEvents && createdEvents.length > 0) {
-        // Add the created events to the local state
-        setEvents(prevEvents => [...prevEvents, ...createdEvents]);
-        
-        console.log('Study events created and saved to database:', createdEvents);
-        
-        // Show success message
-        setSyncStatus({
-          status: 'success',
-          message: `Created ${createdEvents.length} study sessions`
-        });
-        
-        setTimeout(() => {
-          setSyncStatus({ status: 'idle', message: '' });
-        }, 3000);
-      } else {
-        console.log('No study events created');
-        
-        // Show error message
-        setSyncStatus({
-          status: 'error',
-          message: 'Failed to create study sessions'
-        });
-        
-        setTimeout(() => {
-          setSyncStatus({ status: 'idle', message: '' });
-        }, 3000);
-      }
-      
-      // Close the suggestions modal
-      setShowStudySuggestions(false);
-    } catch (error) {
-      console.error('Error accepting study suggestions:', error);
-      
-      // Show error message
-      setSyncStatus({
-        status: 'error',
-        message: 'Error creating study sessions'
-      });
-      
-      setTimeout(() => {
-        setSyncStatus({ status: 'idle', message: '' });
-      }, 3000);
-      
-      // Close the modal even on error
-      setShowStudySuggestions(false);
-    }
-  };
 
-  const handleRejectStudySuggestions = () => {
-    setShowStudySuggestions(false);
-    setStudySuggestions([]);
-  };
 
-  const editEvent = (event) => {
-    // If this is a recurring event instance, we need to find the original event
-    if (event.isRecurringInstance && event.originalEventId) {
-      // Find the original event from the events array
-      const originalEvent = events.find(e => e.id === event.originalEventId);
-      
-      if (originalEvent) {
-        // Use the original event for editing, but preserve the specific date of this instance
-        const instanceEvent = {
-          ...originalEvent,
-          start: event.start,
-          end: event.end,
-          // Flag to indicate this is a specific instance of a recurring event
-          isEditingInstance: true,
-          instanceDate: event.start
-        };
-        setSelectedEvent(instanceEvent);
-      } else {
-        // If original event not found, just use this instance
-        setSelectedEvent(event);
-      }
-    } else {
-      // Regular event or original recurring event
-      setSelectedEvent(event);
-    }
-    
-    setShowModal(true);
-  };
 
-=======
-  
->>>>>>> 00dfb40890fa40ddd458bbc8d55c619281f17e25
+
+
+
+
+
   const dismissPreparationPrompt = (eventId) => {
     const reminderTime = new Date().getTime() + (3 * 60 * 60 * 1000);
     
