@@ -255,7 +255,6 @@ const Calendar = ({ initialEvents = [], userId }) => {
   // Handle initialEvents if provided
   useEffect(() => {
     if (initialEvents && initialEvents.length > 0 && userId) {
-<<<<<<< HEAD
       console.log('Received initialEvents:', initialEvents.length);
       // Combine initialEvents with existing events
       setEvents(prevEvents => {
@@ -265,9 +264,6 @@ const Calendar = ({ initialEvents = [], userId }) => {
         const newEvents = initialEvents.filter(e => !existingEventIds.has(e.id));
         return [...prevEvents, ...newEvents];
       });
-=======
-      setEvents(prevEvents => [...prevEvents, ...initialEvents]);
->>>>>>> 00dfb40890fa40ddd458bbc8d55c619281f17e25
     }
   }, [initialEvents, userId]);
   
