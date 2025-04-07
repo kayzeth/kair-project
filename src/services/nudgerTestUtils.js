@@ -45,9 +45,9 @@ export const generateTestEvents = () => {
     eventDate.setDate(now.getDate() + i);
     
     // Skip weekends
-    if (eventDate.getDay() === 0 || eventDate.getDay() === 6) {
-      continue;
-    }
+    // if (eventDate.getDay() === 0 || eventDate.getDay() === 6) {
+    //   continue;
+    // }
     
     // Add different types of events
     if (i === 5) {

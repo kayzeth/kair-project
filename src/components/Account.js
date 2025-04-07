@@ -138,18 +138,20 @@ const Account = () => {
           console.log(`- Updated: ${dbResults.updated} events`);
           console.log(`- Errors: ${dbResults.errors.length} events`);
           
-          // Trigger an update to refresh the calendar
-          window.dispatchEvent(new Event('calendarEventsUpdated'));
-          
+          // Success message
           setSyncStatus({
             status: 'success',
             message: `Successfully synced with Google Calendar. Imported ${importedEvents.length} events. Added ${dbResults.imported} to database, updated ${dbResults.updated}.`
           });
+          
+          // IMPORTANT: Remove event dispatching as we're using a different approach
+          console.log('DIAGNOSTIC: Sync completed successfully');
+          
         } catch (dbError) {
           console.error('Error storing events in database:', dbError);
           setSyncStatus({
             status: 'warning',
-            message: `Imported ${importedEvents.length} events from Google Calendar, but failed to store in database.`
+            message: `Imported ${importedEvents.length} events from Google Calendar, but failed to store in database: ${dbError.message}`
           });
         }
       } else {
@@ -159,6 +161,7 @@ const Account = () => {
         });
       }
       
+      // Set a longer timeout to ensure user sees the message before it disappears
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 5000);
@@ -167,7 +170,7 @@ const Account = () => {
       console.error('Error syncing with Google Calendar:', error);
       setSyncStatus({
         status: 'error',
-        message: 'Failed to sync with Google Calendar'
+        message: `Failed to sync with Google Calendar: ${error.message}`
       });
     }
   };

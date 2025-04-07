@@ -252,6 +252,7 @@ const deleteEvent = async (eventId) => {
     console.log(`Deleting event ID: ${eventId}`);
     console.log(`API URL: ${API_URL}/events/${eventId}`);
     
+    // Delete the event (server will automatically delete associated study sessions)
     const response = await fetch(`${API_URL}/events/${eventId}`, {
       method: 'DELETE',
     });
