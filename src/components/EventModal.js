@@ -29,6 +29,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   const [showRecurringEditDialog, setShowRecurringEditDialog] = useState(false);
   
   // State to track if editing all instances or just this one
+  // eslint-disable-next-line no-unused-vars
   const [editAllInstances, setEditAllInstances] = useState(false);
   
   // Ref for the color dropdown to handle outside clicks
