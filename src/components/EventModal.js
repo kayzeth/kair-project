@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faTrashAlt, faClock, faAlignLeft, faBookOpen, faChevronDown, faMinus, faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
 import '../styles/EventModal.css';
@@ -25,6 +25,13 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   // State to track if color dropdown is open
   const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
   
+  // State to track if recurring event edit dialog is open
+  const [showRecurringEditDialog, setShowRecurringEditDialog] = useState(false);
+  
+  // State to track if editing all instances or just this one
+  // eslint-disable-next-line no-unused-vars
+  const [editAllInstances, setEditAllInstances] = useState(false);
+  
   // Ref for the color dropdown to handle outside clicks
   const colorDropdownRef = useRef(null);
   
@@ -39,7 +46,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     allDay: false,
     color: '#d2b48c',
     requiresPreparation: false,
-    preparationHours: ''
+    preparationHours: '',
+    // Recurring event fields
+    isRecurring: false,
+    recurrenceFrequency: 'WEEKLY',
+    recurrenceEndDate: format(addMonths(selectedDate, 3), 'yyyy-MM-dd'), // Default to 3 months
+    recurrenceDays: []
   });
 
   // Effect to auto-focus the title input when the modal opens
@@ -120,7 +132,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         color: event.color || '#d2b48c',
         requiresPreparation: event.requiresPreparation || false,
         // Handle 0 as a valid value for preparationHours
-        preparationHours: event.preparationHours !== undefined ? event.preparationHours : ''
+        preparationHours: event.preparationHours !== undefined ? event.preparationHours : '',
+        // Load recurring event fields if they exist
+        isRecurring: event.isRecurring || false,
+        recurrenceFrequency: event.recurrenceFrequency || 'WEEKLY',
+        recurrenceEndDate: event.recurrenceEndDate ? format(new Date(event.recurrenceEndDate), 'yyyy-MM-dd') : format(addMonths(new Date(startDate), 3), 'yyyy-MM-dd'),
+        recurrenceDays: event.recurrenceDays || []
       });
     }
   }, [event]);
@@ -149,6 +166,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       return;
     }
     
+    // If this is a recurring event instance, show the dialog to ask if user wants to edit all instances
+    if (event && event.isEditingInstance && formData.isRecurring) {
+      setShowRecurringEditDialog(true);
+      return;
+    }
+    
     // Start with a base object that preserves the original event properties
     const eventObject = {
       id: event ? event.id : null,
@@ -162,7 +185,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       // This ensures empty values remain empty and don't get converted to 0
       preparationHours: formData.requiresPreparation ? 
         (formData.preparationHours === '' ? '' : formData.preparationHours) : 
-        ''
+        '',
+      // Include recurring event data
+      isRecurring: formData.isRecurring,
+      recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
+      recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
+      recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
     };
     
     // Check if we're only toggling the preparation checkbox without changing dates/times
@@ -297,7 +325,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
           allDay: formData.allDay,
           color: formData.color,
           requiresPreparation: formData.requiresPreparation,
-          preparationHours: formData.preparationHours
+          preparationHours: formData.preparationHours,
+          // Include recurring event data
+          isRecurring: formData.isRecurring,
+          recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
+          recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
+          recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
         };
         
         // Save the updated event to the database
@@ -324,7 +357,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
           allDay: formData.allDay,
           color: formData.color,
           requiresPreparation: formData.requiresPreparation,
-          preparationHours: formData.preparationHours
+          preparationHours: formData.preparationHours,
+          // Include recurring event data
+          isRecurring: formData.isRecurring,
+          recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
+          recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
+          recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
         };
         onTriggerStudySuggestions(tempEvent);
         onClose();
@@ -332,8 +370,134 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     }
   };
 
+  // Function to handle editing all instances of a recurring event
+  const handleEditAllInstances = () => {
+    setEditAllInstances(true);
+    setShowRecurringEditDialog(false);
+    
+    // Create the event object with the recurring event data
+    const eventObject = {
+      id: event ? event.id : null,
+      title: formData.title,
+      description: formData.description,
+      location: formData.location,
+      allDay: formData.allDay,
+      color: formData.color,
+      requiresPreparation: formData.requiresPreparation,
+      preparationHours: formData.requiresPreparation ? 
+        (formData.preparationHours === '' ? '' : formData.preparationHours) : 
+        '',
+      // Include recurring event data
+      isRecurring: formData.isRecurring,
+      recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
+      recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
+      recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
+    };
+    
+    // Handle date and time
+    if (formData.allDay) {
+      const [year, month, day] = formData.start.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day, 0, 0, 0);
+      
+      const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
+      const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59);
+      
+      eventObject.start = startDate;
+      eventObject.end = endDate;
+    } else {
+      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+      const [year, month, day] = formData.start.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day, startHours, startMinutes);
+      
+      const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
+      const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
+      const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes);
+      
+      eventObject.start = startDate;
+      eventObject.end = endDate;
+      eventObject.startTime = formData.startTime;
+      eventObject.endTime = formData.endTime;
+    }
+    
+    // Save the event
+    onSave(eventObject);
+    onClose();
+  };
+  
+  // Function to handle editing just this instance of a recurring event
+  const handleEditThisInstance = () => {
+    setEditAllInstances(false);
+    setShowRecurringEditDialog(false);
+    
+    // Create a new non-recurring event for this instance
+    const eventObject = {
+      // Generate a new ID for this instance
+      id: null, // Let the server generate a new ID
+      title: formData.title,
+      description: formData.description,
+      location: formData.location,
+      allDay: formData.allDay,
+      color: formData.color,
+      requiresPreparation: formData.requiresPreparation,
+      preparationHours: formData.requiresPreparation ? 
+        (formData.preparationHours === '' ? '' : formData.preparationHours) : 
+        '',
+      // This is a single instance, not recurring
+      isRecurring: false,
+      // Store a reference to the original recurring event
+      originalRecurringEventId: event.id
+    };
+    
+    // Handle date and time
+    if (formData.allDay) {
+      const [year, month, day] = formData.start.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day, 0, 0, 0);
+      
+      const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
+      const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59);
+      
+      eventObject.start = startDate;
+      eventObject.end = endDate;
+    } else {
+      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+      const [year, month, day] = formData.start.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day, startHours, startMinutes);
+      
+      const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
+      const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
+      const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes);
+      
+      eventObject.start = startDate;
+      eventObject.end = endDate;
+      eventObject.startTime = formData.startTime;
+      eventObject.endTime = formData.endTime;
+    }
+    
+    // Save the event
+    onSave(eventObject);
+    onClose();
+  };
+  
+  // Function to cancel editing
+  const handleCancelRecurringEdit = () => {
+    setShowRecurringEditDialog(false);
+  };
+  
   return (
     <div className="modal-overlay" onClick={onClose}>
+      {showRecurringEditDialog && (
+        <div className="recurring-edit-dialog">
+          <div className="recurring-edit-dialog-content">
+            <h3>Edit Recurring Event</h3>
+            <p>Would you like to edit all instances of this recurring event, or just this occurrence?</p>
+            <div className="recurring-edit-dialog-buttons">
+              <button className="button button-secondary" onClick={handleEditThisInstance}>Just this occurrence</button>
+              <button className="button button-primary" onClick={handleEditAllInstances}>All instances</button>
+              <button className="button button-secondary" onClick={handleCancelRecurringEdit}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <form onSubmit={handleSubmit}>
           <div className="modal-header">
@@ -526,6 +690,101 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                       step="0.5"
                       data-testid="eventmodal-preparation-hours"
                     />
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Recurring Events Section */}
+            <div className="form-group form-group-flex-center">
+              <div className="form-icon">
+                <FontAwesomeIcon icon={faClock} />
+              </div>
+              <div className="date-time-container">
+                <div className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="isRecurring"
+                    className="checkbox-input"
+                    checked={formData.isRecurring}
+                    onChange={handleChange}
+                    data-testid="eventmodal-is-recurring"
+                  />
+                  Recurring Event
+                </div>
+                
+                {formData.isRecurring && (
+                  <div className="recurring-options">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div className="date-time-row">
+                          <label htmlFor="recurrenceFrequency" className="form-label" style={{ fontSize: '0.9rem' }}>
+                            Frequency:
+                          </label>
+                          <select
+                            id="recurrenceFrequency"
+                            name="recurrenceFrequency"
+                            className="form-input select-input"
+                            value={formData.recurrenceFrequency}
+                            onChange={handleChange}
+                            data-testid="eventmodal-recurrence-frequency"
+                            style={{ padding: '4px', fontSize: '0.9rem' }}
+                          >
+                            <option value="DAILY">Daily</option>
+                            <option value="WEEKLY">Weekly</option>
+                            <option value="BIWEEKLY">Bi-weekly</option>
+                            <option value="MONTHLY">Monthly</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div style={{ flex: 1 }}>
+                        <div className="date-time-row">
+                          <label htmlFor="recurrenceEndDate" className="form-label" style={{ fontSize: '0.9rem' }}>
+                            End:
+                          </label>
+                          <input
+                            type="date"
+                            id="recurrenceEndDate"
+                            name="recurrenceEndDate"
+                            className="form-input date-input"
+                            value={formData.recurrenceEndDate}
+                            onChange={handleChange}
+                            min={formData.start}
+                            data-testid="eventmodal-recurrence-end-date"
+                            style={{ padding: '4px', fontSize: '0.9rem' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {(formData.recurrenceFrequency === 'WEEKLY' || formData.recurrenceFrequency === 'BIWEEKLY') && (
+                      <div className="weekday-selector">
+                        <label className="form-label" style={{ fontSize: '0.9rem' }}>Repeat on:</label>
+                        <div className="weekday-options">
+                          {['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'].map(day => (
+                            <label key={day} className="weekday-option">
+                              <input
+                                type="checkbox"
+                                name="recurrenceDays"
+                                value={day}
+                                checked={formData.recurrenceDays.includes(day)}
+                                onChange={(e) => {
+                                  const { checked, value } = e.target;
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    recurrenceDays: checked
+                                      ? [...prev.recurrenceDays, value]
+                                      : prev.recurrenceDays.filter(d => d !== value)
+                                  }));
+                                }}
+                              />
+                              {day.charAt(0)}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

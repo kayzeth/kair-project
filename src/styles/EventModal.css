@@ -20,12 +20,15 @@
   width: auto;
   min-width: 400px;
   max-width: 600px;
-  max-height: 80vh;
+  max-height: 95vh;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
-  padding: 20px;
+  padding: 15px;
   display: flex;
   flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
 }
 
 .close-button {
@@ -42,46 +45,48 @@
 .modal-body {
   display: flex;
   flex-direction: column;
+  overflow-y: visible;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .modal-footer {
-  margin-top: 20px;
+  margin-top: 15px;
   display: flex;
   justify-content: flex-end;
-  padding-top: 15px;
+  padding-top: 12px;
   border-top: 1px solid var(--border-color);
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .form-group-flex {
   display: flex;
   align-items: flex-start;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .form-group-flex-center {
   display: flex;
   align-items: center;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .form-group-border-top {
   border-top: 1px solid var(--border-color);
-  padding-top: 16px;
+  padding-top: 12px;
+  margin-top: 12px;
 }
 
 .form-icon {
-  margin-right: 12px;
+  margin-right: 8px;
   color: var(--text-color-secondary);
   display: flex;
   align-items: center;
@@ -100,15 +105,18 @@
 }
 
 .title-input {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 400;
-  height: 50px;
+  height: 45px;
   border: none;
   border-bottom: 1px solid var(--border-color);
   width: 100%;
 }
 
 .date-input {
+  padding: 6px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
 }
 
 .description-input {
@@ -117,7 +125,7 @@
   border-bottom: 1px solid var(--border-color);
   resize: none !important;
   overflow-y: auto;
-  height: 80px !important; /* Approximately 3 rows of text */
+  height: 60px !important; /* Reduced height */
 }
 
 .location-input {
@@ -156,7 +164,8 @@
 .date-time-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 /* Color Picker Styles */
@@ -256,4 +265,95 @@
 
 .button-right {
   margin-left: 10px;
+}
+
+/* Recurring Edit Dialog Styles */
+.recurring-edit-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.recurring-edit-dialog-content {
+  background-color: white;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 20px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+}
+
+.recurring-edit-dialog h3 {
+  margin-top: 0;
+  color: var(--primary-color);
+}
+
+.recurring-edit-dialog-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+/* Recurring Events Styles */
+.recurring-options {
+  margin-top: 6px;
+  padding: 6px;
+  background-color: var(--background-color-light);
+  border-radius: var(--border-radius-sm);
+}
+
+.weekday-selector {
+  margin-top: 4px;
+}
+
+.weekday-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.weekday-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--background-color);
+  cursor: pointer;
+  font-size: 0.7rem;
+  position: relative;
+}
+
+.weekday-option input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.weekday-option:has(input:checked) {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.select-input {
+  padding: 6px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: white;
+  width: 100%;
+  font-size: 0.9rem;
 }
