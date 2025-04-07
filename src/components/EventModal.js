@@ -715,44 +715,52 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 
                 {formData.isRecurring && (
                   <div className="recurring-options">
-                    <div className="date-time-row">
-                      <label htmlFor="recurrenceFrequency" className="form-label">
-                        Frequency:
-                      </label>
-                      <select
-                        id="recurrenceFrequency"
-                        name="recurrenceFrequency"
-                        className="form-input select-input"
-                        value={formData.recurrenceFrequency}
-                        onChange={handleChange}
-                        data-testid="eventmodal-recurrence-frequency"
-                      >
-                        <option value="DAILY">Daily</option>
-                        <option value="WEEKLY">Weekly</option>
-                        <option value="BIWEEKLY">Bi-weekly</option>
-                        <option value="MONTHLY">Monthly</option>
-                      </select>
-                    </div>
-                    
-                    <div className="date-time-row">
-                      <label htmlFor="recurrenceEndDate" className="form-label">
-                        End Date:
-                      </label>
-                      <input
-                        type="date"
-                        id="recurrenceEndDate"
-                        name="recurrenceEndDate"
-                        className="form-input date-input"
-                        value={formData.recurrenceEndDate}
-                        onChange={handleChange}
-                        min={formData.start}
-                        data-testid="eventmodal-recurrence-end-date"
-                      />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div className="date-time-row">
+                          <label htmlFor="recurrenceFrequency" className="form-label" style={{ fontSize: '0.9rem' }}>
+                            Frequency:
+                          </label>
+                          <select
+                            id="recurrenceFrequency"
+                            name="recurrenceFrequency"
+                            className="form-input select-input"
+                            value={formData.recurrenceFrequency}
+                            onChange={handleChange}
+                            data-testid="eventmodal-recurrence-frequency"
+                            style={{ padding: '4px', fontSize: '0.9rem' }}
+                          >
+                            <option value="DAILY">Daily</option>
+                            <option value="WEEKLY">Weekly</option>
+                            <option value="BIWEEKLY">Bi-weekly</option>
+                            <option value="MONTHLY">Monthly</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div style={{ flex: 1 }}>
+                        <div className="date-time-row">
+                          <label htmlFor="recurrenceEndDate" className="form-label" style={{ fontSize: '0.9rem' }}>
+                            End:
+                          </label>
+                          <input
+                            type="date"
+                            id="recurrenceEndDate"
+                            name="recurrenceEndDate"
+                            className="form-input date-input"
+                            value={formData.recurrenceEndDate}
+                            onChange={handleChange}
+                            min={formData.start}
+                            data-testid="eventmodal-recurrence-end-date"
+                            style={{ padding: '4px', fontSize: '0.9rem' }}
+                          />
+                        </div>
+                      </div>
                     </div>
                     
                     {(formData.recurrenceFrequency === 'WEEKLY' || formData.recurrenceFrequency === 'BIWEEKLY') && (
                       <div className="weekday-selector">
-                        <label className="form-label">Repeat on:</label>
+                        <label className="form-label" style={{ fontSize: '0.9rem' }}>Repeat on:</label>
                         <div className="weekday-options">
                           {['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'].map(day => (
                             <label key={day} className="weekday-option">
