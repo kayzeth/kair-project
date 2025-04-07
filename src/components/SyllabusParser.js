@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faSpinner, faCalendarPlus } from '@fortawesome/free-solid-svg-icons';
+import { faUpload, faSpinner } from '@fortawesome/free-solid-svg-icons';
 // Import pdf.js with specific version
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import 'pdfjs-dist/legacy/build/pdf.worker.entry';
@@ -647,7 +647,7 @@ const SyllabusParser = ({ onAddEvents }) => {
       // If date is invalid, try some common formats
       if (isNaN(date.getTime())) {
         // Try MM/DD format
-        const parts = cleanDate.split(/[\/\-.]/); // Fixed escape characters
+        const parts = cleanDate.split(/[/. -]/); //
         if (parts.length >= 2) {
           const month = parseInt(parts[0], 10) - 1;
           const day = parseInt(parts[1], 10);
@@ -931,21 +931,57 @@ const SyllabusParser = ({ onAddEvents }) => {
                       onClick={() => {
                         // Prepare events for editing
                         const editableEventsList = calendarEvents.map((event, index) => {
-                          // Get date from event or use current date as fallback
-                          let eventDate = event.start ? new Date(event.start) : new Date();
-                          
-                          // If the year is very old (like 2001), update it to current year
-                          if (eventDate.getFullYear() < 2020) {
-                            eventDate.setFullYear(currentYear);
+                          try {
+                            // Get date from event or use current date as fallback
+                            let eventDate;
+                            
+                            try {
+                              eventDate = event.start ? new Date(event.start) : new Date();
+                              
+                              // Check if the date is valid
+                              if (isNaN(eventDate.getTime())) {
+                                console.warn('Invalid date detected:', event.start);
+                                eventDate = new Date(); // Fallback to current date
+                              }
+                            } catch (dateError) {
+                              console.error('Error creating date object:', dateError);
+                              eventDate = new Date(); // Fallback to current date
+                            }
+                            
+                            // If the year is very old (like 2001), update it to current year
+                            if (eventDate.getFullYear() < 2020) {
+                              eventDate.setFullYear(currentYear);
+                            }
+                            
+                            // Format date and time strings safely
+                            let dateString, timeString;
+                            try {
+                              dateString = eventDate.toISOString().split('T')[0];
+                              timeString = event.start && !event.allDay ? eventDate.toISOString().split('T')[1].substring(0, 5) : '';
+                            } catch (formatError) {
+                              console.error('Error formatting date/time:', formatError);
+                              const now = new Date();
+                              dateString = now.toISOString().split('T')[0];
+                              timeString = '';
+                            }
+                            
+                            return {
+                              ...event,
+                              editId: index, // Add unique ID for editing
+                              dateString,
+                              timeString
+                            };
+                          } catch (error) {
+                            console.error('Error processing event for editing:', error, event);
+                            // Return a safe fallback
+                            const now = new Date();
+                            return {
+                              ...event,
+                              editId: index,
+                              dateString: now.toISOString().split('T')[0],
+                              timeString: ''
+                            };
                           }
-                          
-                          return {
-                            ...event,
-                            editId: index, // Add unique ID for editing
-                            // Convert dates to format for date inputs
-                            dateString: eventDate.toISOString().split('T')[0],
-                            timeString: event.start && !event.allDay ? eventDate.toISOString().split('T')[1].substring(0, 5) : ''
-                          };
                         });
                         setEditableEvents(editableEventsList);
                         setShowEventEditor(true);
