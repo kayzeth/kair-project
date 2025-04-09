@@ -10,7 +10,9 @@ import PreparationPrompt from './PreparationPrompt';
 import StudySuggestions from './StudySuggestions'; 
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
-import eventService from '../services/eventService'; 
+import eventService from '../services/eventService';
+import googleCalendarService from '../services/googleCalendarService';
+import googleCalendarLocalStorageService from '../services/googleCalendarLocalStorageService'; 
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
@@ -173,7 +175,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
       }
     });
     
-    console.log(`Generated ${allEvents.length} events including recurring instances`);
+    // console.log(`Generated ${allEvents.length} events including recurring instances`);
     return allEvents;
   }, []);
   
@@ -191,8 +193,22 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
+      // Load user events from database
       const userEvents = await eventService.getUserEvents(userId);
-      setEvents(userEvents);
+      
+      // Load Google Calendar events from local storage
+      const googleEvents = await googleCalendarLocalStorageService.getGoogleCalendarEvents(currentDate);
+      
+      // Combine events from both sources
+      // Create a map of existing event IDs to avoid duplicates
+      const existingEventIds = new Set(userEvents.map(e => e.googleEventId).filter(Boolean));
+      
+      // Filter out Google events that might be duplicates
+      const filteredGoogleEvents = googleEvents.filter(event => !existingEventIds.has(event.googleEventId));
+      
+      // Combine events
+      const combinedEvents = [...userEvents, ...filteredGoogleEvents];
+      setEvents(combinedEvents);
     } catch (error) {
       console.error('Error loading events:', error);
       
@@ -203,7 +219,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
       });
       setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
     }
-  }, [userId]);
+  }, [userId, currentDate]);
 
   // Load events on mount
   useEffect(() => {
@@ -221,6 +237,35 @@ const Calendar = ({ initialEvents = [], userId }) => {
       window.removeEventListener('calendarEventsUpdated', handleEventsUpdated);
     };
   }, [loadEvents]);
+  
+  // Check if Google Calendar events need to be synced when view date changes
+  useEffect(() => {
+    const checkGoogleCalendarSync = async () => {
+      try {
+        // Skip in test environment
+        if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
+          return;
+        }
+        
+        // Only proceed if user is signed in to Google Calendar
+        if (!googleCalendarService.isSignedIn()) {
+          return;
+        }
+        
+        // Get cached events and check if we need to sync
+        const cachedEvents = await googleCalendarLocalStorageService.getGoogleCalendarEvents(currentDate);
+        
+        // If events were synced, reload all events
+        if (cachedEvents && cachedEvents.length > 0) {
+          loadEvents();
+        }
+      } catch (error) {
+        console.error('Error checking Google Calendar sync:', error);
+      }
+    };
+    
+    checkGoogleCalendarSync();
+  }, [currentDate, loadEvents]);
   
   // Generate recurring event instances whenever events or view changes
   useEffect(() => {
@@ -308,7 +353,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
       checkForEventsNeedingPreparation();
     }
   }, [events, userId, checkForEventsNeedingPreparation]);
-
+  
   // Navigation handlers
   const nextHandler = () => {
     if (view === 'month') {

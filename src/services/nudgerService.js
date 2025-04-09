@@ -21,7 +21,7 @@ export const identifyUpcomingEvents = (events) => {
   const twoWeeksFromNow = new Date();
   twoWeeksFromNow.setDate(now.getDate() + 14);
   
-  console.log(`Nudger: Scanning for events between ${now.toLocaleDateString()} and ${twoWeeksFromNow.toLocaleDateString()}`);
+  // console.log(`Nudger: Scanning for events between ${now.toLocaleDateString()} and ${twoWeeksFromNow.toLocaleDateString()}`);
 
   // Filter events within the next two weeks
   const upcomingEvents = events.filter(event => {
@@ -40,7 +40,7 @@ export const identifyUpcomingEvents = (events) => {
     return eventDate >= now && eventDate <= twoWeeksFromNow;
   });
 
-  console.log(`Nudger: Found ${upcomingEvents.length} events in the next two weeks`);
+  // console.log(`Nudger: Found ${upcomingEvents.length} events in the next two weeks`);
   
   // Identify events that require preparation based on the requiresPreparation flag
   const studyEvents = upcomingEvents.filter(event => {
@@ -48,7 +48,7 @@ export const identifyUpcomingEvents = (events) => {
     return event.requiresPreparation === true;
   });
 
-  console.log(`Nudger: Identified ${studyEvents.length} events that require preparation`);
+  // console.log(`Nudger: Identified ${studyEvents.length} events that require preparation`);
   
   // Add metadata to identified events
   return studyEvents.map(event => {
