@@ -92,8 +92,73 @@ const DayView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     }
   };
   
-  // Filter events for this day, including recurring events
-  const dayEvents = events.filter(event => shouldShowEventOnDay(event, currentDate));
+  // Helper to split events into daily segments
+  const splitEventIntoDays = (event) => {
+    const segments = [];
+    let currentStart = new Date(event.start);
+    const endDate = new Date(event.end || addHours(currentStart, 1));
+
+    while (currentStart < endDate) {
+      const dayEnd = new Date(currentStart);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const segmentEnd = dayEnd < endDate ? dayEnd : endDate;
+
+      segments.push({
+        ...event,
+        start: new Date(currentStart),
+        end: new Date(segmentEnd),
+        _isSegment: true,
+        _originalEvent: event
+      });
+
+      currentStart = new Date(segmentEnd);
+      currentStart.setSeconds(currentStart.getSeconds() + 1);
+    }
+
+    return segments;
+  };
+
+  // Check if an event spans into the current day
+  const eventSpansDay = (event, day) => {
+    try {
+      const eventStart = typeof event.start === 'string' ? parseISO(event.start) : event.start;
+      const eventEnd = typeof event.end === 'string' ? parseISO(event.end) : event.end || addHours(eventStart, 1);
+      
+      // Create date objects for start of day and end of day
+      const startOfDay = new Date(day);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(day);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      // Check if event overlaps with this day
+      return (
+        (eventStart <= endOfDay && eventEnd >= startOfDay) ||
+        shouldShowEventOnDay(event, day)
+      );
+    } catch (error) {
+      console.error('Error in eventSpansDay:', error, event);
+      return false;
+    }
+  };
+
+  // Filter and split events for this day, including recurring events
+  const dayEvents = events
+    .filter(event => eventSpansDay(event, currentDate))
+    .flatMap(event => {
+      // For all-day events, no need to split
+      if (event.allDay) return [event];
+      
+      // For events that span multiple days, split into daily segments
+      return splitEventIntoDays(event)
+        .filter(segment => {
+          const segmentStart = new Date(segment.start);
+          const segmentDay = new Date(segmentStart.getFullYear(), segmentStart.getMonth(), segmentStart.getDate());
+          const targetDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+          return segmentDay.getTime() === targetDay.getTime();
+        });
+    });
 
   // All-day events
   const allDayEvents = dayEvents.filter(event => event.allDay);

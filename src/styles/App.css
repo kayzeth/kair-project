@@ -449,7 +449,7 @@ body {
   gap: var(--spacing-xs);
   position: sticky;
   top: 40px;
-  z-index: 1;
+  z-index: 5;
 }
 
 .day-all-day-events .event {
