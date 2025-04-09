@@ -3,15 +3,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import googleCalendarService from '../services/googleCalendarService';
-import { storeGoogleEventsInDb } from '../services/googleCalendarDbService';
+import googleCalendarLocalStorageService from '../services/googleCalendarLocalStorageService';
 import canvasService from '../services/canvasService';
-import { useAuth } from '../context/AuthContext';
 import { isConfigured } from '../config/googleCalendarConfig';
 import { isConfigured as isCanvasConfigured } from '../config/canvasConfig';
 import ApiKeyInput from './ApiKeyInput';
 
 const Account = () => {
-  const { user: authUser } = useAuth();
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', message: '' });
@@ -114,52 +112,21 @@ const Account = () => {
     setSyncStatus({ status: 'loading', message: 'Syncing with Google Calendar...' });
 
     try {
-      // Get the current date for sync range
-      const now = new Date();
-      const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      const oneMonthFromNow = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      // Force sync with Google Calendar and store in local storage
+      const events = await googleCalendarLocalStorageService.forceSyncGoogleCalendar();
+      console.log(`Synced ${events.length} events from Google Calendar to local storage`);
       
-      // Import events from Google Calendar
-      const importedEvents = await googleCalendarService.importEvents(oneMonthAgo, oneMonthFromNow);
-      console.log(`Imported ${importedEvents.length} events from Google Calendar`);
+      // Success message
+      setSyncStatus({
+        status: 'success',
+        message: `Successfully synced ${events.length} events from Google Calendar`
+      });
       
-      // Store imported events in MongoDB
-      if (importedEvents.length > 0 && authUser?.id) {
-        try {
-          setSyncStatus({ 
-            status: 'loading', 
-            message: 'Storing events in database...' 
-          });
-          
-          const dbResults = await storeGoogleEventsInDb(importedEvents, authUser.id);
-          
-          console.log(`Database sync results:`);
-          console.log(`- Added: ${dbResults.imported} events`);
-          console.log(`- Updated: ${dbResults.updated} events`);
-          console.log(`- Errors: ${dbResults.errors.length} events`);
-          
-          // Success message
-          setSyncStatus({
-            status: 'success',
-            message: `Successfully synced with Google Calendar. Imported ${importedEvents.length} events. Added ${dbResults.imported} to database, updated ${dbResults.updated}.`
-          });
-          
-          // IMPORTANT: Remove event dispatching as we're using a different approach
-          console.log('DIAGNOSTIC: Sync completed successfully');
-          
-        } catch (dbError) {
-          console.error('Error storing events in database:', dbError);
-          setSyncStatus({
-            status: 'warning',
-            message: `Imported ${importedEvents.length} events from Google Calendar, but failed to store in database: ${dbError.message}`
-          });
-        }
-      } else {
-        setSyncStatus({
-          status: 'success',
-          message: `Successfully synced with Google Calendar. No new events to import.`
-        });
-      }
+      // Dispatch an event to notify the Calendar component to refresh
+      setTimeout(() => {
+        console.log('Dispatching calendar update event...');
+        window.dispatchEvent(new Event('calendarEventsUpdated'));
+      }, 500);
       
       // Set a longer timeout to ensure user sees the message before it disappears
       setTimeout(() => {

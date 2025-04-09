@@ -27,7 +27,7 @@ const getUserEvents = async (userId) => {
     }
     const events = await response.json();
     
-    console.log(`Received ${events.length} events from API`);
+    // console.log(`Received ${events.length} events from API`);
     
     // Transform MongoDB format to the format expected by the Calendar component
     return events.map(event => ({
