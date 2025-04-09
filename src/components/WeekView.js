@@ -98,6 +98,31 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     return () => clearTimeout(timeoutId);
   }, [events, maxAllDayHeight]);
   
+  // Helper to split events into daily segments
+  const splitEventIntoDays = (event) => {
+    const segments = [];
+    let currentStart = new Date(event.start);
+    const endDate = new Date(event.end);
+
+    while (currentStart < endDate) {
+      const dayEnd = new Date(currentStart);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const segmentEnd = dayEnd < endDate ? dayEnd : endDate;
+
+      segments.push({
+        ...event,
+        start: new Date(currentStart),
+        end: new Date(segmentEnd)
+      });
+
+      currentStart = new Date(segmentEnd);
+      currentStart.setSeconds(currentStart.getSeconds() + 1);
+    }
+
+    return segments;
+  };
+
   // Create day columns
   // Helper function to check if an event should appear on a specific day
   const shouldShowEventOnDay = (event, day) => {
@@ -168,7 +193,10 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     const currentDay = day;
     
     // Filter events for this day, including recurring events
-    const dayEvents = events.filter(event => shouldShowEventOnDay(event, currentDay));
+    const dayEvents = events.flatMap(event => {
+      const segments = splitEventIntoDays(event);
+      return segments.filter(segment => isSameDay(segment.start, currentDay));
+    });
     
     // Time-based events (not all-day)
     const timeEvents = dayEvents.filter(event => !event.allDay);
