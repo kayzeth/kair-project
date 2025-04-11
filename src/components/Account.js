@@ -116,10 +116,10 @@ const Account = () => {
       const events = await googleCalendarLocalStorageService.forceSyncGoogleCalendar();
       console.log(`Synced ${events.length} events from Google Calendar to local storage`);
       
-      // Success message - use a consistent message for tests
+      // Success message
       setSyncStatus({
         status: 'success',
-        message: 'Successfully synced with Google Calendar'
+        message: `Successfully synced ${events.length} events from Google Calendar`
       });
       
       // Dispatch an event to notify the Calendar component to refresh
