@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faBook, faCheck, faClock, faCalendarPlus } from '@fortawesome/free-solid-svg-icons';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import './StudySuggestions.css';
 
 /**
@@ -50,6 +50,12 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
       ? new Date(suggestion.suggestedStartTime) 
       : new Date(suggestion.suggestedStartTime);
     
+    // Skip invalid dates
+    if (!isValid(suggestedStartTime)) {
+      console.error('Invalid start time found in suggestion:', suggestion);
+      return acc;
+    }
+    
     // Format the date for grouping - use UTC methods to avoid timezone issues
     const year = suggestedStartTime.getFullYear();
     const month = String(suggestedStartTime.getMonth() + 1).padStart(2, '0');
@@ -60,13 +66,21 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
       acc[dateKey] = [];
     }
     
+    const suggestedEndTime = suggestion.suggestedEndTime instanceof Date 
+      ? new Date(suggestion.suggestedEndTime) 
+      : new Date(suggestion.suggestedEndTime);
+    
+    // Skip invalid end times
+    if (!isValid(suggestedEndTime)) {
+      console.error('Invalid end time found in suggestion:', suggestion);
+      return acc;
+    }
+    
     acc[dateKey].push({
       ...suggestion,
       // Ensure we always have Date objects
       suggestedStartTime: suggestedStartTime,
-      suggestedEndTime: suggestion.suggestedEndTime instanceof Date 
-        ? new Date(suggestion.suggestedEndTime) 
-        : new Date(suggestion.suggestedEndTime)
+      suggestedEndTime: suggestedEndTime
     });
     
     return acc;
@@ -109,7 +123,9 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
             <h4>Study Plan for: <span className="event-title">{parentEvent.title}</span></h4>
             <p className="event-details">
               <FontAwesomeIcon icon={faClock} className="event-icon" />
-              {format(new Date(parentEvent.start), 'EEEE, MMMM d')} at {format(new Date(parentEvent.start), 'h:mm a')}
+              {isValid(new Date(parentEvent.start)) 
+                ? `${format(new Date(parentEvent.start), 'EEEE, MMMM d')} at ${format(new Date(parentEvent.start), 'h:mm a')}`
+                : 'Date not available'}
               {parentEvent.location && (
                 <span className="event-location"> • {parentEvent.location}</span>
               )}
@@ -131,7 +147,9 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
               <div key={day} className="day-group">
                 <h4 className="day-header">
                   {/* Use the actual date from the first suggestion in this group */}
-                  {format(daySuggestions[0].suggestedStartTime, 'EEEE, MMMM d')}
+                  {isValid(daySuggestions[0].suggestedStartTime) 
+                    ? format(daySuggestions[0].suggestedStartTime, 'EEEE, MMMM d')
+                    : 'Date not available'}
                 </h4>
                 
                 {daySuggestions.map(suggestion => {
@@ -161,7 +179,9 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose }) => {
                         <div className="suggestion-time">
                           <FontAwesomeIcon icon={faClock} />
                           <span data-testid={`suggestion-time-${suggestionId}`}>
-                            {format(suggestion.suggestedStartTime, 'h:mm a')} - {format(suggestion.suggestedEndTime, 'h:mm a')}
+                            {isValid(suggestion.suggestedStartTime) && isValid(suggestion.suggestedEndTime) 
+                              ? `${format(suggestion.suggestedStartTime, 'h:mm a')} - ${format(suggestion.suggestedEndTime, 'h:mm a')}`
+                              : 'Time not available'}
                           </span>
                         </div>
                         

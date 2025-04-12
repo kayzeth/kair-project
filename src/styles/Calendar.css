@@ -187,6 +187,10 @@
   background-color: var(--info-color);
 }
 
+.sync-info {
+  background-color: var(--info-color);
+}
+
 .sync-success {
   background-color: var(--success-color);
 }

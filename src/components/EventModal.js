@@ -51,39 +51,27 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     isRecurring: false,
     recurrenceFrequency: 'WEEKLY',
     recurrenceEndDate: format(addMonths(selectedDate, 3), 'yyyy-MM-dd'), // Default to 3 months
-    recurrenceDays: []
+    recurrenceDays: [],
+    // Track the source of the event
+    source: '',
+    studySuggestionsShown: false,
+    studySuggestionsAccepted: false
   });
 
-  // Effect to auto-focus the title input when the modal opens
   useEffect(() => {
-    // Focus the title input after a short delay to ensure the DOM is fully rendered
-    const timeoutId = setTimeout(() => {
-      if (titleInputRef.current) {
-        titleInputRef.current.focus();
-      }
-    }, 50);
-    
-    return () => clearTimeout(timeoutId);
-  }, []); // Empty dependency array ensures this only runs once when the modal mounts
-  
-  // Effect to handle clicking outside the color dropdown to close it
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (colorDropdownRef.current && !colorDropdownRef.current.contains(event.target)) {
-        setColorDropdownOpen(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+    if (event) {
+      console.log('Event being edited:', event);
+      console.log('Event source:', event.source);
+    }
+  }, [event]);
 
   useEffect(() => {
     if (event) {
       // For Date objects, use proper formatting
       let startDate, endDate, startTime, endTime;
+      
+      console.log('Loading event into form:', event);
+      console.log('Event studySuggestionsAccepted:', event.studySuggestionsAccepted);
       
       if (event.start instanceof Date) {
         // Store the original date objects to preserve exact timestamps
@@ -131,13 +119,20 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         allDay: event.allDay || false,
         color: event.color || '#d2b48c',
         requiresPreparation: event.requiresPreparation || false,
-        // Handle 0 as a valid value for preparationHours
-        preparationHours: event.preparationHours !== undefined ? event.preparationHours : '',
-        // Load recurring event fields if they exist
+        preparationHours: event.preparationHours || '',
         isRecurring: event.isRecurring || false,
         recurrenceFrequency: event.recurrenceFrequency || 'WEEKLY',
         recurrenceEndDate: event.recurrenceEndDate ? format(new Date(event.recurrenceEndDate), 'yyyy-MM-dd') : format(addMonths(new Date(startDate), 3), 'yyyy-MM-dd'),
-        recurrenceDays: event.recurrenceDays || []
+        recurrenceDays: event.recurrenceDays || [],
+        source: event.source || '',
+        // Include study suggestion status flags
+        studySuggestionsShown: event.studySuggestionsShown || false,
+        studySuggestionsAccepted: event.studySuggestionsAccepted || false
+      });
+      
+      console.log('Form data after initialization:', {
+        studySuggestionsShown: event.studySuggestionsShown || false,
+        studySuggestionsAccepted: event.studySuggestionsAccepted || false
       });
     }
   }, [event]);
@@ -172,6 +167,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       return;
     }
     
+    console.log('Original event studySuggestionsAccepted:', event?.studySuggestionsAccepted);
+    console.log('Form data studySuggestionsAccepted:', formData.studySuggestionsAccepted);
+    
     // Start with a base object that preserves the original event properties
     const eventObject = {
       id: event ? event.id : null,
@@ -190,8 +188,18 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       isRecurring: formData.isRecurring,
       recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
       recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
-      recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
+      recurrenceDays: formData.isRecurring ? formData.recurrenceDays : [],
+      // Preserve study suggestion status flags from the original event
+      studySuggestionsShown: formData.studySuggestionsShown,
+      studySuggestionsAccepted: formData.studySuggestionsAccepted,
+      // Preserve the source field
+      source: formData.source || event?.source || 'LMS'
     };
+    
+    console.log('Event object before save:', {
+      studySuggestionsShown: eventObject.studySuggestionsShown,
+      studySuggestionsAccepted: eventObject.studySuggestionsAccepted
+    });
     
     // Check if we're only toggling the preparation checkbox without changing dates/times
     let isJustTogglingPreparation = false;
@@ -267,15 +275,13 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       } else {
         // For time-specific events, combine date and time with timezone preservation
         const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
-        const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
-        
-        // Parse date components to avoid timezone issues
-        const [startYear, startMonth, startDay] = formData.start.split('-').map(Number);
+        const [year, month, day] = formData.start.split('-').map(Number);
         
         // Create date using local time components
         // This ensures the time shown to the user is exactly what they selected
-        const startDate = new Date(startYear, startMonth - 1, startDay, startHours, startMinutes, 0);
+        const startDate = new Date(year, month - 1, day, startHours, startMinutes, 0);
         
+        const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
         const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
         const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes, 0);
         
@@ -309,6 +315,14 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   const handleTriggerStudySuggestions = async () => {
     if (event && event.id) {
       try {
+        // Check if study suggestions have already been accepted
+        // If so, silently abort without showing any alerts
+        if (event.studySuggestionsAccepted === true) {
+          console.log(`Event "${event.title}" already has accepted study suggestions. Silently aborting.`);
+          onClose();
+          return;
+        }
+        
         // First, save the current form data to update the event in the database
         // Create a new event object with the current form data
         const updatedEvent = {
@@ -325,29 +339,30 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
           allDay: formData.allDay,
           color: formData.color,
           requiresPreparation: formData.requiresPreparation,
-          preparationHours: formData.preparationHours,
+          preparationHours: formData.requiresPreparation ? 
+            (formData.preparationHours === '' ? '' : formData.preparationHours) : 
+            '',
           // Include recurring event data
           isRecurring: formData.isRecurring,
           recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
           recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
-          recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
+          recurrenceDays: formData.isRecurring ? formData.recurrenceDays : [],
+          // Preserve study suggestion status flags
+          studySuggestionsShown: event?.studySuggestionsShown || false,
+          studySuggestionsAccepted: event?.studySuggestionsAccepted || false,
+          // Preserve the source field
+          source: formData.source || event?.source || 'LMS'
         };
         
-        // Save the updated event to the database
-        console.log('Saving event before generating study plan:', updatedEvent);
+        // Save the updated event first
         await onSave(updatedEvent);
         
-        // Then generate study suggestions using the updated event
-        onTriggerStudySuggestions(updatedEvent);
-        onClose();
-      } catch (error) {
-        console.error('Error saving event before generating study plan:', error);
-        // Still try to generate study suggestions with the form data
+        // Now trigger study suggestions with force generation enabled
+        // This will generate study suggestions even if the event is more than 8 days away
         const tempEvent = {
-          ...event,
+          ...updatedEvent,
+          id: event.id,
           title: formData.title,
-          description: formData.description,
-          location: formData.location,
           start: formData.allDay 
             ? new Date(`${formData.start}T00:00:00`) 
             : new Date(`${formData.start}T${formData.startTime}`),
@@ -362,11 +377,29 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
           isRecurring: formData.isRecurring,
           recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
           recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
-          recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
+          recurrenceDays: formData.isRecurring ? formData.recurrenceDays : [],
+          // Include study suggestion status flags
+          studySuggestionsShown: formData.studySuggestionsShown,
+          studySuggestionsAccepted: formData.studySuggestionsAccepted,
+          // Include source
+          source: formData.source || event?.source || 'LMS'
         };
-        onTriggerStudySuggestions(tempEvent);
+        
+        console.log('tempEvent before triggering study suggestions:', {
+          studySuggestionsShown: tempEvent.studySuggestionsShown,
+          studySuggestionsAccepted: tempEvent.studySuggestionsAccepted
+        });
+        
+        // Pass true as the second parameter to force generation regardless of date
+        onTriggerStudySuggestions(tempEvent, true);
         onClose();
+      } catch (error) {
+        console.error('Error triggering study suggestions:', error);
+        alert('There was an error generating your study plan. Please try again.');
       }
+    } else {
+      // For new events, we need to save first before generating study suggestions
+      alert('Please save the event first before generating a study plan.');
     }
   };
 
@@ -391,7 +424,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       isRecurring: formData.isRecurring,
       recurrenceFrequency: formData.isRecurring ? formData.recurrenceFrequency : null,
       recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
-      recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
+      recurrenceDays: formData.isRecurring ? formData.recurrenceDays : [],
+      // Preserve study suggestion status flags
+      studySuggestionsShown: event?.studySuggestionsShown || false,
+      studySuggestionsAccepted: event?.studySuggestionsAccepted || false,
+      // Preserve the source field
+      source: formData.source || event?.source || 'LMS'
     };
     
     // Handle date and time
@@ -407,6 +445,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     } else {
       const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
       const [year, month, day] = formData.start.split('-').map(Number);
+      
+      // Create date using local time components
+      // This ensures the time shown to the user is exactly what they selected
       const startDate = new Date(year, month - 1, day, startHours, startMinutes);
       
       const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
@@ -445,7 +486,12 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       // This is a single instance, not recurring
       isRecurring: false,
       // Store a reference to the original recurring event
-      originalRecurringEventId: event.id
+      originalRecurringEventId: event.id,
+      // Preserve study suggestion status flags
+      studySuggestionsShown: event?.studySuggestionsShown || false,
+      studySuggestionsAccepted: event?.studySuggestionsAccepted || false,
+      // Preserve the source field
+      source: formData.source || event?.source || 'LMS'
     };
     
     // Handle date and time
@@ -461,6 +507,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     } else {
       const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
       const [year, month, day] = formData.start.split('-').map(Number);
+      
+      // Create date using local time components
+      // This ensures the time shown to the user is exactly what they selected
       const startDate = new Date(year, month - 1, day, startHours, startMinutes);
       
       const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
@@ -581,9 +630,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                     type="checkbox"
                     name="allDay"
                     className="checkbox-input"
-                    data-testid="eventmodal-all-day"
                     checked={formData.allDay}
                     onChange={handleChange}
+                    data-testid="eventmodal-all-day"
                   />
                   All day
                 </div>
@@ -657,42 +706,47 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
             
             {/* [KAIR-16] Add Requires Preparation checkbox and hours input */}
             <div className="form-group form-group-flex-center">
-              <div className="form-icon">
-                <FontAwesomeIcon icon={faBookOpen} />
-              </div>
-              <div className="date-time-container">
-                <div className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    name="requiresPreparation"
-                    className="checkbox-input"
-                    checked={formData.requiresPreparation}
-                    onChange={handleChange}
-                    data-testid="eventmodal-requires-preparation"
-                  />
-                  Requires Preparation
-                </div>
-                
-                {formData.requiresPreparation && (
-                  <div className="date-time-row">
-                    <label htmlFor="preparationHours" className="form-label">
-                      Preparation Hours:
-                    </label>
-                    <input
-                      type="number"
-                      id="preparationHours"
-                      name="preparationHours"
-                      className="form-input preparation-hours-input"
-                      value={formData.preparationHours}
-                      onChange={handleChange}
-                      placeholder="Enter hours"
-                      min="0"
-                      step="0.5"
-                      data-testid="eventmodal-preparation-hours"
-                    />
+              {/* Only show the book icon and preparation checkbox for non-NUDGER events */}
+              {formData.source !== 'NUDGER' && (
+                <>
+                  <div className="form-icon">
+                    <FontAwesomeIcon icon={faBookOpen} />
                   </div>
-                )}
-              </div>
+                  <div className="date-time-container">
+                    <div className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        name="requiresPreparation"
+                        className="checkbox-input"
+                        checked={formData.requiresPreparation}
+                        onChange={handleChange}
+                        data-testid="eventmodal-requires-preparation"
+                      />
+                      Requires Preparation
+                    </div>
+                  </div>
+                </>
+              )}
+                
+              {formData.requiresPreparation && (
+                <div className="date-time-row">
+                  <label htmlFor="preparationHours" className="form-label">
+                    Preparation Hours:
+                  </label>
+                  <input
+                    type="number"
+                    id="preparationHours"
+                    name="preparationHours"
+                    className="form-input preparation-hours-input"
+                    value={formData.preparationHours}
+                    onChange={handleChange}
+                    placeholder="Enter hours"
+                    min="0"
+                    step="0.5"
+                    data-testid="eventmodal-preparation-hours"
+                  />
+                </div>
+              )}
             </div>
             
             {/* Recurring Events Section */}
@@ -802,12 +856,13 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 Delete
               </button>
             )}
-            {event && formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
+            {formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
               <button 
                 type="button" 
                 className="button button-secondary button-right"
                 data-testid="eventmodal-trigger-study-suggestions-button" 
                 onClick={handleTriggerStudySuggestions}
+                title={event ? "Generate a study plan for this event" : "Save the event first to generate a study plan"}
               >
                 <FontAwesomeIcon icon={faBookOpen} className="button-icon" />
                 Generate Study Plan

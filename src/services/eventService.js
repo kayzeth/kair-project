@@ -1,8 +1,11 @@
 /**
  * Service for handling event operations with the MongoDB backend
  */
-// When using the proxy in package.json, we just need /api without the host
-const API_URL = '/api';
+// Import constants
+import { API_URL } from '../config';
+
+// Log the API URL to help with debugging
+console.log('Event Service initialized with API_URL:', API_URL);
 
 /**
  * Get all events for a specific user
@@ -43,9 +46,14 @@ const getUserEvents = async (userId) => {
       preparationHours: event.requires_hours,
       googleEventId: event.google_event_id,
       userId: event.user_id,
+      // Include the source field
+      source: event.source || 'LMS',
       // Map the study session fields
       isStudySession: event.is_study_session || false,
       relatedEventId: event.related_event_id || null,
+      // Map the study suggestion status fields
+      studySuggestionsShown: event.study_suggestions_shown || false,
+      studySuggestionsAccepted: event.study_suggestions_accepted || false,
       // Map the recurring event fields
       isRecurring: event.is_recurring || false,
       recurrenceFrequency: event.recurrence_frequency || null,
@@ -93,6 +101,9 @@ const createEvent = async (eventData, userId) => {
       // Add fields for study sessions
       is_study_session: eventData.isStudySession || false,
       related_event_id: eventData.relatedEventId || null,
+      // Add fields for study suggestion status
+      study_suggestions_shown: eventData.studySuggestionsShown || false,
+      study_suggestions_accepted: eventData.studySuggestionsAccepted || false,
       // Add fields for recurring events
       is_recurring: eventData.isRecurring || false,
       recurrence_frequency: eventData.recurrenceFrequency || null,
@@ -139,7 +150,19 @@ const createEvent = async (eventData, userId) => {
       requiresPreparation: createdEvent.requires_preparation,
       preparationHours: createdEvent.requires_hours,
       googleEventId: createdEvent.google_event_id,
-      userId: createdEvent.user_id
+      userId: createdEvent.user_id,
+      source: createdEvent.source || 'LMS',
+      // Map the study session fields
+      isStudySession: createdEvent.is_study_session || false,
+      relatedEventId: createdEvent.related_event_id || null,
+      // Map the study suggestion status fields
+      studySuggestionsShown: createdEvent.study_suggestions_shown || false,
+      studySuggestionsAccepted: createdEvent.study_suggestions_accepted || false,
+      // Map the recurring event fields
+      isRecurring: createdEvent.is_recurring || false,
+      recurrenceFrequency: createdEvent.recurrence_frequency || null,
+      recurrenceEndDate: createdEvent.recurrence_end_date ? new Date(createdEvent.recurrence_end_date) : null,
+      recurrenceDays: createdEvent.recurrence_days || []
     };
   } catch (error) {
     console.error('Error creating event:', error);
@@ -161,7 +184,26 @@ const updateEvent = async (eventId, eventData) => {
     }
     
     console.log(`Updating event ID: ${eventId}`);
-    console.log('Updated event data:', eventData);
+    console.log('Event data received:', eventData);
+    console.log('studySuggestionsAccepted flag:', eventData.studySuggestionsAccepted);
+    
+    // First, get the current event from the database to preserve important flags
+    let currentEvent;
+    try {
+      // Fetch the current event to get the current studySuggestionsAccepted value
+      const response = await fetch(`${API_URL}/events/${eventId}`);
+      if (response.ok) {
+        currentEvent = await response.json();
+        console.log('Current event from database:', {
+          id: currentEvent._id,
+          title: currentEvent.title,
+          studySuggestionsAccepted: currentEvent.study_suggestions_accepted
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching current event:', error);
+      // Continue with the update even if we couldn't fetch the current event
+    }
     
     // Transform from Calendar format to MongoDB format
     const eventForDb = {
@@ -177,15 +219,26 @@ const updateEvent = async (eventId, eventData) => {
       requires_hours: eventData.preparationHours !== undefined && eventData.preparationHours !== '' ? 
         Number(eventData.preparationHours) : null,
       color: eventData.color || '#d2b48c',
+      // Include the source field
+      source: eventData.source || 'LMS',
       // Add fields for study sessions
       is_study_session: eventData.isStudySession || false,
+      related_event_id: eventData.relatedEventId || null,
+      // Add fields for study suggestion status - PRESERVE THE CURRENT VALUE IF AVAILABLE
+      study_suggestions_shown: eventData.studySuggestionsShown || false,
+      study_suggestions_accepted: currentEvent?.study_suggestions_accepted || eventData.studySuggestionsAccepted || false,
       // Add fields for recurring events
       is_recurring: eventData.isRecurring || false,
       recurrence_frequency: eventData.recurrenceFrequency || null,
       recurrence_end_date: eventData.recurrenceEndDate || null,
-      recurrence_days: eventData.recurrenceDays || [],
-      related_event_id: eventData.relatedEventId || null
+      recurrence_days: eventData.recurrenceDays || []
     };
+    
+    console.log('Sending to server with preserved flags:', {
+      study_suggestions_accepted: eventForDb.study_suggestions_accepted,
+      original_value: currentEvent?.study_suggestions_accepted,
+      eventData_value: eventData.studySuggestionsAccepted
+    });
     
     console.log('Sending to server:', {
       start_time_type: typeof eventForDb.start_time,
@@ -227,9 +280,19 @@ const updateEvent = async (eventId, eventData) => {
       preparationHours: updatedEvent.requires_hours,
       googleEventId: updatedEvent.google_event_id,
       userId: updatedEvent.user_id,
+      // Include the source field
+      source: updatedEvent.source || 'LMS',
       // Map the study session fields
       isStudySession: updatedEvent.is_study_session || false,
-      relatedEventId: updatedEvent.related_event_id || null
+      relatedEventId: updatedEvent.related_event_id || null,
+      // Map the study suggestion status fields
+      studySuggestionsShown: updatedEvent.study_suggestions_shown || false,
+      studySuggestionsAccepted: updatedEvent.study_suggestions_accepted || false,
+      // Map the recurring event fields (if they exist)
+      isRecurring: updatedEvent.is_recurring || false,
+      recurrenceFrequency: updatedEvent.recurrence_frequency || null,
+      recurrenceEndDate: updatedEvent.recurrence_end_date ? new Date(updatedEvent.recurrence_end_date) : null,
+      recurrenceDays: updatedEvent.recurrence_days || []
     };
   } catch (error) {
     console.error('Error updating event:', error);
@@ -275,12 +338,105 @@ const deleteEvent = async (eventId) => {
   }
 };
 
+/**
+ * Get a single event by its ID
+ * @param {string} eventId - The event ID to fetch
+ * @returns {Promise<Object>} - The event object
+ */
+const getEventById = async (eventId) => {
+  try {
+    if (!eventId) {
+      console.error('No event ID provided to getEventById');
+      throw new Error('Event ID is required to fetch an event');
+    }
+    
+    console.log(`Fetching event with ID: ${eventId}`);
+    console.log(`API URL: ${API_URL}/events/${eventId}`);
+    
+    const response = await fetch(`${API_URL}/events/${eventId}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error response (${response.status}):`, errorText);
+      throw new Error(`Error: ${response.status} - ${errorText}`);
+    }
+    const event = await response.json();
+    
+    console.log('Received event from API:', event);
+    
+    // Transform MongoDB format to the format expected by the Calendar component
+    return {
+      id: event._id,
+      title: event.title,
+      start: new Date(event.start_time),
+      end: new Date(event.end_time),
+      allDay: event.all_day,
+      description: event.description,
+      location: event.location,
+      color: event.color,
+      requiresPreparation: event.requires_preparation,
+      preparationHours: event.requires_hours,
+      googleEventId: event.google_event_id,
+      userId: event.user_id,
+      source: event.source || 'LMS',
+      // Map the study session fields
+      isStudySession: event.is_study_session || false,
+      relatedEventId: event.related_event_id || null,
+      // Map the study suggestion status fields
+      studySuggestionsShown: event.study_suggestions_shown || false,
+      studySuggestionsAccepted: event.study_suggestions_accepted || false,
+      // Map the recurring event fields
+      isRecurring: event.is_recurring || false,
+      recurrenceFrequency: event.recurrence_frequency || null,
+      recurrenceEndDate: event.recurrence_end_date ? new Date(event.recurrence_end_date) : null,
+      recurrenceDays: event.recurrence_days || []
+    };
+  } catch (error) {
+    console.error('Error fetching event by ID:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if an event has related study sessions
+ * @param {string} eventId - The event ID to check
+ * @returns {Promise<boolean>} - True if the event has related study sessions
+ */
+const hasRelatedStudySessions = async (eventId) => {
+  try {
+    if (!eventId) {
+      console.error('No event ID provided to hasRelatedStudySessions');
+      return false;
+    }
+    
+    console.log(`Checking for study sessions related to event ID: ${eventId}`);
+    console.log(`API URL: ${API_URL}/events/related/${eventId}`);
+    
+    const response = await fetch(`${API_URL}/events/related/${eventId}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error response (${response.status}):`, errorText);
+      return false;
+    }
+    
+    const relatedEvents = await response.json();
+    console.log(`Found ${relatedEvents.length} related study sessions for event ID: ${eventId}`);
+    
+    // If there are any related study sessions, return true
+    return relatedEvents.length > 0;
+  } catch (error) {
+    console.error('Error checking for related study sessions:', error);
+    return false;
+  }
+};
+
 // Create an object with all the service methods
 const eventService = {
   getUserEvents,
   createEvent,
   updateEvent,
-  deleteEvent
+  deleteEvent,
+  getEventById,
+  hasRelatedStudySessions
 };
 
 // Export the service object
