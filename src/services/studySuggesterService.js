@@ -30,9 +30,10 @@ import * as geminiService from './geminiService';
  * @param {string|Array} eventsOrUserId - Either an array of calendar events or a userId
  * @param {Object} event - The event that needs preparation
  * @param {number} preparationHours - Total hours needed for preparation
+ * @param {boolean} forceGeneration - Force generation even if event is more than 8 days away
  * @returns {Promise<Array<StudySessionSuggestion>>} - Array of study session suggestions
  */
-export const generateStudySuggestions = async (eventsOrUserId, event, preparationHours) => {
+export const generateStudySuggestions = async (eventsOrUserId, event, preparationHours, forceGeneration = false) => {
   try {
     // Check if the first parameter is a userId (string) or events array
     const isUserId = typeof eventsOrUserId === 'string';
@@ -42,6 +43,29 @@ export const generateStudySuggestions = async (eventsOrUserId, event, preparatio
       console.log(`Generating study suggestions for user ${eventsOrUserId} and event ${event.id || 'new event'}`);
     } else {
       console.log(`Generating study suggestions with ${eventsOrUserId.length} events for event ${event.id || 'new event'}`);
+    }
+
+    // Validate preparation hours - ensure it's a positive number
+    const validPreparationHours = Number(preparationHours);
+    if (isNaN(validPreparationHours) || validPreparationHours <= 0) {
+      console.log(`Invalid preparation hours (${preparationHours}). Must be a positive number. Skipping suggestions.`);
+      return [];
+    }
+
+    // Check if the event is within 8 days or if we should force generation
+    const isWithin8Days = isEventWithin8Days(event);
+    const shouldGenerateSuggestions = isWithin8Days || forceGeneration;
+
+    // If the event is not within 8 days and we're not forcing generation, return empty array
+    if (!shouldGenerateSuggestions) {
+      console.log(`Event is more than 8 days away and force generation is not enabled. Skipping suggestions.`);
+      return [];
+    }
+
+    // If suggestions have already been shown and not forcing, don't generate again
+    if (event.studySuggestionsShown && !forceGeneration) {
+      console.log(`Study suggestions have already been shown for this event. Skipping generation.`);
+      return [];
     }
     
     // First try to use the Gemini API for smart suggestions
@@ -665,32 +689,57 @@ export const createStudyEvents = (suggestions) => {
  * Creates and saves calendar events from study suggestions to the database
  * @param {Array} suggestions - Study session suggestions
  * @param {string} userId - User ID to associate with the events
+ * @param {Object} originalEvent - The original event that these study sessions are for
  * @returns {Promise<Array>} - Calendar events that were added
  */
-export const createAndSaveStudyEvents = async (suggestions, userId) => {
+export const createAndSaveStudyEvents = async (suggestions, userId, originalEvent = null) => {
   try {
-    // If no suggestions provided, return empty array immediately
-    if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
-      console.warn('No valid suggestions provided to createAndSaveStudyEvents');
-      return [];
-    }
-
-    if (!userId) {
-      console.error('No userId provided to createAndSaveStudyEvents');
-      return [];
-    }
-
     console.log(`Creating ${suggestions.length} study events for user ${userId}`);
+    console.log('Suggestions received:', suggestions);
+    console.log('User ID:', userId);
+    console.log('Original event:', originalEvent);
     
-    // Import eventService here to avoid circular dependencies
-    const eventService = require('./eventService').default;
+    // Check if suggestions are in the expected format
+    if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+      console.error('No valid suggestions provided to createAndSaveStudyEvents');
+      return [];
+    }
     
-    // Create events in the database and collect results
+    // Check if any suggestion is missing required fields
+    const hasInvalidSuggestions = suggestions.some(suggestion => {
+      const missing = [];
+      if (!suggestion.suggestedStartTime) missing.push('suggestedStartTime');
+      if (!suggestion.suggestedEndTime) missing.push('suggestedEndTime');
+      if (missing.length > 0) {
+        console.error(`Suggestion missing required fields: ${missing.join(', ')}`, suggestion);
+        return true;
+      }
+      return false;
+    });
+    
+    if (hasInvalidSuggestions) {
+      console.error('Some suggestions are missing required fields');
+      return [];
+    }
+    
+    // Import here to avoid circular dependency
+    const eventService = await import('./eventService').then(module => module.default);
+    
+    // Collection to store created events
     const createdEvents = [];
     
+    // Process each suggestion
     for (const suggestion of suggestions) {
+      // Create start and end time Date objects
       const startTime = new Date(suggestion.suggestedStartTime);
       const endTime = new Date(suggestion.suggestedEndTime);
+      
+      console.log('Processing suggestion:', {
+        startTime: startTime.toString(),
+        endTime: endTime.toString(),
+        message: suggestion.message,
+        event: suggestion.event
+      });
       
       // Create the event object in the format expected by the eventService
       // Format the event title to include the original event name in square brackets
@@ -707,8 +756,11 @@ export const createAndSaveStudyEvents = async (suggestions, userId) => {
         requiresPreparation: false, // Study sessions don't themselves require preparation
         color: '#4285F4', // Google Blue
         isStudySession: true,
-        relatedEventId: suggestion.event?.id || null
+        relatedEventId: suggestion.event?.id || null,
+        source: 'NUDGER' // Set the source to NUDGER for study events
       };
+      
+      console.log('Event data to be saved:', eventData);
       
       try {
         // Save to database
@@ -723,6 +775,27 @@ export const createAndSaveStudyEvents = async (suggestions, userId) => {
         });
       } catch (error) {
         console.error('Error saving individual study event:', error);
+        console.error('Error details:', error.message);
+        if (error.stack) console.error('Stack trace:', error.stack);
+      }
+    }
+    
+    console.log(`Created ${createdEvents.length} study events:`, createdEvents);
+    
+    // If we have an original event, mark that study suggestions have been shown and accepted
+    if (originalEvent && originalEvent.id) {
+      try {
+        console.log(`Updating original event ${originalEvent.id} to mark study suggestions as shown and accepted`);
+        const eventService = await import('./eventService').then(module => module.default);
+        
+        // Update the original event to mark that study suggestions have been shown and accepted
+        await eventService.updateEvent(originalEvent.id, {
+          ...originalEvent,
+          studySuggestionsShown: true,
+          studySuggestionsAccepted: createdEvents.length > 0 // Only mark as accepted if we created events
+        });
+      } catch (error) {
+        console.error('Error updating original event:', error);
       }
     }
     

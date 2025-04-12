@@ -333,21 +333,15 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
           recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
         };
         
-        // Save the updated event to the database
-        console.log('Saving event before generating study plan:', updatedEvent);
+        // Save the updated event first
         await onSave(updatedEvent);
         
-        // Then generate study suggestions using the updated event
-        onTriggerStudySuggestions(updatedEvent);
-        onClose();
-      } catch (error) {
-        console.error('Error saving event before generating study plan:', error);
-        // Still try to generate study suggestions with the form data
+        // Now trigger study suggestions with force generation enabled
+        // This will generate study suggestions even if the event is more than 8 days away
         const tempEvent = {
-          ...event,
+          ...updatedEvent,
+          id: event.id,
           title: formData.title,
-          description: formData.description,
-          location: formData.location,
           start: formData.allDay 
             ? new Date(`${formData.start}T00:00:00`) 
             : new Date(`${formData.start}T${formData.startTime}`),
@@ -364,9 +358,17 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
           recurrenceEndDate: formData.isRecurring ? new Date(formData.recurrenceEndDate) : null,
           recurrenceDays: formData.isRecurring ? formData.recurrenceDays : []
         };
-        onTriggerStudySuggestions(tempEvent);
+        
+        // Pass true as the second parameter to force generation regardless of date
+        onTriggerStudySuggestions(tempEvent, true);
         onClose();
+      } catch (error) {
+        console.error('Error triggering study suggestions:', error);
+        alert('There was an error generating your study plan. Please try again.');
       }
+    } else {
+      // For new events, we need to save first before generating study suggestions
+      alert('Please save the event first before generating a study plan.');
     }
   };
 
@@ -802,12 +804,13 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                 Delete
               </button>
             )}
-            {event && formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
+            {formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
               <button 
                 type="button" 
                 className="button button-secondary button-right"
                 data-testid="eventmodal-trigger-study-suggestions-button" 
                 onClick={handleTriggerStudySuggestions}
+                title={event ? "Generate a study plan for this event" : "Save the event first to generate a study plan"}
               >
                 <FontAwesomeIcon icon={faBookOpen} className="button-icon" />
                 Generate Study Plan

@@ -1,8 +1,11 @@
 /**
  * Service for handling event operations with the MongoDB backend
  */
-// When using the proxy in package.json, we just need /api without the host
-const API_URL = '/api';
+// Import constants
+import { API_URL } from '../config';
+
+// Log the API URL to help with debugging
+console.log('Event Service initialized with API_URL:', API_URL);
 
 /**
  * Get all events for a specific user
@@ -46,6 +49,9 @@ const getUserEvents = async (userId) => {
       // Map the study session fields
       isStudySession: event.is_study_session || false,
       relatedEventId: event.related_event_id || null,
+      // Map the study suggestion status fields
+      studySuggestionsShown: event.study_suggestions_shown || false,
+      studySuggestionsAccepted: event.study_suggestions_accepted || false,
       // Map the recurring event fields
       isRecurring: event.is_recurring || false,
       recurrenceFrequency: event.recurrence_frequency || null,
@@ -93,6 +99,9 @@ const createEvent = async (eventData, userId) => {
       // Add fields for study sessions
       is_study_session: eventData.isStudySession || false,
       related_event_id: eventData.relatedEventId || null,
+      // Add fields for study suggestion status
+      study_suggestions_shown: eventData.studySuggestionsShown || false,
+      study_suggestions_accepted: eventData.studySuggestionsAccepted || false,
       // Add fields for recurring events
       is_recurring: eventData.isRecurring || false,
       recurrence_frequency: eventData.recurrenceFrequency || null,
@@ -139,7 +148,18 @@ const createEvent = async (eventData, userId) => {
       requiresPreparation: createdEvent.requires_preparation,
       preparationHours: createdEvent.requires_hours,
       googleEventId: createdEvent.google_event_id,
-      userId: createdEvent.user_id
+      userId: createdEvent.user_id,
+      // Map the study session fields
+      isStudySession: createdEvent.is_study_session || false,
+      relatedEventId: createdEvent.related_event_id || null,
+      // Map the study suggestion status fields
+      studySuggestionsShown: createdEvent.study_suggestions_shown || false,
+      studySuggestionsAccepted: createdEvent.study_suggestions_accepted || false,
+      // Map the recurring event fields
+      isRecurring: createdEvent.is_recurring || false,
+      recurrenceFrequency: createdEvent.recurrence_frequency || null,
+      recurrenceEndDate: createdEvent.recurrence_end_date ? new Date(createdEvent.recurrence_end_date) : null,
+      recurrenceDays: createdEvent.recurrence_days || []
     };
   } catch (error) {
     console.error('Error creating event:', error);
@@ -179,6 +199,9 @@ const updateEvent = async (eventId, eventData) => {
       color: eventData.color || '#d2b48c',
       // Add fields for study sessions
       is_study_session: eventData.isStudySession || false,
+      // Add fields for study suggestion status
+      study_suggestions_shown: eventData.studySuggestionsShown || false,
+      study_suggestions_accepted: eventData.studySuggestionsAccepted || false,
       // Add fields for recurring events
       is_recurring: eventData.isRecurring || false,
       recurrence_frequency: eventData.recurrenceFrequency || null,
@@ -229,7 +252,15 @@ const updateEvent = async (eventId, eventData) => {
       userId: updatedEvent.user_id,
       // Map the study session fields
       isStudySession: updatedEvent.is_study_session || false,
-      relatedEventId: updatedEvent.related_event_id || null
+      relatedEventId: updatedEvent.related_event_id || null,
+      // Map the study suggestion status fields
+      studySuggestionsShown: updatedEvent.study_suggestions_shown || false,
+      studySuggestionsAccepted: updatedEvent.study_suggestions_accepted || false,
+      // Map the recurring event fields (if they exist)
+      isRecurring: updatedEvent.is_recurring || false,
+      recurrenceFrequency: updatedEvent.recurrence_frequency || null,
+      recurrenceEndDate: updatedEvent.recurrence_end_date ? new Date(updatedEvent.recurrence_end_date) : null,
+      recurrenceDays: updatedEvent.recurrence_days || []
     };
   } catch (error) {
     console.error('Error updating event:', error);

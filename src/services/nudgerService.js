@@ -21,7 +21,7 @@ export const identifyUpcomingEvents = (events) => {
   const twoWeeksFromNow = new Date();
   twoWeeksFromNow.setDate(now.getDate() + 14);
   
-  // console.log(`Nudger: Scanning for events between ${now.toLocaleDateString()} and ${twoWeeksFromNow.toLocaleDateString()}`);
+  console.log(`Nudger: Scanning for events between ${now.toLocaleDateString()} and ${twoWeeksFromNow.toLocaleDateString()}`);
 
   // Filter events within the next two weeks
   const upcomingEvents = events.filter(event => {
@@ -40,7 +40,7 @@ export const identifyUpcomingEvents = (events) => {
     return eventDate >= now && eventDate <= twoWeeksFromNow;
   });
 
-  // console.log(`Nudger: Found ${upcomingEvents.length} events in the next two weeks`);
+  console.log(`Nudger: Found ${upcomingEvents.length} events in the next two weeks`);
   
   // Identify events that require preparation based on the requiresPreparation flag
   const studyEvents = upcomingEvents.filter(event => {
@@ -48,7 +48,7 @@ export const identifyUpcomingEvents = (events) => {
     return event.requiresPreparation === true;
   });
 
-  // console.log(`Nudger: Identified ${studyEvents.length} events that require preparation`);
+  console.log(`Nudger: Identified ${studyEvents.length} events that require preparation`);
   
   // Add metadata to identified events
   return studyEvents.map(event => {
@@ -119,10 +119,95 @@ export const getStudyPlan = (events) => {
   };
 };
 
+/**
+ * Identifies events that need study suggestions based on the 8-day threshold and suggestion status
+ * @param {Array} events - Array of calendar events
+ * @returns {Array} - Array of events that need study suggestions
+ */
+export const identifyEventsNeedingStudySuggestions = (events) => {
+  if (!events || !Array.isArray(events)) {
+    console.warn('Nudger: No events provided or invalid events format');
+    return [];
+  }
+
+  // Calculate date range (now to 8 days from now)
+  const now = new Date();
+  const eightDaysFromNow = new Date();
+  eightDaysFromNow.setDate(now.getDate() + 8);
+  
+  console.log(`Nudger: Scanning for events needing study suggestions between ${now.toLocaleDateString()} and ${eightDaysFromNow.toLocaleDateString()}`);
+
+  // Filter events within the next 8 days
+  const upcomingEvents = events.filter(event => {
+    // Parse event start date - handle both Date objects and string dates
+    let eventDate;
+    if (event.start instanceof Date) {
+      eventDate = new Date(event.start);
+    } else if (typeof event.start === 'string') {
+      eventDate = new Date(event.start.split('T')[0]);
+    } else {
+      console.error('Nudger: Invalid event start date format', event);
+      return false;
+    }
+    
+    // Check if event is within the next 8 days
+    return eventDate >= now && eventDate <= eightDaysFromNow;
+  });
+
+  console.log(`Nudger: Found ${upcomingEvents.length} events in the next 8 days`);
+  
+  // Identify events that require preparation, have hours specified, and haven't had suggestions shown yet
+  const eventsNeedingSuggestions = upcomingEvents.filter(event => {
+    // Skip events where studySuggestionsShown is undefined or not explicitly set to false
+    // This ensures we don't process events from before the schema update
+    if (event.studySuggestionsShown === undefined) {
+      console.log(`Nudger: Skipping event "${event.title}" because studySuggestionsShown field is undefined`);
+      return false;
+    }
+    
+    // Check if preparation hours are explicitly set and valid
+    // This is critical - we only want to show study suggestions if hours are actually specified
+    if (event.preparationHours === undefined || event.preparationHours === null || event.preparationHours === '') {
+      console.log(`Nudger: Skipping event "${event.title}" because preparation hours are not specified yet`);
+      return false;
+    }
+    
+    // Ensure preparation hours are greater than 0
+    const preparationHours = Number(event.preparationHours);
+    if (isNaN(preparationHours) || preparationHours <= 0) {
+      console.log(`Nudger: Skipping event "${event.title}" because preparation hours (${event.preparationHours}) are invalid or not greater than 0`);
+      return false;
+    }
+    
+    return event.requiresPreparation === true && 
+           event.studySuggestionsShown === false;
+  });
+
+  console.log(`Nudger: Identified ${eventsNeedingSuggestions.length} events that need study suggestions`);
+  
+  return eventsNeedingSuggestions;
+};
+
+/**
+ * Updates an event to mark that study suggestions have been shown
+ * @param {Object} event - The event to update
+ * @param {boolean} accepted - Whether any suggestions were accepted
+ * @returns {Object} - Updated event object
+ */
+export const markStudySuggestionsShown = (event, accepted = false) => {
+  return {
+    ...event,
+    studySuggestionsShown: true,
+    studySuggestionsAccepted: accepted
+  };
+};
+
 // Create a named export object
 const nudgerService = {
   identifyUpcomingEvents,
-  getStudyPlan
+  getStudyPlan,
+  identifyEventsNeedingStudySuggestions,
+  markStudySuggestionsShown
 };
 
 export default nudgerService;

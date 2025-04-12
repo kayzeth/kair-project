@@ -29,7 +29,7 @@ const eventSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['LMS', 'GOOGLE_CALENDAR', 'SYLLABUS'],
+    enum: ['LMS', 'GOOGLE_CALENDAR', 'SYLLABUS', 'NUDGER'],
     required: true
   },
   description: {
@@ -65,6 +65,17 @@ const eventSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Add fields for tracking study suggestion status
+  study_suggestions_shown: {
+    type: Boolean,
+    default: false,
+    description: 'Indicates if study suggestions have been shown to the user for this event'
+  },
+  study_suggestions_accepted: {
+    type: Boolean,
+    default: false,
+    description: 'Indicates if any study suggestions were accepted by the user for this event'
+  },
   // Add fields for recurring events
   is_recurring: {
     type: Boolean,
@@ -95,6 +106,8 @@ eventSchema.index({ group_id: 1, start_time: 1 });
 eventSchema.index({ related_event_id: 1 });
 // Index for finding all study sessions
 eventSchema.index({ is_study_session: 1 });
+// Index for finding events that need study suggestions
+eventSchema.index({ study_suggestions_shown: 1, requires_preparation: 1 });
 
 const Event = mongoose.model('Event', eventSchema);
 module.exports = Event;

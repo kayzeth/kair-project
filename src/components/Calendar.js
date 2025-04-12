@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faPlus } from '@fortawesome/free-solid-svg-icons';
@@ -30,7 +30,13 @@ const Calendar = ({ initialEvents = [], userId }) => {
   const [dismissedEvents, setDismissedEvents] = useState({});
   const [studySuggestions, setStudySuggestions] = useState([]);
   const [showStudySuggestions, setShowStudySuggestions] = useState(false);
-
+  const [currentEventForSuggestions, setCurrentEventForSuggestions] = useState(null);
+  const [isProcessingStudySuggestions, setIsProcessingStudySuggestions] = useState(false);
+  
+  // Use a ref to track events that have already been processed for study suggestions in this session
+  // This prevents the same event from triggering multiple suggestion checks in a single session
+  const processedEventsRef = useRef(new Set());
+  
   // Generate recurring event instances based on recurrence settings
   const generateRecurringInstances = useCallback((events, viewStart, viewEnd) => {
     if (!events || events.length === 0) return events;
@@ -178,7 +184,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
     // console.log(`Generated ${allEvents.length} events including recurring instances`);
     return allEvents;
   }, []);
-  
+
   // Use a simple loadEvents function that works reliably in both tests and production
   const loadEvents = useCallback(async () => {
     if (!userId) {
@@ -354,48 +360,6 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
   }, [events, userId, checkForEventsNeedingPreparation]);
   
-  // Navigation handlers
-  const nextHandler = () => {
-    if (view === 'month') {
-      setCurrentDate(addMonths(currentDate, 1));
-    } else if (view === 'week') {
-      setCurrentDate(addWeeks(currentDate, 1));
-    } else {
-      setCurrentDate(addDays(currentDate, 1));
-    }
-  };
-
-  const prevHandler = () => {
-    if (view === 'month') {
-      setCurrentDate(subMonths(currentDate, 1));
-    } else if (view === 'week') {
-      setCurrentDate(subWeeks(currentDate, 1));
-    } else {
-      setCurrentDate(subDays(currentDate, 1));
-    }
-  };
-
-  const todayHandler = () => {
-    setCurrentDate(new Date());
-  };
-
-  // Event handlers
-  const addEventHandler = (date = currentDate) => {
-    setSelectedDate(date);
-    setSelectedEvent(null);
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedEvent(null);
-  };
-
-  const editEvent = (event) => {
-    setSelectedEvent(event);
-    setShowModal(true);
-  };
-  
   // Simplified saveEvent function
   const saveEvent = async (eventData) => {
     try {
@@ -513,7 +477,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
   };
   
   // Simplified triggerStudySuggestions function
-  const triggerStudySuggestions = async (event, forceGenerate = false) => {
+  const triggerStudySuggestions = useCallback(async (event, forceGenerate = false) => {
     try {
       // Skip in test environment
       if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
@@ -527,40 +491,67 @@ const Calendar = ({ initialEvents = [], userId }) => {
         // Show a message to the user
         setSyncStatus({
           status: 'info',
-          message: 'Study plan will be available 8 days before the event. Plan saved.'
+          message: `Study suggestions will be available 8 days before the event. You can generate them now by clicking "Generate Study Plan" in the event details.`
         });
         
         setTimeout(() => {
           setSyncStatus({ status: 'idle', message: '' });
-        }, 3000);
+        }, 5000);
         
         return;
       }
       
-      // If hours is 0, show a message instead of generating suggestions
-      if (Number(event.preparationHours) === 0) {
-        setSyncStatus({
-          status: 'success',
-          message: 'Saved: No study time needed for this event'
-        });
-        
-        setTimeout(() => {
-          setSyncStatus({ status: 'idle', message: '' });
-        }, 3000);
-        
-        return;
-      }
+      // Show loading status
+      setSyncStatus({
+        status: 'loading',
+        message: 'Generating study suggestions...'
+      });
       
       // Generate study suggestions
       const suggestions = await studySuggesterService.generateStudySuggestions(
         userId, 
         event, 
-        Number(event.preparationHours)
+        Number(event.preparationHours),
+        forceGenerate // Pass the forceGenerate parameter
       );
       
       if (suggestions && suggestions.length > 0) {
+        // Mark the event as having had suggestions shown immediately
+        if (event.id) {
+          try {
+            console.log(`Marking event ${event.id} as having had study suggestions shown`);
+            await eventService.updateEvent(event.id, {
+              ...event,
+              studySuggestionsShown: true
+            });
+          } catch (error) {
+            console.error('Error updating event after showing suggestions:', error);
+          }
+        }
+        
         setStudySuggestions(suggestions);
         setShowStudySuggestions(true);
+        
+        // Store the original event so we can mark it as having had suggestions shown
+        setCurrentEventForSuggestions(event);
+        
+        // Clear loading status
+        setSyncStatus({
+          status: 'idle',
+          message: ''
+        });
+      } else {
+        // If no suggestions were generated, show a message
+        setSyncStatus({
+          status: 'info',
+          message: forceGenerate 
+            ? 'No study suggestions could be generated. Please try again later.' 
+            : 'No study suggestions are needed at this time.'
+        });
+        
+        setTimeout(() => {
+          setSyncStatus({ status: 'idle', message: '' });
+        }, 3000);
       }
     } catch (error) {
       console.error('Error generating study suggestions:', error);
@@ -575,6 +566,116 @@ const Calendar = ({ initialEvents = [], userId }) => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
     }
+  }, [userId, setSyncStatus, setStudySuggestions, setShowStudySuggestions, setCurrentEventForSuggestions]);
+
+  // Check for events needing study suggestions
+  const checkForEventsNeedingStudySuggestions = useCallback(async () => {
+    try {
+      // Skip in test environment
+      if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
+        return;
+      }
+      
+      if (isProcessingStudySuggestions) {
+        console.log('Already processing study suggestions, skipping');
+        return;
+      }
+      
+      setIsProcessingStudySuggestions(true);
+      
+      // Use the nudger service to identify events needing study suggestions
+      const eventsNeedingSuggestions = nudgerService.identifyEventsNeedingStudySuggestions(events);
+      
+      console.log(`Found ${eventsNeedingSuggestions.length} events needing study suggestions`);
+      
+      if (eventsNeedingSuggestions.length > 0) {
+        // Get the first event that needs suggestions
+        const eventNeedingSuggestions = eventsNeedingSuggestions[0];
+        
+        // Skip if we've already processed this event in the current session
+        if (eventNeedingSuggestions.id && processedEventsRef.current.has(eventNeedingSuggestions.id)) {
+          console.log(`Already processed event ${eventNeedingSuggestions.id} in this session, skipping`);
+          setIsProcessingStudySuggestions(false);
+          return;
+        }
+        
+        console.log('Automatically triggering study suggestions for event:', eventNeedingSuggestions.title);
+        
+        // Add this event to the processed set
+        if (eventNeedingSuggestions.id) {
+          processedEventsRef.current.add(eventNeedingSuggestions.id);
+        }
+        
+        // Trigger study suggestions for this event
+        await triggerStudySuggestions(eventNeedingSuggestions);
+      }
+      
+      setIsProcessingStudySuggestions(false);
+    } catch (error) {
+      console.error('Error checking for events needing study suggestions:', error);
+      setIsProcessingStudySuggestions(false);
+    }
+  }, [events, triggerStudySuggestions, isProcessingStudySuggestions]);
+
+  // First useEffect: Run once when the component mounts to set up the initial check
+  useEffect(() => {
+    // This effect only depends on userId and will only run when userId changes
+    // It sets up a one-time check for study suggestions
+    const runInitialCheck = () => {
+      if (events.length > 0) {
+        checkForEventsNeedingStudySuggestions();
+      }
+    };
+    
+    if (userId) {
+      runInitialCheck();
+    }
+    
+    // We're intentionally not including events or events.length as a dependency
+    // to prevent the infinite loop of updates
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, checkForEventsNeedingStudySuggestions]);
+
+  // Navigation handlers
+  const nextHandler = () => {
+    if (view === 'month') {
+      setCurrentDate(addMonths(currentDate, 1));
+    } else if (view === 'week') {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addDays(currentDate, 1));
+    }
+  };
+
+  const prevHandler = () => {
+    if (view === 'month') {
+      setCurrentDate(subMonths(currentDate, 1));
+    } else if (view === 'week') {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(subDays(currentDate, 1));
+    }
+  };
+
+  const todayHandler = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Event handlers
+  const addEventHandler = (date = currentDate) => {
+    setSelectedDate(date);
+    setSelectedEvent(null);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedEvent(null);
+  };
+
+  const editEvent = (event) => {
+    setSelectedEvent(event);
+    setShowModal(true);
   };
   
   // Simplified handlers for study suggestions
@@ -586,14 +687,47 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
-      const createdEvents = await studySuggesterService.createAndSaveStudyEvents(acceptedSuggestions, userId);
+      console.log('Accepting study suggestions:', acceptedSuggestions);
+      console.log('Current user ID:', userId);
+      console.log('Current event for suggestions:', currentEventForSuggestions);
+      
+      // Show loading status
+      setSyncStatus({
+        status: 'loading',
+        message: 'Creating study sessions...'
+      });
+      
+      // Pass the original event as the third parameter to mark it as having had suggestions shown and accepted
+      const createdEvents = await studySuggesterService.createAndSaveStudyEvents(
+        acceptedSuggestions, 
+        userId,
+        currentEventForSuggestions // Pass the original event
+      );
+      
+      console.log('Created events returned from service:', createdEvents);
       
       if (createdEvents && createdEvents.length > 0) {
-        setEvents(prevEvents => [...prevEvents, ...createdEvents]);
+        console.log('Adding created events to calendar state');
+        setEvents(prevEvents => {
+          console.log('Previous events:', prevEvents.length);
+          const newEvents = [...prevEvents, ...createdEvents];
+          console.log('New events total:', newEvents.length);
+          return newEvents;
+        });
         
         setSyncStatus({
           status: 'success',
           message: `Created ${createdEvents.length} study sessions`
+        });
+        
+        setTimeout(() => {
+          setSyncStatus({ status: 'idle', message: '' });
+        }, 3000);
+      } else {
+        console.warn('No events were created from the study suggestions');
+        setSyncStatus({
+          status: 'info',
+          message: 'No study sessions were created.'
         });
         
         setTimeout(() => {
@@ -604,15 +738,39 @@ const Calendar = ({ initialEvents = [], userId }) => {
       setShowStudySuggestions(false);
     } catch (error) {
       console.error('Error accepting study suggestions:', error);
+      
+      setSyncStatus({
+        status: 'error',
+        message: 'Failed to create study sessions. Please try again.'
+      });
+      
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 3000);
+      
       setShowStudySuggestions(false);
     }
   };
   
   const handleRejectStudySuggestions = () => {
+    // If we have an original event, mark that suggestions were shown but not accepted
+    if (currentEventForSuggestions && currentEventForSuggestions.id) {
+      try {
+        // Update the event to mark that study suggestions were shown but not accepted
+        eventService.updateEvent(currentEventForSuggestions.id, {
+          ...currentEventForSuggestions,
+          studySuggestionsShown: true,
+          studySuggestionsAccepted: false
+        });
+      } catch (error) {
+        console.error('Error updating event after rejecting suggestions:', error);
+      }
+    }
+    
     setShowStudySuggestions(false);
   };
-  
-  // Simplified handlers for preparation prompt
+
+  // Simplified savePreparationHours function
   const savePreparationHours = async (eventId, hours) => {
     try {
       // Skip in test environment
@@ -656,15 +814,6 @@ const Calendar = ({ initialEvents = [], userId }) => {
       console.error('Error saving preparation hours:', error);
     }
   };
-
-
-
-
-
-
-
-
-
 
   const dismissPreparationPrompt = (eventId) => {
     const reminderTime = new Date().getTime() + (3 * 60 * 60 * 1000);
