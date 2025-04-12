@@ -62,9 +62,16 @@ export const generateStudySuggestions = async (eventsOrUserId, event, preparatio
       return [];
     }
 
-    // If suggestions have already been shown and not forcing, don't generate again
-    if (event.studySuggestionsShown && !forceGeneration) {
-      console.log(`Study suggestions have already been shown for this event. Skipping generation.`);
+    // If suggestions have already been shown or accepted and not forcing, don't generate again
+    if ((event.studySuggestionsShown || event.studySuggestionsAccepted) && !forceGeneration) {
+      console.log(`Study suggestions have already been shown or accepted for this event. Skipping generation.`);
+      console.log(`studySuggestionsShown: ${event.studySuggestionsShown}, studySuggestionsAccepted: ${event.studySuggestionsAccepted}`);
+      return [];
+    }
+    
+    // Even if force generation is enabled, never generate suggestions for events that already have accepted suggestions
+    if (event.studySuggestionsAccepted) {
+      console.log(`Study suggestions have already been accepted for this event. Skipping generation regardless of force setting.`);
       return [];
     }
     

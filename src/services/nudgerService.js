@@ -165,6 +165,13 @@ export const identifyEventsNeedingStudySuggestions = (events) => {
       return false;
     }
     
+    // Skip events where studySuggestionsAccepted is true
+    // This ensures we don't suggest study sessions for events that already have accepted study sessions
+    if (event.studySuggestionsAccepted === true) {
+      console.log(`Nudger: Skipping event "${event.title}" because study suggestions have already been accepted`);
+      return false;
+    }
+    
     // Check if preparation hours are explicitly set and valid
     // This is critical - we only want to show study suggestions if hours are actually specified
     if (event.preparationHours === undefined || event.preparationHours === null || event.preparationHours === '') {

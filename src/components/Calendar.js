@@ -363,6 +363,8 @@ const Calendar = ({ initialEvents = [], userId }) => {
   // Simplified saveEvent function
   const saveEvent = async (eventData) => {
     try {
+      console.log('Saving event with studySuggestionsAccepted:', eventData.studySuggestionsAccepted);
+      
       // Skip in test environment
       if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
         setShowModal(false);
@@ -386,8 +388,23 @@ const Calendar = ({ initialEvents = [], userId }) => {
       // Check if the event requires preparation and trigger study suggestions if within 8 days
       if (savedEvent.requiresPreparation && 
           savedEvent.preparationHours !== undefined && 
-          studySuggesterService.isEventWithin8Days(savedEvent)) {
+          savedEvent.preparationHours !== '' &&
+          studySuggesterService.isEventWithin8Days(savedEvent) &&
+          !savedEvent.studySuggestionsAccepted) { 
+        console.log('Event qualifies for study suggestions - checking if already accepted:', {
+          requiresPreparation: savedEvent.requiresPreparation,
+          preparationHours: savedEvent.preparationHours,
+          isWithin8Days: studySuggesterService.isEventWithin8Days(savedEvent),
+          studySuggestionsAccepted: savedEvent.studySuggestionsAccepted
+        });
         triggerStudySuggestions(savedEvent);
+      } else {
+        console.log('Event does not qualify for study suggestions:', {
+          requiresPreparation: savedEvent.requiresPreparation,
+          preparationHours: savedEvent.preparationHours,
+          isWithin8Days: studySuggesterService.isEventWithin8Days(savedEvent),
+          studySuggestionsAccepted: savedEvent.studySuggestionsAccepted
+        });
       }
       
       return savedEvent;
@@ -484,6 +501,27 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
+      console.log('Event received in triggerStudySuggestions:', {
+        id: event.id,
+        title: event.title,
+        studySuggestionsAccepted: event.studySuggestionsAccepted
+      });
+      
+      // CRITICAL CHECK: Check if the event already has related study sessions
+      // This is more reliable than checking the studySuggestionsAccepted flag
+      if (event.id) {
+        try {
+          const hasStudySessions = await eventService.hasRelatedStudySessions(event.id);
+          if (hasStudySessions) {
+            console.log(`Event "${event.title}" already has study sessions. Silently aborting.`);
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking for related study sessions:', error);
+          // Continue with the process even if we couldn't check for related study sessions
+        }
+      }
+      
       // Check if the event is within 8 days, but allow override with forceGenerate
       if (!forceGenerate && !studySuggesterService.isEventWithin8Days(event)) {
         console.log('Event is more than 8 days away - not showing study suggestions yet');
@@ -520,9 +558,12 @@ const Calendar = ({ initialEvents = [], userId }) => {
         if (event.id) {
           try {
             console.log(`Marking event ${event.id} as having had study suggestions shown`);
+            // IMPORTANT: Preserve the studySuggestionsAccepted flag when updating
             await eventService.updateEvent(event.id, {
               ...event,
-              studySuggestionsShown: true
+              studySuggestionsShown: true,
+              // Keep the existing value of studySuggestionsAccepted
+              studySuggestionsAccepted: event.studySuggestionsAccepted
             });
           } catch (error) {
             console.error('Error updating event after showing suggestions:', error);
@@ -788,10 +829,30 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
+      // CRITICAL FIX: Check if this event already has study sessions
+      let hasExistingStudySessions = false;
+      try {
+        hasExistingStudySessions = await eventService.hasRelatedStudySessions(eventId);
+        console.log(`Event ${eventId} has existing study sessions: ${hasExistingStudySessions}`);
+      } catch (error) {
+        console.error('Error checking for related study sessions:', error);
+      }
+      
       const updatedEvent = {
         ...eventToUpdate,
-        preparationHours: hours
+        preparationHours: hours,
+        // If the event already has study sessions, mark it as having had suggestions shown and accepted
+        studySuggestionsShown: hasExistingStudySessions ? true : eventToUpdate.studySuggestionsShown,
+        studySuggestionsAccepted: hasExistingStudySessions ? true : eventToUpdate.studySuggestionsAccepted
       };
+      
+      console.log('Updating event with preparation hours:', {
+        eventId,
+        hours,
+        hasExistingStudySessions,
+        studySuggestionsShown: updatedEvent.studySuggestionsShown,
+        studySuggestionsAccepted: updatedEvent.studySuggestionsAccepted
+      });
       
       const savedEvent = await eventService.updateEvent(eventId, updatedEvent);
       
@@ -809,7 +870,10 @@ const Calendar = ({ initialEvents = [], userId }) => {
         setShowPreparationPrompt(false);
       }
       
-      await triggerStudySuggestions(savedEvent);
+      // Only trigger study suggestions if the event doesn't already have them
+      if (!hasExistingStudySessions) {
+        await triggerStudySuggestions(savedEvent);
+      }
     } catch (error) {
       console.error('Error saving preparation hours:', error);
     }
