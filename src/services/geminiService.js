@@ -126,6 +126,76 @@ const determineEventType = (event) => {
 };
 
 /**
+ * Validates study suggestions to ensure the total time matches the requested preparation hours
+ * @param {Array} suggestions - The study suggestions to validate
+ * @param {number} requestedHours - The total hours requested for preparation
+ * @param {number} toleranceMinutes - Acceptable difference in minutes (default: 15)
+ * @returns {Object} - Validation result with isValid flag and totalHours
+ */
+const validateStudySuggestions = (suggestions, requestedHours, toleranceMinutes = null) => {
+  if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+    console.error('Invalid suggestions array provided for validation');
+    return { isValid: false, totalHours: 0, totalMinutes: 0 };
+  }
+
+  // Calculate dynamic tolerance based on requested hours if not explicitly provided
+  // For longer study sessions, we allow a slightly larger tolerance
+  if (toleranceMinutes === null) {
+    // Base tolerance of 15 minutes
+    toleranceMinutes = 15;
+    
+    // Add 5 minutes of tolerance for each hour of study beyond 2 hours
+    // This means: 2h = 15min tolerance, 4h = 25min, 8h = 45min
+    if (requestedHours > 2) {
+      toleranceMinutes += Math.min(45, Math.floor((requestedHours - 2) * 5));
+    }
+    
+    console.log(`Using dynamic tolerance of ${toleranceMinutes} minutes for ${requestedHours} hours of study`);
+  }
+
+  let totalMinutes = 0;
+
+  // Calculate total minutes across all suggestions
+  suggestions.forEach(suggestion => {
+    const startTime = new Date(suggestion.suggestedStartTime);
+    const endTime = new Date(suggestion.suggestedEndTime);
+    
+    // Calculate duration in minutes
+    const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
+    totalMinutes += durationMinutes;
+  });
+
+  // Convert to hours and minutes for logging
+  const totalHours = totalMinutes / 60;
+  
+  // Calculate the difference in minutes between requested and actual
+  const requestedMinutes = requestedHours * 60;
+  const minutesDifference = Math.abs(totalMinutes - requestedMinutes);
+  
+  // Check if the difference is within tolerance
+  const isValid = minutesDifference <= toleranceMinutes;
+  
+  console.log(`Validation results:`, {
+    requestedHours,
+    requestedMinutes,
+    actualTotalMinutes: totalMinutes,
+    actualTotalHours: totalHours,
+    minutesDifference,
+    toleranceMinutes,
+    isWithinTolerance: isValid
+  });
+  
+  return { 
+    isValid, 
+    totalHours, 
+    totalMinutes,
+    minutesDifference,
+    toleranceMinutes,
+    suggestions 
+  };
+};
+
+/**
  * Generates smart study suggestions using Gemini AI
  * @param {Array|string} eventsOrUserId - All calendar events or a userId
  * @param {Object} targetEvent - The event that needs preparation
@@ -225,8 +295,8 @@ export const generateSmartStudySuggestions = async (eventsOrUserId, targetEvent,
       }
     }).join('\n');
     
-    // Create the prompt for Gemini
-    const promptText = `
+    // Create the base prompt for Gemini
+    const basePromptText = `
 I need to create a study plan for an upcoming ${eventType}. Here are the details:
 
 EVENT INFORMATION:
@@ -251,35 +321,57 @@ STUDY PLAN RULES:
 - If there are too many conflicts in the calendar, it's better to schedule fewer, longer sessions on days with fewer conflicts
 
 EVENT TYPE SPECIFIC RULES:
-${eventType === 'exam' || eventType === 'quiz' ? `
-For Exams and Quizzes:
-- ALWAYS schedule at least one study session on the day before the exam
+${eventType === 'exam' || eventType === 'quiz' || eventType === 'general' ? `
+For ${eventType === 'general' ? 'General Events' : 'Exams and Quizzes'}:
+- ALWAYS schedule at least one study session on the day before the event IF POSSIBLE (if there are no conflicts)
 - Distribution Strategy: Follow the half-hours rule (${preparationHours} hours = ${Math.max(1, Math.ceil(preparationHours / 2))} days) but ensure at least 2 days of study when possible
-- Time Allocation:
-  * 40% on the day before the exam
-  * 30% two days before
-  * 20% three days before
-  * Remaining 10% distributed across earlier days
+- PREFERRED Time Allocation (adjust based on calendar availability):
+  * ~40% on the day before the event
+  * ~30% two days before
+  * ~20% three days before
+  * Remaining ~10% distributed across earlier days
+- If any day has calendar conflicts, redistribute that day's allocation to other available days
 - Session Lengths:
   * Day before: 2-4 hour sessions (intensive final review)
   * Two days before: 1.5-3 hour sessions (practice problems)
   * Earlier days: 1-2 hour sessions (concept study)
 - Mark the day-before session as "high" priority
+` : eventType === 'project' ? `
+For Projects and Presentations:
+- Distribution Strategy: Balanced approach with focus on early planning and final execution
+- PREFERRED Time Allocation (adjust based on calendar availability):
+  * ~30% on the day before the deadline
+  * ~40% two to three days before
+  * ~30% distributed across earlier days for planning
+- If any day has significant calendar conflicts, redistribute that day's allocation to other available days
+- Uses the half-hours rule (${preparationHours} hours = ${Math.max(1, Math.ceil(preparationHours / 2))} days)
+- Session Lengths:
+  * Day before: 2-4 hour sessions (finalization and review)
+  * Earlier days: 1-3 hour sessions (development and creation)
+- Mark the day-before session as "high" priority
 ` : `
 For Homework, Essays, and Problem Sets:
-- Distribution Strategy: Heavily concentrated on the due date itself
+- Distribution Strategy: Decently concentrated on the day before the due date, but allowed to have a strong focus on due date itself if the assignment is due at night. 
 - For assignments ≤2 hours: Schedule ALL study time on the due date itself (perfect for 11:59pm deadlines)
-- For longer assignments:
-  * 60% on the due date itself
-  * 25% on the day before
-  * 10% two days before
-  * 5% on earlier days
+- PREFERRED Time Allocation (adjust based on calendar availability):
+  * ~35% on the due date itself
+  * ~50% on the day before
+  * ~10% two days before
+  * ~5% on earlier days
+- If any day has significant calendar conflicts, redistribute that day's allocation to other available days
 - Uses fewer days than the half-hours rule (e.g., ${preparationHours} hours = ~${Math.max(1, Math.ceil(preparationHours / 3))} days)
 - Session Lengths:
   * Due date: 2-4 hour sessions (to complete in one sitting)
   * Day before: 1.5-3 hour sessions (to make significant progress)
   * Earlier days: 1-2 hour sessions (to plan and start work)
+- If the homework is due before 5pm (which is 17:00), then do not schedule any sessions on the same day.
 `}
+
+CRITICAL SCHEDULING RULES:
+- NEVER schedule any study sessions that overlap with existing calendar events
+- Ensure at least 30 minutes buffer time before and after existing calendar events
+- If a day has too many conflicts, it's better to move study time to other days than to try to squeeze sessions in
+- The time allocation percentages are guidelines, not strict requirements - prioritize avoiding conflicts
 
 Please provide your response ONLY as a JSON array of study sessions, with each session having these properties:
 - suggestedStartTime (ISO date string with timezone)
@@ -297,59 +389,166 @@ Example format:
   }
 ]`;
 
-    console.log('Sending prompt to Gemini:', promptText);
+    // Implement retry mechanism
+    const MAX_RETRIES = 3;
+    let attempts = 0;
+    let formattedSuggestions = [];
+    let isValid = false;
     
-    // Call the Gemini API
-    try {
-      // For @google/generative-ai, use the gemini-2.0-flash model
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      const result = await model.generateContent({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: promptText }]
+    while (attempts < MAX_RETRIES && !isValid) {
+      attempts++;
+      
+      // Add retry-specific instructions to the prompt if this isn't the first attempt
+      let promptText = basePromptText;
+      if (attempts > 1) {
+        // Calculate the difference from the previous attempt
+        const previousTotalHours = formattedSuggestions.length > 0 ? 
+          calculateTotalHours(formattedSuggestions) : 0;
+        
+        const hoursDifference = (previousTotalHours - preparationHours).toFixed(2);
+        const minutesDifference = Math.round((previousTotalHours - preparationHours) * 60);
+        
+        // Create a more detailed feedback message
+        let feedbackMessage = `Your previous response had a total of ${previousTotalHours.toFixed(2)} hours, `;
+        
+        if (minutesDifference > 0) {
+          feedbackMessage += `which is ${Math.abs(minutesDifference)} minutes (${Math.abs(hoursDifference)} hours) TOO LONG.`;
+        } else {
+          feedbackMessage += `which is ${Math.abs(minutesDifference)} minutes (${Math.abs(hoursDifference)} hours) TOO SHORT.`;
+        }
+        
+        // Add specific suggestions for how to fix it
+        if (minutesDifference > 0) {
+          feedbackMessage += ` Please REDUCE the total study time by ${Math.abs(minutesDifference)} minutes.`;
+          
+          // Suggest specific adjustments based on the magnitude of the difference
+          if (Math.abs(minutesDifference) >= 60) {
+            feedbackMessage += ` Consider removing a short session or reducing the length of multiple sessions.`;
+          } else {
+            feedbackMessage += ` Try shortening one or more sessions slightly.`;
           }
-        ]
-      });
-      const response = await result.response;
-      const responseText = response.text();
-      
-      console.log('Gemini response:', responseText);
-      
-      // Extract JSON from the response
-      const jsonMatch = responseText.match(/\[\s*\{.*\}\s*\]/s);
-      if (!jsonMatch) {
-        console.error('Could not find valid JSON in the Gemini response');
-        return [];
+        } else {
+          feedbackMessage += ` Please INCREASE the total study time by ${Math.abs(minutesDifference)} minutes.`;
+          
+          // Suggest specific adjustments based on the magnitude of the difference
+          if (Math.abs(minutesDifference) >= 60) {
+            feedbackMessage += ` Consider adding a short session or extending the length of multiple sessions.`;
+          } else {
+            feedbackMessage += ` Try extending one or more sessions slightly.`;
+          }
+        }
+        
+        // Add the previous session breakdown to help Gemini understand what to adjust
+        feedbackMessage += `\n\nHere's a breakdown of your previous suggestion:`;
+        
+        formattedSuggestions.forEach((suggestion, index) => {
+          const startTime = new Date(suggestion.suggestedStartTime);
+          const endTime = new Date(suggestion.suggestedEndTime);
+          const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
+          const durationHours = durationMinutes / 60;
+          
+          feedbackMessage += `\n${index + 1}. ${format(startTime, 'MMM d, h:mm a')} - ${format(endTime, 'h:mm a')}: ${durationHours.toFixed(2)} hours (${durationMinutes} minutes)`;
+        });
+        
+        // Place the feedback at the beginning of the prompt
+        promptText = `IMPORTANT FEEDBACK (Attempt ${attempts} of ${MAX_RETRIES}):\n${feedbackMessage}\n\nYour task is to create a study plan that EXACTLY equals ${preparationHours} hours total.\n\n${basePromptText}`;
       }
+      
+      console.log(`Attempt ${attempts} of ${MAX_RETRIES} to generate valid study suggestions`);
+      console.log('Sending prompt to Gemini:', promptText);
       
       try {
-        // Parse the JSON response
-        const suggestions = JSON.parse(jsonMatch[0]);
+        // For @google/generative-ai, use the gemini-2.0-flash model
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await model.generateContent({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: promptText }]
+            }
+          ]
+        });
+        const response = await result.response;
+        const responseText = response.text();
         
-        // Convert the string dates to Date objects
-        const formattedSuggestions = suggestions.map(suggestion => ({
-          event: targetEvent,
-          suggestedStartTime: new Date(suggestion.suggestedStartTime),
-          suggestedEndTime: new Date(suggestion.suggestedEndTime),
-          message: suggestion.message,
-          priority: suggestion.priority
-        }));
+        console.log(`Gemini response for attempt ${attempts}:`, responseText);
         
-        console.log('Formatted suggestions:', formattedSuggestions);
-        return formattedSuggestions;
-      } catch (parseError) {
-        console.error('Error parsing Gemini response:', parseError);
-        return [];
+        // Extract JSON from the response
+        const jsonMatch = responseText.match(/\[\s*\{.*\}\s*\]/s);
+        if (!jsonMatch) {
+          console.error('Could not find valid JSON in the Gemini response');
+          continue; // Try again if possible
+        }
+        
+        try {
+          // Parse the JSON response
+          const suggestions = JSON.parse(jsonMatch[0]);
+          
+          // Convert the string dates to Date objects
+          formattedSuggestions = suggestions.map(suggestion => ({
+            event: targetEvent,
+            suggestedStartTime: new Date(suggestion.suggestedStartTime),
+            suggestedEndTime: new Date(suggestion.suggestedEndTime),
+            message: suggestion.message,
+            priority: suggestion.priority
+          }));
+          
+          console.log(`Formatted suggestions for attempt ${attempts}:`, formattedSuggestions);
+          
+          // Validate the study suggestions
+          const validation = validateStudySuggestions(formattedSuggestions, preparationHours);
+          isValid = validation.isValid;
+          
+          if (isValid) {
+            console.log(`Valid study suggestions found on attempt ${attempts}`);
+            break; // Exit the loop if we have valid suggestions
+          } else {
+            console.warn(`Study suggestions from attempt ${attempts} do not match requested hours. ` +
+              `Requested: ${preparationHours} hours, Got: ${validation.totalHours.toFixed(2)} hours ` +
+              `(${validation.minutesDifference} minutes difference)`);
+          }
+        } catch (parseError) {
+          console.error(`Error parsing Gemini response on attempt ${attempts}:`, parseError);
+        }
+      } catch (apiError) {
+        console.error(`Error calling Gemini API on attempt ${attempts}:`, apiError);
       }
-    } catch (apiError) {
-      console.error('Error calling Gemini API:', apiError);
-      return [];
     }
+    
+    // Return the last set of suggestions even if not valid after MAX_RETRIES
+    if (attempts >= MAX_RETRIES && !isValid) {
+      console.warn(`Failed to get valid study suggestions after ${MAX_RETRIES} attempts. Using last result.`);
+    }
+    
+    return formattedSuggestions;
   } catch (error) {
     console.error('Error generating study suggestions:', error);
     return [];
   }
+};
+
+/**
+ * Calculates the total hours across all study suggestions
+ * @param {Array} suggestions - The study suggestions to calculate hours for
+ * @returns {number} - Total hours
+ */
+const calculateTotalHours = (suggestions) => {
+  if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+    return 0;
+  }
+
+  let totalMinutes = 0;
+
+  suggestions.forEach(suggestion => {
+    const startTime = new Date(suggestion.suggestedStartTime);
+    const endTime = new Date(suggestion.suggestedEndTime);
+    
+    // Calculate duration in minutes
+    const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
+    totalMinutes += durationMinutes;
+  });
+
+  return totalMinutes / 60;
 };
 
 // Create a named export object
@@ -358,7 +557,8 @@ const geminiService = {
   saveApiKey,
   clearApiKey,
   initializeGenAI,
-  generateSmartStudySuggestions
+  generateSmartStudySuggestions,
+  validateStudySuggestions
 };
 
 export default geminiService;

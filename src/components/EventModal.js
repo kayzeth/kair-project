@@ -55,7 +55,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     // Track the source of the event
     source: '',
     studySuggestionsShown: false,
-    studySuggestionsAccepted: false
+    studySuggestionsAccepted: false,
+    isStudySession: false,
+    relatedEventId: null
   });
 
   useEffect(() => {
@@ -127,7 +129,10 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         source: event.source || '',
         // Include study suggestion status flags
         studySuggestionsShown: event.studySuggestionsShown || false,
-        studySuggestionsAccepted: event.studySuggestionsAccepted || false
+        studySuggestionsAccepted: event.studySuggestionsAccepted || false,
+        // Include study session relationship fields
+        isStudySession: event.isStudySession || false,
+        relatedEventId: event.relatedEventId || null
       });
       
       console.log('Form data after initialization:', {
@@ -193,8 +198,16 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       studySuggestionsShown: formData.studySuggestionsShown,
       studySuggestionsAccepted: formData.studySuggestionsAccepted,
       // Preserve the source field
-      source: formData.source || event?.source || 'LMS'
+      source: formData.source || event?.source || 'LMS',
+      // Preserve the isStudySession flag and relatedEventId if they exist
+      isStudySession: event?.isStudySession || false,
+      relatedEventId: event?.relatedEventId || null
     };
+    
+    // Log the study session relationship
+    if (event?.isStudySession) {
+      console.log(`Preserving study session relationship: relatedEventId=${event.relatedEventId}`);
+    }
     
     console.log('Event object before save:', {
       studySuggestionsShown: eventObject.studySuggestionsShown,
@@ -350,6 +363,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
           // Preserve study suggestion status flags
           studySuggestionsShown: event?.studySuggestionsShown || false,
           studySuggestionsAccepted: event?.studySuggestionsAccepted || false,
+          // Preserve the isStudySession flag and relatedEventId if they exist
+          isStudySession: event?.isStudySession || false,
+          relatedEventId: event?.relatedEventId || null,
           // Preserve the source field
           source: formData.source || event?.source || 'LMS'
         };
