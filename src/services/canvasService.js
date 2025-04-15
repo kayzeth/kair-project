@@ -155,18 +155,21 @@ const canvasService = {
       throw new Error('User ID is required');
     }
 
-    // Format domain to ensure it has the canvas.*.edu format
-    let formattedDomain = domain;
-    if (!domain.includes('.')) {
-      formattedDomain = `canvas.${domain}.edu`;
-    } else if (!domain.startsWith('canvas.')) {
-      formattedDomain = `canvas.${domain}`;
-    } else if (!domain.endsWith('.edu')) {
-      formattedDomain = `${domain}.edu`;
-    }
-
-    // Add Bearer prefix to token
+    // Add Bearer prefix to token if not present
     const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+    // Accept either canvas.*.edu or *.instructure.com format
+    let formattedDomain = domain;
+    if (domain.includes('instructure.com')) {
+      // Already in instructure.com format, use as is
+      formattedDomain = domain;
+    } else if (domain.includes('canvas.') && domain.endsWith('.edu')) {
+      // Already in canvas.*.edu format, use as is
+      formattedDomain = domain;
+    } else {
+      // Try to format as canvas.*.edu
+      formattedDomain = `canvas.${domain}.edu`;
+    }
 
     try {
       // Store in database
