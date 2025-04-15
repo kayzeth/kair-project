@@ -551,14 +551,29 @@ const SyllabusParser = ({ onAddEvents }) => {
     if (syllabusData.meetingTimes && Array.isArray(syllabusData.meetingTimes)) {
       syllabusData.meetingTimes.forEach((meeting, index) => {
         if (meeting.day && meeting.startTime && meeting.endTime) {
+          // Calculate a default recurrence end date (end of semester - about 4 months from now)
+          const today = new Date();
+          const recurrenceEndDate = new Date(today);
+          recurrenceEndDate.setMonth(today.getMonth() + 4); // Default to 4 months of classes
+          
+          // Map day string to array of days for recurrence
+          const dayOfWeek = meeting.day.toLowerCase();
+          const recurrenceDays = [dayOfWeek];
+          
           events.push({
             id: `class-meeting-${index}`,
             title: `${syllabusData.courseName || 'Class'} - ${meeting.location || ''}`,
             start: formatDateTimeForEvent(meeting.day, meeting.startTime, currentYear),
             end: formatDateTimeForEvent(meeting.day, meeting.endTime, currentYear),
             allDay: false,
+            // Properties needed by Calendar's generateRecurringInstances
+            isRecurring: true,
+            recurrenceFrequency: 'WEEKLY',
+            recurrenceDays: recurrenceDays,
+            recurrenceEndDate: recurrenceEndDate.toISOString(),
+            // Keep original properties for backward compatibility
             recurring: true,
-            recurringPattern: meeting.day.toLowerCase(),
+            recurringPattern: dayOfWeek,
             location: meeting.location || '',
             description: `${syllabusData.courseCode || ''} - ${instructorName}`,
             color: '#4285F4'
@@ -969,7 +984,8 @@ const SyllabusParser = ({ onAddEvents }) => {
                               ...event,
                               editId: index, // Add unique ID for editing
                               dateString,
-                              timeString
+                              timeString,
+                              selected: true // Default to selected
                             };
                           } catch (error) {
                             console.error('Error processing event for editing:', error, event);
@@ -1062,7 +1078,14 @@ const SyllabusParser = ({ onAddEvents }) => {
                                 location: event.location || '',
                                 requiresPreparation: event.requiresPreparation || false,
                                 color: event.color || '#d2b48c',
-                                source: 'SYLLABUS' // Match the enum values in the database schema
+                                source: 'SYLLABUS', // Match the enum values in the database schema
+                                // Add recurring event properties
+                                isRecurring: event.isRecurring || false,
+                                recurrenceFrequency: event.recurrenceFrequency || null,
+                                // Use the repeatUntil date if available, otherwise use the default recurrenceEndDate
+                                recurrenceEndDate: event.repeatUntil ? new Date(event.repeatUntil) : 
+                                                  (event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null),
+                                recurrenceDays: event.recurrenceDays || []
                               };
                               
                               // Save to database
@@ -1107,12 +1130,13 @@ const SyllabusParser = ({ onAddEvents }) => {
                       <div style={eventEditorModalStyle}>
                         <div style={eventEditorContentStyle}>
                           <h3 style={eventEditorHeaderStyle}>Review and Edit Events</h3>
-                          <p style={eventEditorDescriptionStyle}>You can adjust the dates and times before adding to your calendar.</p>
+                          <p style={eventEditorDescriptionStyle}>You can select which events to add and adjust their details before adding to your calendar.</p>
                           
                           <div style={eventEditorTableContainerStyle}>
                             <table style={eventEditorTableStyle}>
                               <thead>
                                 <tr>
+                                  <th style={tableHeaderStyle}>Include</th>
                                   <th style={tableHeaderStyle}>Event</th>
                                   <th style={tableHeaderStyle}>Date</th>
                                   <th style={tableHeaderStyle}>Time</th>
@@ -1121,8 +1145,31 @@ const SyllabusParser = ({ onAddEvents }) => {
                               </thead>
                               <tbody>
                                 {editableEvents.map((event, index) => (
-                                  <tr key={index}>
-                                    <td style={tableCellStyle}>{event.title}</td>
+                                  <tr key={index} style={event.selected === false ? { opacity: 0.5 } : {}}>                                    
+                                    <td style={tableCellStyle}>
+                                      <input 
+                                        type="checkbox" 
+                                        style={checkboxStyle}
+                                        checked={event.selected !== false} 
+                                        onChange={(e) => {
+                                          const updatedEvents = [...editableEvents];
+                                          updatedEvents[index].selected = e.target.checked;
+                                          setEditableEvents(updatedEvents);
+                                        }}
+                                      />
+                                    </td>
+                                    <td style={tableCellStyle}>
+                                      <input 
+                                        type="text" 
+                                        style={inputStyle}
+                                        value={event.title} 
+                                        onChange={(e) => {
+                                          const updatedEvents = [...editableEvents];
+                                          updatedEvents[index].title = e.target.value;
+                                          setEditableEvents(updatedEvents);
+                                        }}
+                                      />
+                                    </td>
                                     <td style={tableCellStyle}>
                                       <input 
                                         type="date" 
@@ -1166,6 +1213,35 @@ const SyllabusParser = ({ onAddEvents }) => {
                             </table>
                           </div>
                           
+                          <div style={{marginBottom: '20px'}}>
+                            <button 
+                              style={{...buttonBaseStyle, backgroundColor: '#4CAF50', color: 'white', marginRight: '10px'}}
+                              onClick={() => {
+                                // Create a new empty event
+                                const today = new Date();
+                                const dateString = today.toISOString().split('T')[0];
+                                const newEvent = {
+                                  id: `custom-${Date.now()}`,
+                                  title: 'New Custom Event',
+                                  dateString: dateString,
+                                  timeString: '09:00',
+                                  allDay: false,
+                                  selected: true,
+                                  color: '#4285F4',
+                                  description: '',
+                                  location: ''
+                                };
+                                
+                                setEditableEvents([...editableEvents, newEvent]);
+                              }}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{marginRight: '8px'}}>
+                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="currentColor"/>
+                              </svg>
+                              Add New Event
+                            </button>
+                          </div>
+                          
                           <div style={eventEditorButtonsStyle}>
                             <button 
                               style={cancelButtonStyle}
@@ -1176,38 +1252,40 @@ const SyllabusParser = ({ onAddEvents }) => {
                             <button 
                               style={applyButtonStyle}
                               onClick={() => {
-                                // Update calendar events with edited values
-                                const updatedCalendarEvents = editableEvents.map(event => {
-                                  // Create new Date objects from the edited values
-                                  const dateObj = new Date(event.dateString);
-                                  let startDate, endDate;
-                                  
-                                  if (event.allDay) {
-                                    // For all-day events
-                                    startDate = event.dateString;
-                                    endDate = event.dateString;
-                                  } else if (event.timeString) {
-                                    // For time-specific events
-                                    const [hours, minutes] = event.timeString.split(':');
-                                    dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10));
-                                    startDate = dateObj.toISOString();
+                                // Filter out deselected events and update values for the rest
+                                const updatedCalendarEvents = editableEvents
+                                  .filter(event => event.selected !== false) // Only include selected events
+                                  .map(event => {
+                                    // Create new Date objects from the edited values
+                                    const dateObj = new Date(event.dateString);
+                                    let startDate, endDate;
                                     
-                                    // End time is 1 hour after start by default
-                                    const endDateObj = new Date(dateObj);
-                                    endDateObj.setHours(endDateObj.getHours() + 1);
-                                    endDate = endDateObj.toISOString();
-                                  } else {
-                                    // Fallback for missing time
-                                    startDate = event.dateString;
-                                    endDate = event.dateString;
-                                  }
-                                  
-                                  return {
-                                    ...event,
-                                    start: startDate,
-                                    end: endDate
-                                  };
-                                });
+                                    if (event.allDay) {
+                                      // For all-day events
+                                      startDate = event.dateString;
+                                      endDate = event.dateString;
+                                    } else if (event.timeString) {
+                                      // For time-specific events
+                                      const [hours, minutes] = event.timeString.split(':');
+                                      dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+                                      startDate = dateObj.toISOString();
+                                      
+                                      // End time is 1 hour after start by default
+                                      const endDateObj = new Date(dateObj);
+                                      endDateObj.setHours(endDateObj.getHours() + 1);
+                                      endDate = endDateObj.toISOString();
+                                    } else {
+                                      // Fallback for missing time
+                                      startDate = event.dateString;
+                                      endDate = event.dateString;
+                                    }
+                                    
+                                    return {
+                                      ...event,
+                                      start: startDate,
+                                      end: endDate
+                                    };
+                                  });
                                 
                                 setCalendarEvents(updatedCalendarEvents);
                                 setShowEventEditor(false);
@@ -1220,11 +1298,57 @@ const SyllabusParser = ({ onAddEvents }) => {
                       </div>
                     )}
                     
-                    <p className="calendar-events-count">
-                      {calendarEvents.length} events will be added to your calendar
-                      {shouldRepeat && calendarEvents.some(e => e.recurring) && 
-                        ` (class meetings will repeat weekly${repeatUntilDate ? ` until ${new Date(repeatUntilDate).toLocaleDateString()}` : ''})`}
-                    </p>
+                    <div className="calendar-events-summary">
+                      <h4 style={{marginTop: '20px', marginBottom: '10px', fontSize: '16px', fontWeight: '600'}}>Events to be Added</h4>
+                      <div style={{maxHeight: '200px', overflowY: 'auto', border: '1px solid #eaeaea', borderRadius: '8px', padding: '10px', marginBottom: '15px'}}>
+                        {showEventEditor ? (
+                          // Show dynamically updated list based on edited events
+                          editableEvents.filter(e => e.selected !== false).length > 0 ? (
+                            <ul style={{listStyleType: 'none', padding: 0, margin: 0}}>
+                              {editableEvents
+                                .filter(e => e.selected !== false)
+                                .map((event, index) => (
+                                  <li key={index} style={{padding: '6px 0', borderBottom: index < editableEvents.filter(e => e.selected !== false).length - 1 ? '1px solid #f0f0f0' : 'none'}}>
+                                    <div style={{display: 'flex', alignItems: 'center'}}>
+                                      <span style={{display: 'inline-block', width: '12px', height: '12px', backgroundColor: event.color || '#4285F4', borderRadius: '50%', marginRight: '8px'}}></span>
+                                      <strong>{event.title}</strong>
+                                      <span style={{marginLeft: '10px', color: '#666', fontSize: '14px'}}>
+                                        {event.dateString ? new Date(event.dateString).toLocaleDateString() : ''}
+                                        {!event.allDay && event.timeString ? ` at ${event.timeString}` : ''}
+                                      </span>
+                                    </div>
+                                  </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p style={{color: '#666', fontStyle: 'italic', textAlign: 'center', margin: '15px 0'}}>No events selected to add to calendar</p>
+                          )
+                        ) : (
+                          // Show static list based on original calendar events
+                          <ul style={{listStyleType: 'none', padding: 0, margin: 0}}>
+                            {calendarEvents.map((event, index) => (
+                              <li key={index} style={{padding: '6px 0', borderBottom: index < calendarEvents.length - 1 ? '1px solid #f0f0f0' : 'none'}}>
+                                <div style={{display: 'flex', alignItems: 'center'}}>
+                                  <span style={{display: 'inline-block', width: '12px', height: '12px', backgroundColor: event.color || '#4285F4', borderRadius: '50%', marginRight: '8px'}}></span>
+                                  <strong>{event.title}</strong>
+                                  <span style={{marginLeft: '10px', color: '#666', fontSize: '14px'}}>
+                                    {event.start ? new Date(event.start).toLocaleDateString() : ''}
+                                    {!event.allDay && event.start ? ` at ${new Date(event.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : ''}
+                                  </span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <p className="calendar-events-count">
+                        {showEventEditor 
+                          ? `${editableEvents.filter(e => e.selected !== false).length} events will be added to your calendar` 
+                          : `${calendarEvents.length} events will be added to your calendar`}
+                        {shouldRepeat && calendarEvents.some(e => e.recurring) && 
+                          ` (class meetings will repeat weekly${repeatUntilDate ? ` until ${new Date(repeatUntilDate).toLocaleDateString()}` : ''})`}
+                      </p>
+                    </div>
                     
                     {saveSuccess && (
                       <div className="success-message" style={{ marginTop: '10px', padding: '10px', backgroundColor: '#e8f5e9', border: '1px solid #4caf50', borderRadius: '4px', color: '#2e7d32' }}>
