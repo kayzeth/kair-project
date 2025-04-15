@@ -551,14 +551,29 @@ const SyllabusParser = ({ onAddEvents }) => {
     if (syllabusData.meetingTimes && Array.isArray(syllabusData.meetingTimes)) {
       syllabusData.meetingTimes.forEach((meeting, index) => {
         if (meeting.day && meeting.startTime && meeting.endTime) {
+          // Calculate a default recurrence end date (end of semester - about 4 months from now)
+          const today = new Date();
+          const recurrenceEndDate = new Date(today);
+          recurrenceEndDate.setMonth(today.getMonth() + 4); // Default to 4 months of classes
+          
+          // Map day string to array of days for recurrence
+          const dayOfWeek = meeting.day.toLowerCase();
+          const recurrenceDays = [dayOfWeek];
+          
           events.push({
             id: `class-meeting-${index}`,
             title: `${syllabusData.courseName || 'Class'} - ${meeting.location || ''}`,
             start: formatDateTimeForEvent(meeting.day, meeting.startTime, currentYear),
             end: formatDateTimeForEvent(meeting.day, meeting.endTime, currentYear),
             allDay: false,
+            // Properties needed by Calendar's generateRecurringInstances
+            isRecurring: true,
+            recurrenceFrequency: 'WEEKLY',
+            recurrenceDays: recurrenceDays,
+            recurrenceEndDate: recurrenceEndDate.toISOString(),
+            // Keep original properties for backward compatibility
             recurring: true,
-            recurringPattern: meeting.day.toLowerCase(),
+            recurringPattern: dayOfWeek,
             location: meeting.location || '',
             description: `${syllabusData.courseCode || ''} - ${instructorName}`,
             color: '#4285F4'
@@ -1062,7 +1077,14 @@ const SyllabusParser = ({ onAddEvents }) => {
                                 location: event.location || '',
                                 requiresPreparation: event.requiresPreparation || false,
                                 color: event.color || '#d2b48c',
-                                source: 'SYLLABUS' // Match the enum values in the database schema
+                                source: 'SYLLABUS', // Match the enum values in the database schema
+                                // Add recurring event properties
+                                isRecurring: event.isRecurring || false,
+                                recurrenceFrequency: event.recurrenceFrequency || null,
+                                // Use the repeatUntil date if available, otherwise use the default recurrenceEndDate
+                                recurrenceEndDate: event.repeatUntil ? new Date(event.repeatUntil) : 
+                                                  (event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null),
+                                recurrenceDays: event.recurrenceDays || []
                               };
                               
                               // Save to database

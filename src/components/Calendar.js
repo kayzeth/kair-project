@@ -82,7 +82,10 @@ const Calendar = ({ initialEvents = [], userId }) => {
             const dayOfWeek = format(currentDate, 'EEEE').toUpperCase();
             
             // Check if this day of the week is included in the recurrence days
-            if (event.recurrenceDays.includes(dayOfWeek)) {
+            // Convert both to lowercase for case-insensitive comparison
+            const currentDayLower = dayOfWeek.toLowerCase();
+            const matchingDay = event.recurrenceDays.some(day => day.toLowerCase() === currentDayLower);
+            if (matchingDay) {
               // For biweekly, we need to check if this is the correct week
               let isCorrectWeek = true;
               
