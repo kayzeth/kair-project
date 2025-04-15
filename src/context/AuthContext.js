@@ -12,28 +12,28 @@ export const AuthProvider = ({ children }) => {
     const storedToken = localStorage.getItem('authToken');
     const storedUser = localStorage.getItem('userData');
     
-    if (storedToken) {
+    if (storedToken && storedUser) {
       setAuthToken(storedToken);
-      setIsLoggedIn(true);
-    }
-    
-    if (storedUser) {
       setUser(JSON.parse(storedUser));
+      setIsLoggedIn(true);
+      console.log('Auth initialized:', { storedToken, storedUser });
     }
   }, []);
 
   const login = (userData, token) => {
     setIsLoggedIn(true);
+    setUser(userData);
+    setAuthToken(token);
     
     if (userData) {
-      setUser(userData);
       localStorage.setItem('userData', JSON.stringify(userData));
     }
     
     if (token) {
-      setAuthToken(token);
       localStorage.setItem('authToken', token);
     }
+
+    console.log('Login:', { userData, token });
   };
 
   const logout = () => {
@@ -42,16 +42,21 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(null);
     localStorage.removeItem('userData');
     localStorage.removeItem('authToken');
+    console.log('Logout');
   };
 
+  const value = {
+    isLoggedIn,
+    user,
+    authToken,
+    login,
+    logout
+  };
+
+  console.log('Auth context value:', value);
+
   return (
-    <AuthContext.Provider value={{ 
-      isLoggedIn, 
-      user, 
-      authToken, 
-      login, 
-      logout 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
