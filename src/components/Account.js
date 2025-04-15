@@ -299,8 +299,8 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
               )}
             </div>
             <div className="profile-details">
-              <h3 data-testid="user-name">{user?.name || 'Kairos User'}</h3>
-              <p data-testid="user-email">{user?.email || 'Sign in to sync your calendar'}</p>
+              <h3 data-testid="user-name">{authUser?.name || 'Kairos User'}</h3>
+              <p data-testid="user-email">{authUser?.email || 'Sign in to sync your calendar'}</p>
             </div>
           </div>
         </div>
