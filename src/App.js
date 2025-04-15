@@ -5,6 +5,7 @@ import Calendar from './components/Calendar';
 import Account from './components/Account';
 import SyllabusParser from './components/SyllabusParser';
 import Landing from './components/Landing';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { getCurrentUserId } from './services/userService';
 import './styles/App.css';
@@ -64,17 +65,30 @@ function AppContent() {
           <Route 
             path="/calendar" 
             element={
-              <Calendar 
-                data-testid="calendar-component" 
-                initialEvents={events} 
-                userId={userId}
-              />
+              <ProtectedRoute>
+                <Calendar 
+                  data-testid="calendar-component" 
+                  initialEvents={events} 
+                  userId={userId}
+                />
+              </ProtectedRoute>
             }
           />
-          <Route path="/account" element={<Account />} />
+          <Route 
+            path="/account" 
+            element={
+              <ProtectedRoute>
+                <Account />
+              </ProtectedRoute>
+            }
+          />
           <Route 
             path="/syllabusParser" 
-            element={<SyllabusParser onAddEvents={handleAddEvents} />} 
+            element={
+              <ProtectedRoute>
+                <SyllabusParser onAddEvents={handleAddEvents} />
+              </ProtectedRoute>
+            } 
           />
         </Routes>
       </main>
