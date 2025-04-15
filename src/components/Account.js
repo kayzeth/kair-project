@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../context/AuthContext';
 import googleCalendarService from '../services/googleCalendarService';
 import googleCalendarLocalStorageService from '../services/googleCalendarLocalStorageService';
 import canvasService from '../services/canvasService';
 import { isConfigured } from '../config/googleCalendarConfig';
-import { isConfigured as isCanvasConfigured } from '../config/canvasConfig';
 import ApiKeyInput from './ApiKeyInput';
 
 const Account = () => {
+  const { user: authUser, isLoggedIn } = useAuth();
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', message: '' });
@@ -17,7 +18,38 @@ const Account = () => {
   const [canvasStatus, setCanvasStatus] = useState({ status: 'idle', message: '' });
   const [canvasSyncStatus, setCanvasSyncStatus] = useState({ status: 'idle', message: '' });
   const [canvasFormData, setCanvasFormData] = useState({ token: '', domain: '' });
-  const [isCanvasConnected, setIsCanvasConnected] = useState(isCanvasConfigured());
+  const [isCanvasConnected, setIsCanvasConnected] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Auth state:', { isLoggedIn, authUser });
+  }, [isLoggedIn, authUser]);
+
+  // Check Canvas connection status on component mount and when authUser changes
+  useEffect(() => {
+    const checkCanvasConnection = async () => {
+      if (!isLoggedIn || !authUser?.id) return;
+      
+      try {
+        const response = await fetch(`${process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api'}/lmsintegration`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch LMS integrations');
+        }
+        
+        const integrations = await response.json();
+        const hasCanvasIntegration = integrations.some(
+          integration => integration.user_id === authUser.id && integration.lms_type === 'CANVAS'
+        );
+        
+        setIsCanvasConnected(hasCanvasIntegration);
+      } catch (error) {
+        console.error('Failed to check Canvas connection:', error);
+        setIsCanvasConnected(false);
+      }
+    };
+
+    checkCanvasConnection();
+  }, [isLoggedIn, authUser?.id]);
 
   useEffect(() => {
     const initializeGoogleCalendar = async () => {
@@ -40,7 +72,8 @@ const Account = () => {
         setIsSignedIn(initialSignInState);
         
         if (initialSignInState) {
-          setUser(googleCalendarService.getCurrentUser());
+          const googleUser = googleCalendarService.getCurrentUser();
+          setUser(googleUser);
           setSyncStatus({ status: 'success', message: 'Successfully connected to Google Calendar' });
           setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
         } else {
@@ -51,7 +84,8 @@ const Account = () => {
         googleCalendarService.addSignInListener((isSignedIn) => {
           setIsSignedIn(isSignedIn);
           if (isSignedIn) {
-            setUser(googleCalendarService.getCurrentUser());
+            const googleUser = googleCalendarService.getCurrentUser();
+            setUser(googleUser);
             setSyncStatus({ status: 'success', message: 'Successfully signed in to Google Calendar' });
             setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
           } else {
@@ -144,47 +178,58 @@ const Account = () => {
 
   const handleCanvasSubmit = async (e) => {
     e.preventDefault();
-    setCanvasStatus({ status: 'loading', message: 'Connecting to Canvas...' });
-    try {
-      // Pass the raw token and domain to canvasService
-      await canvasService.setCredentials(canvasFormData.token, canvasFormData.domain);
-      await canvasService.testConnection();
-      setIsCanvasConnected(true);
+    console.log('Canvas submit - Auth state:', { isLoggedIn, authUser });
+    
+    if (!isLoggedIn || !authUser?.id) {
+      console.log('Auth check failed:', { isLoggedIn, authUser });
       setCanvasStatus({ 
-        status: 'success', 
-        message: 'Successfully connected to Canvas!' 
+        status: 'error', 
+        message: 'Please log in to connect your Canvas account' 
       });
+      return;
+    }
+
+    setCanvasStatus({ status: 'loading', message: 'Connecting to Canvas...' });
+    
+    try {
+      await canvasService.setCredentials(canvasFormData.token, canvasFormData.domain, authUser.id);
+      setIsCanvasConnected(true);
+      setCanvasStatus({ status: 'success', message: 'Successfully connected to Canvas' });
       setTimeout(() => setCanvasStatus({ status: 'idle', message: '' }), 3000);
     } catch (error) {
       console.error('Canvas connection error:', error);
-      setCanvasStatus({
-        status: 'error',
-        message: 'Failed to connect to Canvas. Please check your credentials.'
+      setCanvasStatus({ 
+        status: 'error', 
+        message: error.message || 'Failed to connect to Canvas' 
       });
-      setTimeout(() => setCanvasStatus({ status: 'idle', message: '' }), 3000);
+      setIsCanvasConnected(false);
     }
   };
 
   const handleCanvasSync = async () => {
-    setCanvasSyncStatus({ status: 'loading', message: 'Syncing Canvas assignments...' });
+    if (!isLoggedIn || !authUser?.id) {
+      setCanvasSyncStatus({ 
+        status: 'error', 
+        message: 'Please log in to sync your Canvas account' 
+      });
+      return;
+    }
+
+    setCanvasSyncStatus({ status: 'loading', message: 'Syncing with Canvas...' });
+    
     try {
-      const eventCount = await canvasService.syncWithCalendar();
-      
-      // Force a refresh of the calendar events by triggering a window event
-      window.dispatchEvent(new Event('calendarEventsUpdated'));
-      
+      const eventsAdded = await canvasService.syncWithCalendar(authUser.id);
       setCanvasSyncStatus({ 
         status: 'success', 
-        message: `Successfully imported ${eventCount} Canvas assignments!` 
+        message: `Successfully synced ${eventsAdded} events from Canvas` 
       });
       setTimeout(() => setCanvasSyncStatus({ status: 'idle', message: '' }), 3000);
     } catch (error) {
       console.error('Canvas sync error:', error);
-      setCanvasSyncStatus({
-        status: 'error',
-        message: 'Failed to sync Canvas assignments. Please try again.'
+      setCanvasSyncStatus({ 
+        status: 'error', 
+        message: error.message || 'Failed to sync with Canvas' 
       });
-      setTimeout(() => setCanvasSyncStatus({ status: 'idle', message: '' }), 3000);
     }
   };
 
@@ -435,9 +480,25 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                   <button 
                     className="button button-text"
                     data-testid="account-disconnect-canvas-button"
-                    onClick={() => {
-                      canvasService.clearCredentials();
-                      setIsCanvasConnected(false);
+                    onClick={async () => {
+                      if (!isLoggedIn || !authUser?.id) {
+                        setCanvasStatus({
+                          status: 'error',
+                          message: 'Please log in to disconnect your Canvas account'
+                        });
+                        return;
+                      }
+
+                      try {
+                        await canvasService.clearCredentials(authUser.id);
+                        setIsCanvasConnected(false);
+                      } catch (error) {
+                        console.error('Failed to clear Canvas credentials:', error);
+                        setCanvasStatus({
+                          status: 'error',
+                          message: 'Failed to disconnect Canvas account'
+                        });
+                      }
                     }}
                   >
                     Disconnect Canvas Account

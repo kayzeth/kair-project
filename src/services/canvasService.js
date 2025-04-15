@@ -2,30 +2,44 @@ const PROXY_URL = process.env.NODE_ENV === 'production'
   ? '/api/canvas/'  // In production, use relative path
   : 'http://localhost:3001/api/canvas/';  // In development, use full URL
 
-console.log(process.env.NODE_ENV);
+const API_URL = process.env.NODE_ENV === 'production'
+  ? '/api'  // In production, use relative path
+  : 'http://localhost:3001/api';  // In development, use full URL
 
 const canvasService = {
-  testConnection: async () => {
-    const token = localStorage.getItem('canvasToken');
-    const domain = localStorage.getItem('canvasDomain');
-    
-    if (!token || !domain) {
-      throw new Error('Canvas credentials not found');
+  testConnection: async (userId) => {
+    if (!userId) {
+      throw new Error('User ID is required');
     }
 
     try {
-      const response = await fetch(PROXY_URL + 'users/self', {
+      // Get credentials from database
+      const response = await fetch(`${API_URL}/lmsintegration`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch LMS integrations');
+      }
+      
+      const integrations = await response.json();
+      const userIntegration = integrations.find(
+        integration => integration.user_id === userId && integration.lms_type === 'CANVAS'
+      );
+
+      if (!userIntegration) {
+        throw new Error('Canvas credentials not found');
+      }
+
+      // Test connection with credentials
+      const testResponse = await fetch(PROXY_URL + 'users/self', {
         headers: {
-          'Authorization': token,
-          'x-canvas-domain': domain
+          'Authorization': userIntegration.token,
+          'x-canvas-domain': userIntegration.domain
         }
       });
 
-      if (!response.ok) {
-        const error = await response.text();
+      if (!testResponse.ok) {
+        const error = await testResponse.text();
         throw new Error(error || 'Failed to connect to Canvas API');
       }
-
       return true;
     } catch (error) {
       console.error('Canvas API connection error:', error);
@@ -34,21 +48,9 @@ const canvasService = {
   },
 
   fetchEnrolledCourses: async () => {
-    const token = localStorage.getItem('canvasToken');
-    const domain = localStorage.getItem('canvasDomain');
-    
-    if (!token || !domain) {
-      throw new Error('Canvas credentials not found');
-    }
-
     try {
       console.log('Fetching all courses...');
-      const response = await fetch(PROXY_URL + 'courses?include[]=term&per_page=100', {
-        headers: {
-          'Authorization': token,
-          'x-canvas-domain': domain
-        }
-      });
+      const response = await fetch(PROXY_URL + 'courses?include[]=term&per_page=100');
 
       if (!response.ok) {
         throw new Error('Failed to fetch courses');
@@ -78,21 +80,9 @@ const canvasService = {
   },
 
   fetchAssignmentsForCourse: async (courseId) => {
-    const token = localStorage.getItem('canvasToken');
-    const domain = localStorage.getItem('canvasDomain');
-    
-    if (!token || !domain) {
-      throw new Error('Canvas credentials not found');
-    }
-
     try {
       console.log(`Fetching assignments for course ${courseId}...`);
-      const response = await fetch(PROXY_URL + `courses/${courseId}/assignments?include[]=due_at&include[]=description`, {
-        headers: {
-          'Authorization': token,
-          'x-canvas-domain': domain
-        }
-      });
+      const response = await fetch(PROXY_URL + `courses/${courseId}/assignments?include[]=due_at&include[]=description`);
 
       if (!response.ok) {
         const error = await response.text();
@@ -110,25 +100,13 @@ const canvasService = {
   },
 
   fetchCalendarEventsForCourse: async (courseId) => {
-    const token = localStorage.getItem('canvasToken');
-    const domain = localStorage.getItem('canvasDomain');
-    
-    if (!token || !domain) {
-      throw new Error('Canvas credentials not found');
-    }
-
     try {
       console.log(`Fetching calendar events for course ${courseId}...`);
       // Updated query parameters:
       // - Removed type=event since we want all types
       // - Added include[]=web_conference to get more details
       // - Added all_events=1 to get all events including hidden ones
-      const response = await fetch(PROXY_URL + `calendar_events?context_codes[]=course_${courseId}&all_events=1&include[]=web_conference&per_page=100`, {
-        headers: {
-          'Authorization': token,
-          'x-canvas-domain': domain
-        }
-      });
+      const response = await fetch(PROXY_URL + `calendar_events?context_codes[]=course_${courseId}&all_events=1&include[]=web_conference&per_page=100`);
 
       if (!response.ok) {
         const error = await response.text();
@@ -149,168 +127,108 @@ const canvasService = {
     }
   },
 
-  syncWithCalendar: async () => {
+  syncWithCalendar: async (userId) => {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
     try {
-      // Get all enrolled courses
-      const courses = await canvasService.fetchEnrolledCourses();
-      console.log('Fetching assignments and calendar events for', courses.length, 'courses...');
-      
-      // Fetch both assignments and calendar events for each course
-      const coursePromises = courses.map(course => 
-        Promise.all([
-          canvasService.fetchAssignmentsForCourse(course.id)
-            .then(assignments => {
-              console.log(`Processing ${assignments.length} assignments for course: ${course.name}`);
-              return assignments.map(assignment => ({
-                ...assignment,
-                courseName: course.name,
-                type: 'assignment'
-              }));
-            })
-            .catch(error => {
-              console.error(`Error fetching assignments for course ${course.name}:`, error);
-              return []; // Continue with other courses if one fails
-            }),
-          canvasService.fetchCalendarEventsForCourse(course.id)
-            .then(events => {
-              console.log(`Processing ${events.length} calendar events for course: ${course.name}`);
-              return events.map(event => ({
-                ...event,
-                courseName: course.name,
-                type: 'class'
-              }));
-            })
-            .catch(error => {
-              console.error(`Error fetching calendar events for course ${course.name}:`, error);
-              return []; // Continue with other courses if one fails
-            })
-        ])
-      );
+      const response = await fetch(`${API_URL}/lmsintegration/sync/canvas/${userId}`, {
+        method: 'POST'
+      });
 
-      const allCourseData = await Promise.all(coursePromises);
-      const allAssignments = allCourseData.map(data => data[0]).flat();
-      const allClassEvents = allCourseData.map(data => data[1]).flat();
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to sync Canvas calendar');
+      }
 
-      console.log('Total assignments found:', allAssignments.length);
-      console.log('Total class events found:', allClassEvents.length);
-
-      // Get existing events from localStorage
-      const existingEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
-      console.log('Found', existingEvents.length, 'existing events in localStorage');
-      
-      // Convert non-canvas events back to Date objects
-      const nonCanvasEvents = existingEvents
-        .filter(event => event.type !== 'canvas')
-        .map(event => ({
-          ...event,
-          start: new Date(event.start),
-          end: new Date(event.end)
-        }));
-      console.log('Keeping', nonCanvasEvents.length, 'non-Canvas events');
-
-      // Convert assignments to calendar events
-      const assignmentEvents = allAssignments
-        .filter(assignment => {
-          const hasDueDate = !!assignment.due_at;
-          if (!hasDueDate) {
-            console.log(`Skipping assignment without due date: ${assignment.name} in ${assignment.courseName}`);
-          }
-          return hasDueDate;
-        })
-        .map(assignment => {
-          const dueDate = new Date(assignment.due_at);
-          console.log(`Creating calendar event for: ${assignment.name} (due: ${dueDate.toLocaleString()})`);
-          
-          return {
-            id: `canvas-${assignment.id}`,
-            title: `${assignment.courseName}: ${assignment.name}`,
-            start: dueDate,
-            end: dueDate,
-            description: assignment.description || '',
-            type: 'canvas',
-            color: '#4287f5', // Blue for assignments
-            metadata: {
-              courseId: assignment.course_id,
-              assignmentId: assignment.id,
-              points: assignment.points_possible,
-              url: assignment.html_url,
-            }
-          };
-        });
-
-      // Convert class events to calendar events
-      const classEvents = allClassEvents
-        .filter(event => {
-          const hasStartDate = !!event.start_at;
-          if (!hasStartDate) {
-            console.log(`Skipping class event without start date: ${event.title} in ${event.courseName}`);
-          }
-          return hasStartDate;
-        })
-        .map(event => {
-          const startDate = new Date(event.start_at);
-          const endDate = event.end_at ? new Date(event.end_at) : startDate;
-          console.log(`Creating calendar event for class: ${event.title} (start: ${startDate.toLocaleString()})`);
-          
-          return {
-            id: `canvas-class-${event.id}`,
-            title: `${event.courseName}: ${event.title}`,
-            start: startDate,
-            end: endDate,
-            description: event.description || '',
-            location: event.location_name || '',
-            type: 'canvas',
-            color: '#50C878', // Emerald green for class events
-            metadata: {
-              courseId: event.context_code?.replace('course_', ''),
-              eventId: event.id,
-              url: event.html_url
-            }
-          };
-        });
-
-      // Combine all events
-      const allCanvasEvents = [...assignmentEvents, ...classEvents];
-      console.log('Created', allCanvasEvents.length, 'total Canvas events');
-
-      // Merge Canvas events with other events
-      const updatedEvents = [...nonCanvasEvents, ...allCanvasEvents];
-      console.log('Saving', updatedEvents.length, 'total events to localStorage');
-      
-      // Store all events in localStorage
-      localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
-
-      // Return the total number of events for display in the UI
-      return allCanvasEvents.length;
+      const result = await response.json();
+      return result.eventsAdded;
     } catch (error) {
       console.error('Failed to sync Canvas calendar:', error);
       throw error;
     }
   },
 
-  setCredentials: (token, domain) => {
+  setCredentials: async (token, domain, userId) => {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
     // Format domain to ensure it has the canvas.*.edu format
     let formattedDomain = domain;
     if (!domain.includes('.')) {
-      // If domain is just the school name (e.g., 'harvard'), format it properly
       formattedDomain = `canvas.${domain}.edu`;
     } else if (!domain.startsWith('canvas.')) {
-      // If domain has dots but doesn't start with 'canvas.' (e.g., 'harvard.edu')
       formattedDomain = `canvas.${domain}`;
     } else if (!domain.endsWith('.edu')) {
-      // If domain starts with 'canvas.' but doesn't end with '.edu'
       formattedDomain = `${domain}.edu`;
     }
 
-    // Add Bearer prefix to token and store credentials in localStorage
+    // Add Bearer prefix to token
     const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-    localStorage.setItem('canvasToken', formattedToken);
-    localStorage.setItem('canvasDomain', formattedDomain);
+
+    try {
+      // Store in database
+      const response = await fetch(`${API_URL}/lmsintegration`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          lms_type: 'CANVAS',
+          token: formattedToken,
+          domain: formattedDomain
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save Canvas credentials');
+      }
+
+      // Test connection with new credentials
+      await canvasService.testConnection(userId);
+    } catch (error) {
+      console.error('Failed to save Canvas credentials:', error);
+      throw error;
+    }
   },
 
-  clearCredentials: () => {
-    localStorage.removeItem('canvasToken');
-    localStorage.removeItem('canvasDomain');
+  clearCredentials: async (userId) => {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    try {
+      // Find and delete the integration from database
+      const response = await fetch(`${API_URL}/lmsintegration`, {
+        method: 'GET'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch LMS integrations');
+      }
+
+      const integrations = await response.json();
+      const userIntegration = integrations.find(
+        integration => integration.user_id === userId && integration.lms_type === 'CANVAS'
+      );
+
+      if (userIntegration) {
+        const deleteResponse = await fetch(`${API_URL}/lmsintegration/${userIntegration._id}`, {
+          method: 'DELETE'
+        });
+
+        if (!deleteResponse.ok) {
+          throw new Error('Failed to delete Canvas integration');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to clear Canvas credentials:', error);
+      throw error;
+    }
   }
 };
 
