@@ -53,7 +53,11 @@ app.use('/api/canvas/*', async (req, res) => {
       return res.status(400).json({ error: 'Missing token or domain' });
     }
 
-    // Domain should already be in the format canvas.domain.edu from the frontend
+    // Domain can be either canvas.*.edu or *.instructure.com format
+    if (!domain.includes('instructure.com') && !domain.includes('canvas.')) {
+      return res.status(400).json({ error: 'Invalid domain format. Must be either canvas.*.edu or *.instructure.com' });
+    }
+
     const canvasUrl = `https://${domain}/api/v1/${req.params[0]}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
     
     console.log('Making request to Canvas API:', {

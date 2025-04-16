@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../context/AuthContext';
 import googleCalendarService from '../services/googleCalendarService';
 import googleCalendarDbService from '../services/googleCalendarDbService';
 import canvasService from '../services/canvasService';
 import { isConfigured } from '../config/googleCalendarConfig';
-import { isConfigured as isCanvasConfigured } from '../config/canvasConfig';
 import ApiKeyInput from './ApiKeyInput';
 
 const Account = () => {
+  const { user: authUser, isLoggedIn } = useAuth();
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', message: '' });
@@ -17,7 +18,38 @@ const Account = () => {
   const [canvasStatus, setCanvasStatus] = useState({ status: 'idle', message: '' });
   const [canvasSyncStatus, setCanvasSyncStatus] = useState({ status: 'idle', message: '' });
   const [canvasFormData, setCanvasFormData] = useState({ token: '', domain: '' });
-  const [isCanvasConnected, setIsCanvasConnected] = useState(isCanvasConfigured());
+  const [isCanvasConnected, setIsCanvasConnected] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Auth state:', { isLoggedIn, authUser });
+  }, [isLoggedIn, authUser]);
+
+  // Check Canvas connection status on component mount and when authUser changes
+  useEffect(() => {
+    const checkCanvasConnection = async () => {
+      if (!isLoggedIn || !authUser?.id) return;
+      
+      try {
+        const response = await fetch(`${process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api'}/lmsintegration`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch LMS integrations');
+        }
+        
+        const integrations = await response.json();
+        const hasCanvasIntegration = integrations.some(
+          integration => integration.user_id === authUser.id && integration.lms_type === 'CANVAS'
+        );
+        
+        setIsCanvasConnected(hasCanvasIntegration);
+      } catch (error) {
+        console.error('Failed to check Canvas connection:', error);
+        setIsCanvasConnected(false);
+      }
+    };
+
+    checkCanvasConnection();
+  }, [isLoggedIn, authUser?.id]);
 
   useEffect(() => {
     const initializeGoogleCalendar = async () => {
@@ -40,7 +72,8 @@ const Account = () => {
         setIsSignedIn(initialSignInState);
         
         if (initialSignInState) {
-          setUser(googleCalendarService.getCurrentUser());
+          const googleUser = googleCalendarService.getCurrentUser();
+          setUser(googleUser);
           setSyncStatus({ status: 'success', message: 'Successfully connected to Google Calendar' });
           setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
         } else {
@@ -85,6 +118,7 @@ const Account = () => {
                   setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 4000);
                 });
             }
+            
             setSyncStatus({ status: 'success', message: 'Successfully signed in to Google Calendar' });
             setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
           } else {
@@ -266,47 +300,58 @@ const Account = () => {
 
   const handleCanvasSubmit = async (e) => {
     e.preventDefault();
-    setCanvasStatus({ status: 'loading', message: 'Connecting to Canvas...' });
-    try {
-      // Pass the raw token and domain to canvasService
-      await canvasService.setCredentials(canvasFormData.token, canvasFormData.domain);
-      await canvasService.testConnection();
-      setIsCanvasConnected(true);
+    console.log('Canvas submit - Auth state:', { isLoggedIn, authUser });
+    
+    if (!isLoggedIn || !authUser?.id) {
+      console.log('Auth check failed:', { isLoggedIn, authUser });
       setCanvasStatus({ 
-        status: 'success', 
-        message: 'Successfully connected to Canvas!' 
+        status: 'error', 
+        message: 'Please log in to connect your Canvas account' 
       });
+      return;
+    }
+
+    setCanvasStatus({ status: 'loading', message: 'Connecting to Canvas...' });
+    
+    try {
+      await canvasService.setCredentials(canvasFormData.token, canvasFormData.domain, authUser.id);
+      setIsCanvasConnected(true);
+      setCanvasStatus({ status: 'success', message: 'Successfully connected to Canvas' });
       setTimeout(() => setCanvasStatus({ status: 'idle', message: '' }), 3000);
     } catch (error) {
       console.error('Canvas connection error:', error);
-      setCanvasStatus({
-        status: 'error',
-        message: 'Failed to connect to Canvas. Please check your credentials.'
+      setCanvasStatus({ 
+        status: 'error', 
+        message: error.message || 'Failed to connect to Canvas' 
       });
-      setTimeout(() => setCanvasStatus({ status: 'idle', message: '' }), 3000);
+      setIsCanvasConnected(false);
     }
   };
 
   const handleCanvasSync = async () => {
-    setCanvasSyncStatus({ status: 'loading', message: 'Syncing Canvas assignments...' });
+    if (!isLoggedIn || !authUser?.id) {
+      setCanvasSyncStatus({ 
+        status: 'error', 
+        message: 'Please log in to sync your Canvas account' 
+      });
+      return;
+    }
+
+    setCanvasSyncStatus({ status: 'loading', message: 'Syncing with Canvas...' });
+    
     try {
-      const eventCount = await canvasService.syncWithCalendar();
-      
-      // Force a refresh of the calendar events by triggering a window event
-      window.dispatchEvent(new Event('calendarEventsUpdated'));
-      
+      const eventsAdded = await canvasService.syncWithCalendar(authUser.id);
       setCanvasSyncStatus({ 
         status: 'success', 
-        message: `Successfully imported ${eventCount} Canvas assignments!` 
+        message: `Successfully synced ${eventsAdded} events from Canvas` 
       });
       setTimeout(() => setCanvasSyncStatus({ status: 'idle', message: '' }), 3000);
     } catch (error) {
       console.error('Canvas sync error:', error);
-      setCanvasSyncStatus({
-        status: 'error',
-        message: 'Failed to sync Canvas assignments. Please try again.'
+      setCanvasSyncStatus({ 
+        status: 'error', 
+        message: error.message || 'Failed to sync with Canvas' 
       });
-      setTimeout(() => setCanvasSyncStatus({ status: 'idle', message: '' }), 3000);
     }
   };
 
@@ -376,8 +421,8 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
               )}
             </div>
             <div className="profile-details">
-              <h3 data-testid="user-name">{user?.name || 'Kairos User'}</h3>
-              <p data-testid="user-email">{user?.email || 'Sign in to sync your calendar'}</p>
+              <h3 data-testid="user-name">{authUser?.name || 'Kairos User'}</h3>
+              <p data-testid="user-email">{authUser?.email || 'Sign in to sync your calendar'}</p>
             </div>
           </div>
         </div>
@@ -500,126 +545,148 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
       <div className="account-section">
         <h2 className="section-title">Canvas Integration</h2>
         
-        <div className="integration-container">
-          <div className="auth-section">
-            {!isCanvasConnected ? (
-              <div className="auth-card">
-                <div className="auth-card-content">
-                  <FontAwesomeIcon icon={faGraduationCap} size="3x" className="canvas-icon" />
-                  <h3 data-testid="canvas-connect-title">Connect with Canvas</h3>
-                  <p>Link your Canvas account to import assignments and deadlines</p>
-                  <form onSubmit={handleCanvasSubmit} className="canvas-form">
-                    <div className="form-group">
-                      <label htmlFor="canvasToken" data-testid="canvas-token-label">Canvas API Token</label>
-                      <input
-                        type="password"
-                        id="canvasToken"
-                        data-testid="account-canvas-token-input"
-                        value={canvasFormData.token}
-                        onChange={(e) => setCanvasFormData(prev => ({ ...prev, token: e.target.value }))}
-                        placeholder="Enter your Canvas token"
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="canvasDomain" data-testid="canvas-domain-label">Canvas Domain</label>
-                      <input
-                        type="text"
-                        id="canvasDomain"
-                        data-testid="account-canvas-domain-input"
-                        value={canvasFormData.domain}
-                        onChange={(e) => setCanvasFormData(prev => ({ ...prev, domain: e.target.value }))}
-                        placeholder="Enter your school name (e.g., harvard)"
-                        required
-                      />
-                      <small className="form-help">
-                        We'll automatically format it as canvas.*.edu
-                      </small>
-                    </div>
-                    <button 
-                      type="submit" 
-                      className="button button-primary canvas-button"
-                      data-testid="account-connect-canvas-button"
-                      disabled={canvasStatus.status === 'loading'}
+        <div className="canvas-auth-section">
+          {!isCanvasConnected ? (
+            <div className="auth-card">
+              <div className="auth-card-content">
+                <FontAwesomeIcon icon={faGraduationCap} size="3x" className="canvas-icon" />
+                <h3>Connect with Canvas</h3>
+                <p>Link your Canvas account to import assignments and deadlines</p>
+                <form onSubmit={handleCanvasSubmit}>
+                  <div className="form-group">
+                    <label
+                      data-testid="canvas-token-label"
+                      htmlFor="canvasToken"
                     >
-                      <FontAwesomeIcon icon={faGraduationCap} />
-                      {canvasStatus.status === 'loading' ? 'Connecting...' : 'Connect Canvas'}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ) : (
-              <div className="auth-card">
-                <div className="auth-card-content">
-                  <div className="canvas-profile">
-                    <div className="canvas-icon-container">
-                      <FontAwesomeIcon icon={faGraduationCap} size="3x" className="canvas-icon" />
-                    </div>
-                    <div className="canvas-info">
-                      <h3>Canvas Connected</h3>
-                      <p>Your Canvas account is linked and ready to sync</p>
-                    </div>
+                      Canvas Access Token
+                    </label>
+                    <input
+                      data-testid="account-canvas-token-input"
+                      id="canvasToken"
+                      placeholder="Enter your Canvas access token"
+                      required
+                      type="password"
+                      value={canvasFormData.token}
+                      onChange={(e) => setCanvasFormData({ ...canvasFormData, token: e.target.value })}
+                    />
                   </div>
-                  
-                  <div className="connected-status">
-                    <FontAwesomeIcon icon={faCheck} className="status-icon success" />
-                    <span>Connected to Canvas LMS</span>
-                  </div>
-                  
-                  <div className="canvas-actions">
-                    <button 
-                      className="button button-primary"
-                      data-testid="account-sync-canvas-button"
-                      onClick={handleCanvasSync}
-                      disabled={canvasSyncStatus.status === 'loading'}
+                  <div className="form-group">
+                    <label
+                      data-testid="canvas-domain-label"
+                      htmlFor="canvasDomain"
                     >
-                      <FontAwesomeIcon icon={faSync} className={canvasSyncStatus.status === 'loading' ? 'fa-spin' : ''} />
-                      {canvasSyncStatus.status === 'loading' ? 'Syncing...' : 'Sync Assignments'}
-                    </button>
+                      Canvas Domain
+                    </label>
+                    <input
+                      data-testid="account-canvas-domain-input"
+                      id="canvasDomain"
+                      placeholder="ex. canvas.harvard.edu OR harvard.instructure.com"
+                      required
+                      type="text"
+                      value={canvasFormData.domain}
+                      onChange={(e) => setCanvasFormData({ ...canvasFormData, domain: e.target.value })}
+                    />
+                    <small className="form-help">
+                      Please enter your institution's full Canvas domain. You can find this in your Canvas URL when you log in.
+                    </small>
                   </div>
-                  
                   <button 
-                    className="button button-text"
-                    data-testid="account-disconnect-canvas-button"
-                    onClick={() => {
-                      canvasService.clearCredentials();
-                      setIsCanvasConnected(false);
-                    }}
+                    type="submit" 
+                    className="button button-primary canvas-button"
+                    data-testid="account-connect-canvas-button"
+                    disabled={canvasStatus.status === 'loading'}
                   >
-                    Disconnect Canvas Account
+                    <FontAwesomeIcon icon={faGraduationCap} />
+                    {canvasStatus.status === 'loading' ? 'Connecting...' : 'Connect Canvas'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          ) : (
+            <div className="auth-card">
+              <div className="auth-card-content">
+                <div className="canvas-profile">
+                  <div className="canvas-icon-container">
+                    <FontAwesomeIcon icon={faGraduationCap} size="3x" className="canvas-icon" />
+                  </div>
+                  <div className="canvas-info">
+                    <h3>Canvas Connected</h3>
+                    <p>Your Canvas account is linked and ready to sync</p>
+                  </div>
+                </div>
+                
+                <div className="connected-status">
+                  <FontAwesomeIcon icon={faCheck} className="status-icon success" />
+                  <span>Connected to Canvas LMS</span>
+                </div>
+                
+                <div className="canvas-actions">
+                  <button 
+                    className="button button-primary"
+                    data-testid="account-sync-canvas-button"
+                    onClick={handleCanvasSync}
+                    disabled={canvasSyncStatus.status === 'loading'}
+                  >
+                    <FontAwesomeIcon icon={faSync} className={canvasSyncStatus.status === 'loading' ? 'fa-spin' : ''} />
+                    {canvasSyncStatus.status === 'loading' ? 'Syncing...' : 'Sync Assignments'}
                   </button>
                 </div>
-              </div>
-            )}
-            
-            {(canvasStatus.status !== 'idle' || canvasSyncStatus.status !== 'idle') && (
-              <div className={`sync-status ${canvasStatus.status !== 'idle' ? canvasStatus.status : canvasSyncStatus.status}`}>
-                <FontAwesomeIcon 
-                  icon={
-                    (canvasStatus.status === 'loading' || canvasSyncStatus.status === 'loading') ? faSync :
-                    (canvasStatus.status === 'success' || canvasSyncStatus.status === 'success') ? faCheck : faTimes
-                  } 
-                  className={`status-icon ${(canvasStatus.status === 'loading' || canvasSyncStatus.status === 'loading') ? 'fa-spin' : ''}`}
-                />
-                <span data-testid="canvas-error-message">{canvasStatus.message || canvasSyncStatus.message}</span>
-              </div>
-            )}
-          </div>
+                
+                <button 
+                  className="button button-text"
+                  data-testid="account-disconnect-canvas-button"
+                  onClick={async () => {
+                    if (!isLoggedIn || !authUser?.id) {
+                      setCanvasStatus({
+                        status: 'error',
+                        message: 'Please log in to disconnect your Canvas account'
+                      });
+                      return;
+                    }
 
-          <div className="integration-note">
-            <p>
-              <strong>Note:</strong> To use Canvas integration, you need to:
-            </p>
-            <ol>
-              <li>Go to Canvas {'>'} Settings {'>'} Developer {'>'} Approved Integrations {'>'} New Access Token</li>
-              <li>Enter "Kairos" for "Purpose" and leave the expiration fields blank. Click "Generate Token".</li>
-              <li>Copy the generated token and paste it into the "Canvas Access Token" field in your Kairos account.</li>
-              <li>Enter your school name (e.g., harvard).</li>
-              <li>Use the sync button to import your Canvas assignments.</li>
-            </ol>
-            <p>After the initial sync, a sync button will be available for you to manually sync your Canvas assignments, announcements, quizzes, and events. Kairos can automate creating these events for you.</p>
-          </div>
+                    try {
+                      await canvasService.clearCredentials(authUser.id);
+                      setIsCanvasConnected(false);
+                    } catch (error) {
+                      console.error('Failed to clear Canvas credentials:', error);
+                      setCanvasStatus({
+                        status: 'error',
+                        message: 'Failed to disconnect Canvas account'
+                      });
+                    }
+                  }}
+                >
+                  Disconnect Canvas Account
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {(canvasStatus.status !== 'idle' || canvasSyncStatus.status !== 'idle') && (
+            <div className={`sync-status ${canvasStatus.status !== 'idle' ? canvasStatus.status : canvasSyncStatus.status}`}>
+              <FontAwesomeIcon 
+                icon={
+                  (canvasStatus.status === 'loading' || canvasSyncStatus.status === 'loading') ? faSync :
+                  (canvasStatus.status === 'success' || canvasSyncStatus.status === 'success') ? faCheck : faTimes
+                } 
+                className={`status-icon ${(canvasStatus.status === 'loading' || canvasSyncStatus.status === 'loading') ? 'fa-spin' : ''}`}
+              />
+              <span data-testid="canvas-error-message">{canvasStatus.message || canvasSyncStatus.message}</span>
+            </div>
+          )}
         </div>
+        <div className="integration-note">
+          <h2 data-testid="canvas-instructions">Canvas Integration Instructions</h2>
+          <p>To use Canvas integration, you need to configure your access token:</p>
+          <ol>
+            <li>Go to Canvas {'>'} Settings {'>'} Developer {'>'} Approved Integrations {'>'} New Access Token</li>
+            <li>Enter "Kairos" for "Purpose" and leave the expiration fields blank. Click "Generate Token"</li>
+            <li>Copy the generated token and paste it into the "Canvas Access Token" field in your Kairos account</li>
+            <li>Enter your institution's full Canvas domain (e.g., canvas.harvard.edu or harvard.instructure.com)</li>
+            <li>Use the sync button to import your Canvas assignments</li>
+          </ol>
+          <p>After the initial sync, a sync button will be available for you to manually sync your Canvas assignments, announcements, quizzes, and events. Kairos can automate creating these events for you.</p>
+      </div>
       </div>
     </div>
   );
