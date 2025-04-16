@@ -252,7 +252,10 @@ router.post('/google-import', async (req, res) => {
         }
 
         // Check if event already exists by google_event_id
-        const existingEvent = await Event.findOne({ google_event_id: event.googleEventId });
+        const existingEvent = await Event.findOne({ 
+          google_event_id: event.googleEventId, 
+          user_id: userId 
+        });
 
         if (existingEvent) {
           // Update existing event
