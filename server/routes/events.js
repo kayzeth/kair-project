@@ -17,10 +17,42 @@ router.get('/', async (req, res) => {
 router.get('/user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
+    console.log('Fetching events for user ID:', userId);
+    
+    // Check if we have any Google Calendar events for this user
+    const googleEvents = await Event.find({ user_id: userId, source: 'GOOGLE_CALENDAR' });
+    console.log(`Found ${googleEvents.length} Google Calendar events for user ID ${userId}`);
+    
+    // Get all events for this user
     const events = await Event.find({ user_id: userId });
+    console.log(`Found ${events.length} total events for user ID ${userId}`);
+    
     res.json(events);
   } catch (error) {
     console.error('Error fetching user events:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete all Google Calendar events for a user
+router.delete('/google-delete-all/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    console.log(`Deleting all Google Calendar events for user ${userId}`);
+    
+    // Delete all events with type 'google' for this user
+    const result = await Event.deleteMany({ 
+      user_id: userId, 
+      $or: [
+        { type: 'google' },
+        { source: 'GOOGLE_CALENDAR' }
+      ]
+    });
+    
+    console.log(`Deleted ${result.deletedCount} Google Calendar events for user ${userId}`);
+    res.json({ deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error('Error deleting Google Calendar events:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -176,6 +208,9 @@ router.post('/google-import', async (req, res) => {
   try {
     const { events, userId } = req.body;
     
+    console.log(`Received request to import ${events?.length || 0} Google Calendar events for user ID: ${userId}`);
+    console.log('User ID type:', typeof userId);
+    
     if (!Array.isArray(events) || !userId) {
       return res.status(400).json({ 
         message: 'Invalid request. Events must be an array and userId is required.' 
@@ -186,13 +221,27 @@ router.post('/google-import', async (req, res) => {
       imported: 0,
       skipped: 0,
       updated: 0,
+      deleted: 0,
       errors: []
     };
 
     // Process each event
     for (const event of events) {
       try {
-        // Check if required fields are present
+        // Check if event is deleted
+        if (event.isDeleted) {
+          // If the event is deleted, remove it from our database
+          if (event.googleEventId) {
+            const deleteResult = await Event.deleteOne({ google_event_id: event.googleEventId });
+            if (deleteResult.deletedCount > 0) {
+              results.deleted++;
+              console.log(`Deleted event with Google ID: ${event.googleEventId}`);
+            }
+          }
+          continue;
+        }
+        
+        // Check if required fields are present for non-deleted events
         if (!event.title || event.allDay === undefined || 
             !event.start || !event.end || !event.googleEventId) {
           results.errors.push({
@@ -253,6 +302,63 @@ router.post('/google-import', async (req, res) => {
   } catch (error) {
     console.error('Error importing Google Calendar events:', error);
     res.status(500).json({ message: 'Server error during import' });
+  }
+});
+
+// Update Google Calendar sync token for a user
+router.post('/google-sync-token', async (req, res) => {
+  try {
+    const { userId, syncToken } = req.body;
+    
+    console.log(`Updating Google Calendar sync token for user ${userId}`);
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+    
+    // Find the user
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update the sync token
+    user.google_calendar_sync_token = syncToken || '';
+    await user.save();
+    
+    res.json({
+      message: 'Google Calendar sync token updated successfully',
+      syncToken: user.google_calendar_sync_token
+    });
+  } catch (error) {
+    console.error('Error updating Google Calendar sync token:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get Google Calendar sync token for a user
+router.get('/google-sync-token/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    console.log(`Getting Google Calendar sync token for user ${userId}`);
+    
+    // Find the user
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      syncToken: user.google_calendar_sync_token || null
+    });
+  } catch (error) {
+    console.error('Error getting Google Calendar sync token:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

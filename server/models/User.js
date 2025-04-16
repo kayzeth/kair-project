@@ -17,6 +17,9 @@ const userSchema = new mongoose.Schema({
   password_hash: {
     type: String,
     required: true
+  },
+  google_calendar_sync_token: {
+    type: String
   }
 }, {
   timestamps: true

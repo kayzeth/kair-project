@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import googleCalendarService from '../services/googleCalendarService';
-import googleCalendarLocalStorageService from '../services/googleCalendarLocalStorageService';
+import googleCalendarDbService from '../services/googleCalendarDbService';
 import canvasService from '../services/canvasService';
 import { isConfigured } from '../config/googleCalendarConfig';
 import { isConfigured as isCanvasConfigured } from '../config/canvasConfig';
@@ -51,7 +51,40 @@ const Account = () => {
         googleCalendarService.addSignInListener((isSignedIn) => {
           setIsSignedIn(isSignedIn);
           if (isSignedIn) {
-            setUser(googleCalendarService.getCurrentUser());
+            const signedInUser = googleCalendarService.getCurrentUser();
+            setUser(signedInUser);
+
+            // Kairos: After Google sign-in, check DB for sync token and sync accordingly
+            const storedUser = localStorage.getItem('userData');
+            let userId;
+            if (storedUser) {
+              const userData = JSON.parse(storedUser);
+              userId = userData.id;
+            }
+            if (userId) {
+              // Fetch sync token from DB
+              fetch(`/api/users/${userId}/google-sync-token`)
+                .then(res => res.json())
+                .then(async data => {
+                  if (data && data.syncToken) {
+                    setSyncStatus({ status: 'loading', message: 'Syncing with Google Calendar...' });
+                    await googleCalendarDbService.syncGoogleCalendarWithDb(userId, false);
+                    setSyncStatus({ status: 'success', message: 'Google Calendar is up to date.' });
+                    window.dispatchEvent(new Event('calendarDataUpdated'));
+                    setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
+                  } else {
+                    setSyncStatus({ status: 'info', message: 'First Google Calendar sync may take a while. Please wait...' });
+                    await googleCalendarDbService.syncGoogleCalendarWithDb(userId, true);
+                    setSyncStatus({ status: 'success', message: 'Google Calendar sync complete.' });
+                    window.dispatchEvent(new Event('calendarDataUpdated'));
+                    setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
+                  }
+                })
+                .catch(err => {
+                  setSyncStatus({ status: 'error', message: 'Could not check sync token: ' + err.message });
+                  setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 4000);
+                });
+            }
             setSyncStatus({ status: 'success', message: 'Successfully signed in to Google Calendar' });
             setTimeout(() => setSyncStatus({ status: 'idle', message: '' }), 3000);
           } else {
@@ -102,8 +135,74 @@ const Account = () => {
     }
   };
 
+  // Delete all Google Calendar events for the current user
+  const deleteGoogleEvents = async () => {
+    if (!isSignedIn) {
+      handleSignIn();
+      return;
+    }
+    
+    // Confirm deletion with the user
+    if (!window.confirm('Are you sure you want to delete all Google Calendar events? This action cannot be undone.')) {
+      return;
+    }
+    
+    setSyncStatus({ status: 'loading', message: 'Deleting Google Calendar events...' });
+    
+    try {
+      // Get the current user ID from localStorage
+      const storedUser = localStorage.getItem('userData');
+      let userId;
+      
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        userId = userData.id;
+        console.log('Deleting Google Calendar events for user ID:', userId);
+      }
+      
+      if (!userId) {
+        console.error('No MongoDB user ID found in localStorage');
+        throw new Error('MongoDB user ID is required to delete Google Calendar events');
+      }
+      
+      // Delete all Google Calendar events for this user
+      const result = await googleCalendarDbService.deleteAllGoogleEvents(userId);
+      console.log(`Deleted ${result.deletedCount} Google Calendar events`);
+      
+      // Clear the sync token from the database as well
+      await fetch(`/api/users/${userId}/google-sync-token`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ syncToken: '' }),
+      });
+      console.log('Cleared Google sync token from database entry');
+      
+      // Show success message
+      setSyncStatus({
+        status: 'success',
+        message: `Successfully deleted ${result.deletedCount} Google Calendar events and cleared sync token`
+      });
+      
+      // Reset status after a delay
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 3000);
+    } catch (error) {
+      console.error('Error deleting Google Calendar events:', error);
+      setSyncStatus({
+        status: 'error',
+        message: `Error deleting Google Calendar events: ${error.message}`
+      });
+      
+      // Reset status after a delay
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 5000);
+    }
+  };
+  
   // Sync with Google Calendar (both import and export)
-  const syncWithGoogleCalendar = async () => {
+  const syncWithGoogleCalendar = async (forceFullSync = false) => {
     if (!isSignedIn) {
       handleSignIn();
       return;
@@ -112,21 +211,44 @@ const Account = () => {
     setSyncStatus({ status: 'loading', message: 'Syncing with Google Calendar...' });
 
     try {
-      // Force sync with Google Calendar and store in local storage
-      const events = await googleCalendarLocalStorageService.forceSyncGoogleCalendar();
-      console.log(`Synced ${events.length} events from Google Calendar to local storage`);
+      // Get the current user ID from localStorage (this should be the MongoDB _id)
+      const storedUser = localStorage.getItem('userData');
+      let userId;
+      
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        // The ID is stored in the 'id' field in userData
+        userId = userData.id;
+        console.log('Syncing Google Calendar with MongoDB user ID:', userId);
+        console.log('Full user object:', userData);
+      }
+      
+      if (!userId) {
+        console.error('No MongoDB user ID found in localStorage');
+        throw new Error('MongoDB user ID is required to sync with Google Calendar');
+      }
+
+      // If forceFullSync is true, clear the sync token first
+      if (forceFullSync) {
+        await googleCalendarDbService.clearSyncData(userId);
+        console.log('Cleared sync token to force a full sync');
+      }
+      
+      // Force sync with Google Calendar and store in database
+      const result = await googleCalendarDbService.forceSyncGoogleCalendar(userId);
+      console.log(`Synced ${result.events.length} events from Google Calendar to database`);
+      
+      // Show detailed results in the success message
+      const dbResults = result.databaseResults;
+      const resultSummary = `Imported: ${dbResults.imported}, Updated: ${dbResults.updated}, Deleted: ${dbResults.deleted || 0}`;
       
       // Success message - use a consistent message for tests
       setSyncStatus({
         status: 'success',
-        message: 'Successfully synced with Google Calendar'
+        message: `Successfully synced with Google Calendar (${resultSummary})`
       });
       
-      // Dispatch an event to notify the Calendar component to refresh
-      setTimeout(() => {
-        console.log('Dispatching calendar update event...');
-        window.dispatchEvent(new Event('calendarEventsUpdated'));
-      }, 500);
+      // The database service already dispatches an event to notify the Calendar component
       
       // Set a longer timeout to ensure user sees the message before it disappears
       setTimeout(() => {
@@ -303,13 +425,38 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                 </div>
                 
                 <div className="google-actions">
-                  <button 
-                    className="button button-primary"
-                    onClick={syncWithGoogleCalendar}
-                    data-testid="sync-button"
-                  >
-                    <FontAwesomeIcon icon={faSync} /> Sync Calendar
-                  </button>
+                  <div style={{ marginBottom: '10px' }}>
+                    <p>Missing events? Try an incremental sync. This will be quick.</p>
+                    <button 
+                      className="button button-primary"
+                      onClick={() => syncWithGoogleCalendar(false)}
+                      data-testid="sync-button"
+                      style={{ marginRight: '10px' }}
+                    >
+                      <FontAwesomeIcon icon={faSync} /> Import Calendar
+                    </button>
+                  </div>
+                  <div style={{ marginBottom: '10px' }}>
+                    <p> Missing calendars? Try a full sync. It will take a while.</p>
+                    <button 
+                      className="button button-secondary"
+                      onClick={() => syncWithGoogleCalendar(true)}
+                      data-testid="force-sync-button"
+                      style={{ marginRight: '10px' }}
+                    >
+                      <FontAwesomeIcon icon={faSync} /> Force Full Sync
+                    </button>
+                  </div>
+                  {/* <div>
+                    <button 
+                      className="button button-danger"
+                      onClick={deleteGoogleEvents}
+                      data-testid="delete-google-events-button"
+                      style={{ backgroundColor: '#dc3545', borderColor: '#dc3545' }}
+                    >
+                      <FontAwesomeIcon icon={faTimes} /> Delete All Google Events
+                    </button>
+                  </div> */}
                 </div>
                 
                 <button 

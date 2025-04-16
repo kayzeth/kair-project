@@ -12,7 +12,7 @@ import nudgerService from '../services/nudgerService';
 import studySuggesterService from '../services/studySuggesterService'; 
 import eventService from '../services/eventService';
 import googleCalendarService from '../services/googleCalendarService';
-import googleCalendarLocalStorageService from '../services/googleCalendarLocalStorageService'; 
+import googleCalendarDbService from '../services/googleCalendarDbService'; 
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
@@ -193,22 +193,31 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
-      // Load user events from database
-      const userEvents = await eventService.getUserEvents(userId);
+      // Make sure we're using the MongoDB user ID, not the Google user ID
+      console.log('Current userId from context:', userId);
       
-      // Load Google Calendar events from local storage
-      const googleEvents = await googleCalendarLocalStorageService.getGoogleCalendarEvents(currentDate);
+      // Get the MongoDB user ID from localStorage
+      const storedUser = localStorage.getItem('userData');
+      let mongoDbUserId = userId; // Default to the context userId
       
-      // Combine events from both sources
-      // Create a map of existing event IDs to avoid duplicates
-      const existingEventIds = new Set(userEvents.map(e => e.googleEventId).filter(Boolean));
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          if (userData._id) {
+            mongoDbUserId = userData._id;
+            console.log('Using MongoDB user ID from localStorage:', mongoDbUserId);
+          }
+        } catch (e) {
+          console.error('Error parsing userData from localStorage:', e);
+        }
+      }
       
-      // Filter out Google events that might be duplicates
-      const filteredGoogleEvents = googleEvents.filter(event => !existingEventIds.has(event.googleEventId));
+      // Load all events from database (including Google Calendar events)
+      // The database now contains both user events and Google Calendar events
+      const allEvents = await eventService.getUserEvents(mongoDbUserId);
       
-      // Combine events
-      const combinedEvents = [...userEvents, ...filteredGoogleEvents];
-      setEvents(combinedEvents);
+      // Set events directly from the database
+      setEvents(allEvents);
     } catch (error) {
       console.error('Error loading events:', error);
       
@@ -233,39 +242,23 @@ const Calendar = ({ initialEvents = [], userId }) => {
     
     window.addEventListener('calendarEventsUpdated', handleEventsUpdated);
     
+    // Set up event listener for calendarDataUpdated (from Account.js)
+    const handleCalendarDataUpdated = () => {
+      console.log('Google Calendar data updated, reloading events');
+      loadEvents();
+    };
+
+    window.addEventListener('calendarDataUpdated', handleCalendarDataUpdated);
+    
     return () => {
       window.removeEventListener('calendarEventsUpdated', handleEventsUpdated);
+      window.removeEventListener('calendarDataUpdated', handleCalendarDataUpdated);
     };
   }, [loadEvents]);
   
-  // Check if Google Calendar events need to be synced when view date changes
-  useEffect(() => {
-    const checkGoogleCalendarSync = async () => {
-      try {
-        // Skip in test environment
-        if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
-          return;
-        }
-        
-        // Only proceed if user is signed in to Google Calendar
-        if (!googleCalendarService.isSignedIn()) {
-          return;
-        }
-        
-        // Get cached events and check if we need to sync
-        const cachedEvents = await googleCalendarLocalStorageService.getGoogleCalendarEvents(currentDate);
-        
-        // If events were synced, reload all events
-        if (cachedEvents && cachedEvents.length > 0) {
-          loadEvents();
-        }
-      } catch (error) {
-        console.error('Error checking Google Calendar sync:', error);
-      }
-    };
-    
-    checkGoogleCalendarSync();
-  }, [currentDate, loadEvents]);
+  // We don't need to check for Google Calendar sync on date change anymore
+  // since we're now using the database and doing background syncs
+  // The sync is now handled in the loadEvents function
   
   // Generate recurring event instances whenever events or view changes
   useEffect(() => {
