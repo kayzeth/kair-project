@@ -20,11 +20,11 @@ const GOOGLE_LAST_SYNC_KEY = 'kairos_google_calendar_last_sync';
  */
 const getSyncToken = async (userId) => {
   try {
-    // Store the token with the userId as part of the key for user-specific tokens
-    const key = userId ? `${GOOGLE_SYNC_TOKEN_KEY}_${userId}` : GOOGLE_SYNC_TOKEN_KEY;
-    const syncToken = localStorage.getItem(key);
-    console.log(`Retrieved sync token from localStorage for user ${userId}:`, syncToken);
-    return syncToken;
+    const response = await fetch(`/api/users/${userId}/google-sync-token`);
+    if (!response.ok) throw new Error('Failed to fetch sync token');
+    const data = await response.json();
+    console.log(`Retrieved sync token from DB for user ${userId}:`, data.syncToken);
+    return data.syncToken || null;
   } catch (error) {
     console.error('Error retrieving Google Calendar sync token:', error);
     return null;
@@ -43,13 +43,15 @@ const saveSyncToken = async (userId, syncToken) => {
       console.error('Sync token is required');
       return false;
     }
-    
-    // Store the token with the userId as part of the key for user-specific tokens
-    const key = userId ? `${GOOGLE_SYNC_TOKEN_KEY}_${userId}` : GOOGLE_SYNC_TOKEN_KEY;
-    localStorage.setItem(key, syncToken);
-    localStorage.setItem(GOOGLE_LAST_SYNC_KEY, new Date().toISOString());
-    
-    console.log(`Saved Google Calendar sync token to localStorage for user ${userId}:`, syncToken);
+
+    const response = await fetch('/api/events/google-sync-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, syncToken }),
+    });
+
+    if (!response.ok) throw new Error('Failed to save sync token');
+    console.log(`Saved Google Calendar sync token to DB for user ${userId}:`, syncToken);
     return true;
   } catch (error) {
     console.error('Error saving Google Calendar sync token:', error);
