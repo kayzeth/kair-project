@@ -212,12 +212,12 @@ const DayView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
           data-testid={`dayview-event-${event.id}`}
           onClick={(e) => {
             e.stopPropagation();
-            onEditEvent({
-              ...event,
-              // Match the format expected in tests
-              start: event.start,
-              end: event.end,
-            });
+            // If this is a segment of a multi-day event, use the original event data
+            if (event._isSegment && event._originalEvent) {
+              onEditEvent(event._originalEvent);
+            } else {
+              onEditEvent(event);
+            }
           }}
           style={{
             top: `${topPosition}px`,

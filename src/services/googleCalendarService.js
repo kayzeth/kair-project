@@ -234,19 +234,59 @@ class GoogleCalendarService {
   }
 
   /**
-   * Import events from Google Calendar
-   * @param {Date} startDate Start date for events to import
-   * @param {Date} endDate End date for events to import
-   * @returns {Promise<Array>} Promise that resolves with an array of events
+   * Get calendar IDs for the signed-in user
+   * @param {boolean} ownedOnly - If true, only return calendars owned by the user
+   * @returns {Promise<Array>} Promise that resolves with an array of calendar objects
    */
-  async importEvents(startDate = new Date(), endDate = null) {
+  async getCalendarList(ownedOnly = true) {
     if (!this.isInitialized) await this.initialize();
     if (!this.isSignedIn()) throw new Error('User is not signed in');
     
-    // Default to one month from now if no end date provided
+    try {
+      // Load the Calendar API if not already loaded
+      if (!window.gapi.client.calendar) {
+        await window.gapi.client.load('calendar', 'v3');
+      }
+      
+      const response = await window.gapi.client.calendar.calendarList.list();
+      let calendars = response.result.items;
+      
+      // Filter to only include calendars owned by the user if requested
+      if (ownedOnly) {
+        calendars = calendars.filter(calendar => {
+          // Include calendars that are primary or where the user has owner access role
+          return calendar.primary === true || calendar.accessRole === 'owner';
+        });
+        console.log(`Filtered to ${calendars.length} calendars owned by the user`);
+      }
+      
+      return calendars;
+    } catch (error) {
+      console.error('Error fetching calendar list:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Import events from all Google Calendars
+   * @param {Date} startDate Start date for events to import
+   * @param {Date} endDate End date for events to import
+   * @param {string} syncToken Optional sync token for incremental sync
+   * @returns {Promise<Object>} Promise that resolves with an object containing events array and nextSyncToken
+   */
+  async importEvents(startDate = new Date(), endDate = null, syncToken = null) {
+    if (!this.isInitialized) await this.initialize();
+    if (!this.isSignedIn()) throw new Error('User is not signed in');
+    
+    // Default to ±2 years from current date if no dates provided
+    if (!startDate) {
+      startDate = new Date();
+      startDate.setFullYear(startDate.getFullYear() - 2);
+    }
+    
     if (!endDate) {
-      endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + 1);
+      endDate = new Date();
+      endDate.setFullYear(endDate.getFullYear() + 2);
     }
     
     try {
@@ -255,38 +295,92 @@ class GoogleCalendarService {
         await window.gapi.client.load('calendar', 'v3');
       }
       
-      // Get events from Google Calendar
-      const response = await window.gapi.client.calendar.events.list({
-        'calendarId': 'primary',
-        'timeMin': startDate.toISOString(),
-        'timeMax': endDate.toISOString(),
-        'showDeleted': false,
-        'singleEvents': true,
-        'orderBy': 'startTime',
-        'maxResults': 2500 // Maximum allowed by the API
-      });
-
-      // Process events into a format compatible with our app
-      const events = response.result.items.map(event => {
-        const allDay = !event.start.dateTime;
+      // Get all calendars for the user
+      const calendars = await this.getCalendarList();
+      console.log(`Found ${calendars.length} Google Calendars`);
+      
+      let allEvents = [];
+      let combinedNextSyncToken = null;
+      
+      // Process each calendar
+      for (const calendar of calendars) {
+        console.log(`Fetching events from calendar: ${calendar.summary} (${calendar.id})`);
         
-        return {
-          id: event.id,
-          title: event.summary || 'Untitled Event',
-          description: event.description || '',
-          location: event.location || '',
-          start: allDay ? event.start.date : event.start.dateTime,
-          end: allDay ? event.end.date : event.end.dateTime,
-          allDay,
-          color: '#d2b48c', // Default color, as Google doesn't provide color info in this format
-          googleEventId: event.id, // Store the Google event ID for future reference
-          type: 'google' // Changed from source to type to match our schema
+        // Prepare request parameters
+        const requestParams = {
+          'calendarId': calendar.id,
+          'showDeleted': true, // Include deleted events so we can remove them from our DB
+          'singleEvents': true,
+          'maxResults': 2500 // Maximum allowed by the API
         };
-      });
+        
+        // If we have a sync token, use it for incremental sync
+        // Otherwise use timeMin/timeMax for full sync and can specify ordering
+        if (syncToken) {
+          // When using syncToken, we must use the default ordering
+          // Google API will return error: "Sync token cannot be used with non-default ordering"
+          requestParams.syncToken = syncToken;
+        } else {
+          // For full sync, we can specify ordering
+          requestParams.orderBy = 'updated';
+          requestParams.timeMin = startDate.toISOString();
+          requestParams.timeMax = endDate.toISOString();
+        }
+        
+        try {
+          // Get events from this Google Calendar
+          const response = await window.gapi.client.calendar.events.list(requestParams);
+          
+          // Process events into a format compatible with our app
+          const calendarEvents = response.result.items.map(event => {
+            const allDay = !event.start?.dateTime;
+            const isDeleted = event.status === 'cancelled';
+            
+            return {
+              id: `${calendar.id}_${event.id}`, // Make ID unique across calendars
+              title: event.summary || 'Untitled Event',
+              description: event.description || '',
+              location: event.location || '',
+              start: allDay ? (event.start?.date || null) : (event.start?.dateTime || null),
+              end: allDay ? (event.end?.date || null) : (event.end?.dateTime || null),
+              allDay,
+              color: calendar.backgroundColor || '#d2b48c', // Use calendar color if available
+              googleEventId: event.id, // Store the Google event ID for future reference
+              googleCalendarId: calendar.id, // Store the calendar ID
+              calendarName: calendar.summary, // Store the calendar name
+              type: 'google', // Changed from source to type to match our schema
+              isDeleted, // Flag to indicate if this event was deleted
+              updated: event.updated // Include the updated timestamp
+            };
+          });
+          
+          console.log(`Fetched ${calendarEvents.length} events from ${calendar.summary}`);
+          allEvents = [...allEvents, ...calendarEvents];
+          
+          // Store the next sync token from the primary calendar only
+          if (calendar.primary && response.result.nextSyncToken) {
+            combinedNextSyncToken = response.result.nextSyncToken;
+          }
+        } catch (error) {
+          // If the sync token is invalid (410 Gone), we need to do a full sync
+          if (error.status === 410) {
+            console.log(`Sync token expired for calendar ${calendar.summary}, skipping...`);
+            // Continue with other calendars instead of failing completely
+            continue;
+          }
+          
+          console.error(`Error importing events from calendar ${calendar.summary}:`, error);
+          // Continue with other calendars instead of failing completely
+          continue;
+        }
+      }
 
-      return events;
+      return {
+        events: allEvents,
+        nextSyncToken: combinedNextSyncToken
+      };
     } catch (error) {
-      console.error('Error importing events from Google Calendar:', error);
+      console.error('Error importing events from Google Calendars:', error);
       throw error;
     }
   }

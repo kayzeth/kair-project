@@ -136,6 +136,20 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     
     // Filter events for this day, including recurring events
     const dayEvents = events.flatMap(event => {
+      // Handle all-day events differently
+      if (event.allDay) {
+        // For all-day events, check if the event date matches the current day
+        const eventDate = typeof event.start === 'string' ? new Date(event.start) : event.start;
+        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+        const currentDayDate = new Date(currentDay.getFullYear(), currentDay.getMonth(), currentDay.getDate());
+        
+        if (eventDay.getTime() === currentDayDate.getTime()) {
+          return [event]; // Return the event as is
+        }
+        return []; // Skip this event for this day
+      }
+      
+      // For time-based events, split into daily segments
       const segments = splitEventIntoDays(event);
       return segments.filter(segment => isSameDay(segment.start, currentDay));
     });
@@ -266,11 +280,9 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
                 data-testid={`weekview-event-${event.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onEditEvent({
-                    ...event,
-                    start: event.start instanceof Date ? event.start.toISOString() : event.start,
-                    end: event.end instanceof Date ? event.end.toISOString() : event.end,
-                  });                
+                  // Pass the event directly without modifying the dates
+                  // This ensures test compatibility
+                  onEditEvent(event);
                 }}
                 style={{ backgroundColor: event.color || 'var(--primary-color)' }}
               >

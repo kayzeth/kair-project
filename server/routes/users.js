@@ -85,4 +85,59 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Update Google Calendar sync token for a user
+router.put('/:userId/google-sync-token', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { syncToken } = req.body;
+    
+    console.log(`Updating Google Calendar sync token for user ${userId}`);
+    
+    if (syncToken === undefined) {
+      console.log('Sync token is undefined');
+      return res.status(400).json({ message: 'Sync token is required' });
+    }
+    
+    // Find and update the user
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { google_calendar_sync_token: syncToken },
+      { new: true } // Return the updated document
+    );
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      message: 'Google Calendar sync token updated successfully',
+      syncToken: user.google_calendar_sync_token
+    });
+  } catch (error) {
+    console.error('Error updating Google Calendar sync token:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get Google Calendar sync token for a user
+router.get('/:userId/google-sync-token', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Find the user
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      syncToken: user.google_calendar_sync_token || null
+    });
+  } catch (error) {
+    console.error('Error getting Google Calendar sync token:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
