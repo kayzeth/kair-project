@@ -281,12 +281,12 @@ class GoogleCalendarService {
     // Default to ±2 years from current date if no dates provided
     if (!startDate) {
       startDate = new Date();
-      startDate.setFullYear(startDate.getFullYear() - 2);
+      startDate.setMonth(startDate.getMonth() - 6);
     }
     
     if (!endDate) {
       endDate = new Date();
-      endDate.setFullYear(endDate.getFullYear() + 2);
+      endDate.setMonth(endDate.getMonth() + 6);
     }
     
     try {
@@ -326,6 +326,8 @@ class GoogleCalendarService {
           requestParams.timeMin = startDate.toISOString();
           requestParams.timeMax = endDate.toISOString();
         }
+
+        console.log('Request parameters:', requestParams);
         
         try {
           // Get events from this Google Calendar

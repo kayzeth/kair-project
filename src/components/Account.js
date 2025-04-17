@@ -170,70 +170,70 @@ const Account = () => {
   };
 
   // Delete all Google Calendar events for the current user
-  // const deleteGoogleEvents = async () => {
-  //   if (!isSignedIn) {
-  //     handleSignIn();
-  //     return;
-  //   }
+  const deleteGoogleEvents = async () => {
+    if (!isSignedIn) {
+      handleSignIn();
+      return;
+    }
     
-  //   // Confirm deletion with the user
-  //   if (!window.confirm('Are you sure you want to delete all Google Calendar events? This action cannot be undone.')) {
-  //     return;
-  //   }
+    // Confirm deletion with the user
+    if (!window.confirm('Are you sure you want to delete all Google Calendar events? This action cannot be undone.')) {
+      return;
+    }
     
-  //   setSyncStatus({ status: 'loading', message: 'Deleting Google Calendar events...' });
+    setSyncStatus({ status: 'loading', message: 'Deleting Google Calendar events...' });
     
-  //   try {
-  //     // Get the current user ID from localStorage
-  //     const storedUser = localStorage.getItem('userData');
-  //     let userId;
+    try {
+      // Get the current user ID from localStorage
+      const storedUser = localStorage.getItem('userData');
+      let userId;
       
-  //     if (storedUser) {
-  //       const userData = JSON.parse(storedUser);
-  //       userId = userData.id;
-  //       console.log('Deleting Google Calendar events for user ID:', userId);
-  //     }
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        userId = userData.id;
+        console.log('Deleting Google Calendar events for user ID:', userId);
+      }
       
-  //     if (!userId) {
-  //       console.error('No MongoDB user ID found in localStorage');
-  //       throw new Error('MongoDB user ID is required to delete Google Calendar events');
-  //     }
+      if (!userId) {
+        console.error('No MongoDB user ID found in localStorage');
+        throw new Error('MongoDB user ID is required to delete Google Calendar events');
+      }
       
-  //     // Delete all Google Calendar events for this user
-  //     const result = await googleCalendarDbService.deleteAllGoogleEvents(userId);
-  //     console.log(`Deleted ${result.deletedCount} Google Calendar events`);
+      // Delete all Google Calendar events for this user
+      const result = await googleCalendarDbService.deleteAllGoogleEvents(userId);
+      console.log(`Deleted ${result.deletedCount} Google Calendar events`);
       
-  //     // Clear the sync token from the database as well
-  //     await fetch(`/api/users/${userId}/google-sync-token`, {
-  //       method: 'PUT',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({ syncToken: '' }),
-  //     });
-  //     console.log('Cleared Google sync token from database entry');
+      // Clear the sync token from the database as well
+      await fetch(`/api/users/${userId}/google-sync-token`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ syncToken: '' }),
+      });
+      console.log('Cleared Google sync token from database entry');
       
-  //     // Show success message
-  //     setSyncStatus({
-  //       status: 'success',
-  //       message: `Successfully deleted ${result.deletedCount} Google Calendar events and cleared sync token`
-  //     });
+      // Show success message
+      setSyncStatus({
+        status: 'success',
+        message: `Successfully deleted ${result.deletedCount} Google Calendar events and cleared sync token`
+      });
       
-  //     // Reset status after a delay
-  //     setTimeout(() => {
-  //       setSyncStatus({ status: 'idle', message: '' });
-  //     }, 3000);
-  //   } catch (error) {
-  //     console.error('Error deleting Google Calendar events:', error);
-  //     setSyncStatus({
-  //       status: 'error',
-  //       message: `Error deleting Google Calendar events: ${error.message}`
-  //     });
+      // Reset status after a delay
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 3000);
+    } catch (error) {
+      console.error('Error deleting Google Calendar events:', error);
+      setSyncStatus({
+        status: 'error',
+        message: `Error deleting Google Calendar events: ${error.message}`
+      });
       
-  //     // Reset status after a delay
-  //     setTimeout(() => {
-  //       setSyncStatus({ status: 'idle', message: '' });
-  //     }, 5000);
-  //   }
-  // };
+      // Reset status after a delay
+      setTimeout(() => {
+        setSyncStatus({ status: 'idle', message: '' });
+      }, 5000);
+    }
+  };
   
   // Sync with Google Calendar (both import and export)
   const syncWithGoogleCalendar = async (forceFullSync = false) => {
@@ -492,16 +492,17 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
                       <FontAwesomeIcon icon={faSync} /> Force Full Sync
                     </button>
                   </div>
-                  {/* <div>
+                  {(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
+                  <div>
                     <button 
                       className="button button-danger"
                       onClick={deleteGoogleEvents}
                       data-testid="delete-google-events-button"
-                      style={{ backgroundColor: '#dc3545', borderColor: '#dc3545' }}
+                      style={{ backgroundColor: '#dc3545', borderColor: '#dc3545', color: '#fff' }}
                     >
-                      <FontAwesomeIcon icon={faTimes} /> Delete All Google Events
+                      <FontAwesomeIcon icon={faTimes} /> Delete All Google Events (visible on localhost only for testing purposes)
                     </button>
-                  </div> */}
+                  </div>)}
                 </div>
                 
                 <button 
