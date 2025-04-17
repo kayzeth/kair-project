@@ -9,10 +9,6 @@ import googleCalendarService from './googleCalendarService';
 // Base URL for events API endpoints
 const BASE_URL = '/api/events';
 
-// Local storage keys for Google Calendar sync token
-const GOOGLE_SYNC_TOKEN_KEY = 'kairos_google_calendar_sync_token';
-const GOOGLE_LAST_SYNC_KEY = 'kairos_google_calendar_last_sync';
-
 /**
  * Get the stored sync token for Google Calendar
  * @param {string} userId - The MongoDB user ID (used to create a user-specific key)
