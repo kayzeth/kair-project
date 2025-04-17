@@ -9,6 +9,90 @@ import googleCalendarService from './googleCalendarService';
 // Base URL for events API endpoints
 const BASE_URL = '/api/events';
 
+// Local storage keys for Google Calendar sync token
+const GOOGLE_SYNC_TOKEN_KEY = 'kairos_google_calendar_sync_token';
+const GOOGLE_LAST_SYNC_KEY = 'kairos_google_calendar_last_sync';
+
+/**
+ * Get the stored sync token for Google Calendar
+ * @param {string} userId - The MongoDB user ID (used to create a user-specific key)
+ * @returns {Promise<string|null>} The sync token or null if not found
+ */
+const getSyncToken = async (userId) => {
+  try {
+    const response = await fetch(`/api/users/${userId}/google-sync-token`);
+    if (!response.ok) throw new Error('Failed to fetch sync token');
+    const data = await response.json();
+    console.log(`Retrieved sync token from DB for user ${userId}:`, data.syncToken);
+    return data.syncToken || null;
+  } catch (error) {
+    console.error('Error retrieving Google Calendar sync token:', error);
+    return null;
+  }
+};
+
+/**
+ * Save the sync token for Google Calendar
+ * @param {string} userId - The MongoDB user ID (used to create a user-specific key)
+ * @param {string} syncToken - The sync token to save
+ * @returns {Promise<boolean>} True if successful, false otherwise
+ */
+const saveSyncToken = async (userId, syncToken) => {
+  try {
+    if (!syncToken) {
+      console.error('Sync token is required');
+      return false;
+    }
+
+    const response = await fetch('/api/events/google-sync-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, syncToken }),
+    });
+
+    if (!response.ok) throw new Error('Failed to save sync token');
+    console.log(`Saved Google Calendar sync token to DB for user ${userId}:`, syncToken);
+    return true;
+  } catch (error) {
+    console.error('Error saving Google Calendar sync token:', error);
+    return false;
+  }
+};
+
+/**
+ * Get the last sync timestamp
+ * @returns {Date|null} Last sync timestamp or null if never synced
+ */
+const getLastSyncTimestamp = () => {
+  try {
+    const timestamp = localStorage.getItem(GOOGLE_LAST_SYNC_KEY);
+    return timestamp ? new Date(timestamp) : null;
+  } catch (error) {
+    console.error('Error retrieving last sync timestamp:', error);
+    return null;
+  }
+};
+
+/**
+ * Clear the sync token for a user
+ * @param {string} userId - The MongoDB user ID (used to create a user-specific key)
+ * @returns {Promise<boolean>} True if successful, false otherwise
+ */
+const clearSyncData = async (userId) => {
+  try {
+    // Clear the token with the userId as part of the key for user-specific tokens
+    const key = userId ? `${GOOGLE_SYNC_TOKEN_KEY}_${userId}` : GOOGLE_SYNC_TOKEN_KEY;
+    localStorage.removeItem(key);
+    localStorage.removeItem(GOOGLE_LAST_SYNC_KEY);
+    
+    console.log(`Cleared Google Calendar sync token from localStorage for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Error clearing Google Calendar sync data:', error);
+    return false;
+  }
+};
+
 /**
  * Get the stored sync token for Google Calendar
  * @param {string} userId - The MongoDB user ID (used to create a user-specific key)

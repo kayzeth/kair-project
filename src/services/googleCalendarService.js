@@ -376,7 +376,6 @@ class GoogleCalendarService {
           continue;
         }
       }
-
       return {
         events: allEvents,
         nextSyncToken: combinedNextSyncToken
