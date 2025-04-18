@@ -1,7 +1,5 @@
 .landing-container {
-  min-height: 100vh;
   padding: var(--spacing-lg);
-  background: var(--background-color);
 }
 
 .landing-content {
@@ -10,15 +8,20 @@
   text-align: center;
 }
 
+.landing-logo {
+  width: 80px;
+  height: 80px;
+}
+
 .landing-content h1 {
   font-size: 2.5rem;
-  color: var(--text-color);
+  color: var(--text-color-tertiary);
   margin-bottom: var(--spacing-md);
 }
 
 .tagline {
   font-size: 1.2rem;
-  color: var(--text-color-light);
+  color: var(--text-color-tertiary);
   margin-bottom: var(--spacing-xl);
 }
 
@@ -36,7 +39,7 @@
 
 .auth-container h2 {
   margin-bottom: var(--spacing-lg);
-  color: var(--text-color);
+  color: var(--text-color-tertiary);
   font-size: 1.5rem;
 }
 

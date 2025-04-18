@@ -58,7 +58,7 @@ export const LoginForm = () => {
           required
         />
       </div>
-      <button type="submit" className="submit-button">Login</button>
+      <button type="submit" className="auth-button">Login</button>
     </form>
   );
 };
@@ -90,7 +90,6 @@ export const SignupForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="auth-form">
-      <h2>Sign Up</h2>
       {error && <div className="error-message">{error}</div>}
       <div className="form-group">
         <label htmlFor="name">Name:</label>
@@ -122,7 +121,7 @@ export const SignupForm = () => {
           required
         />
       </div>
-      <button type="submit" className="submit-button">Sign Up</button>
+      <button type="submit" className="auth-button">Sign Up</button>
     </form>
   );
 };

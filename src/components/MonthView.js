@@ -3,32 +3,9 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSa
 import DayEventsPopup from './DayEventsPopup';
 
 const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
-  const [cellHeight, setCellHeight] = useState('auto');
   const [popupDay, setPopupDay] = useState(null);
   const [popupEvents, setPopupEvents] = useState([]);
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
-  
-  // Calculate the height of each cell based on the available space
-  useEffect(() => {
-    const calculateCellHeight = () => {
-      const viewportHeight = window.innerHeight;
-      const headerHeight = 160; // Approximate header height including margins
-      const availableHeight = viewportHeight - headerHeight;
-      const rowCount = 6; // Maximum number of rows in a month view
-      const dayNameHeight = 40; // Approximate height of day names row
-      
-      // Calculate height per cell and subtract borders
-      const height = Math.floor((availableHeight - dayNameHeight) / rowCount) - 2;
-      setCellHeight(`${height}px`);
-    };
-    
-    calculateCellHeight();
-    window.addEventListener('resize', calculateCellHeight);
-    
-    return () => {
-      window.removeEventListener('resize', calculateCellHeight);
-    };
-  }, []);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -126,11 +103,11 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
           key={day}
           data-testid={`monthview-day-${format(day, 'yyyy-MM-dd')}`}
           onClick={() => onAddEvent(cloneDay)}
-          style={{ height: cellHeight, overflow: 'hidden' }}
+          style={{ overflow: 'auto' }}
         >
           <div className="day-number" data-testid={`monthview-day-number-${format(day, 'yyyy-MM-dd')}`}>{dayNumber}</div>
           <div className="day-events">
-            {dayEvents.slice(0, 1).map(event => {
+            {dayEvents.slice(0, 2).map(event => {
               const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
               return (
                 <div
@@ -175,7 +152,7 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
                 </div>
               );
             })}
-            {dayEvents.length > 1 && (
+            {dayEvents.length > 3 && (
               <div 
                 className="more-events"
                 onClick={(e) => {
@@ -189,7 +166,7 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
                   setPopupEvents(dayEvents);
                 }}
               >
-                +{dayEvents.length - 1} more
+                +{dayEvents.length - 2} more
               </div>
             )}
           </div>
@@ -206,9 +183,11 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   }
 
   return (
-    <div>
+    <div className="month-view-container">
       <div className="calendar-day-names">{dayNames}</div>
-      {rows}
+      <div className="month-rows-container">
+        {rows}
+      </div>
       {popupDay && (
         <DayEventsPopup
           day={popupDay}

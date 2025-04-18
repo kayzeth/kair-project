@@ -1,10 +1,7 @@
 .auth-form {
   max-width: 400px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background: white;
+  padding: 0 2rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .auth-form h2 {
@@ -20,7 +17,7 @@
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #666;
+  color: var(--text-color-tertiary);
 }
 
 .form-group input {
@@ -40,7 +37,7 @@
 .auth-button {
   width: 100%;
   padding: 0.75rem;
-  background-color: #4a90e2;
+  background-color: var(--text-color-tertiary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -50,19 +47,19 @@
 }
 
 .auth-button:hover {
-  background-color: #357abd;
+  background-color: var(--primary-color);
 }
 
 .auth-toggle {
   margin-top: var(--spacing-md);
   text-align: center;
-  color: var(--text-color-light);
+  color: var(--text-color-tertiary);
 }
 
 .auth-toggle button {
   background: none;
   border: none;
-  color: var(--primary-color);
+  color: var(--text-color-tertiary);
   cursor: pointer;
   padding: 0 var(--spacing-xs);
   font-size: 1rem;
