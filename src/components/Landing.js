@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarAlt, faFileUpload, faUser } from '@fortawesome/free-solid-svg-icons';
 import { LoginForm, SignupForm } from './AuthForms';
 import logo2 from '../assets/images/logo2.png';
 import '../styles/Landing.css';

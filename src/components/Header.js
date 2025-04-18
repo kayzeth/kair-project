@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarAlt, faUserCircle, faFileAlt, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 import logo2 from '../assets/images/logo2.png';
-import Tooltip from '../tooltip';
 import { useAuth } from '../context/AuthContext';
 
 const Header = ({ activeTab, onTabChange }) => {
