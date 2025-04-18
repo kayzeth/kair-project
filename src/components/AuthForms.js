@@ -19,7 +19,17 @@ export const LoginForm = () => {
       const response = await authService.login({ email, password });
       // Store user data and token in auth context
       authLogin(response.user, response.token);
-      navigate('/calendar');
+      
+      // Check if this is the user's first login or if they haven't set up integrations
+      const hasCompletedOnboarding = localStorage.getItem(`onboarding_complete_${response.user.id}`);
+      
+      if (!hasCompletedOnboarding) {
+        // Redirect to onboarding flow for first-time or returning users who haven't completed setup
+        navigate('/onboarding');
+      } else {
+        // Regular users go directly to calendar
+        navigate('/calendar');
+      }
     } catch (error) {
       setError(error.message);
     }
@@ -27,7 +37,6 @@ export const LoginForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="auth-form">
-      <h2>Login</h2>
       {error && <div className="error-message">{error}</div>}
       <div className="form-group">
         <label htmlFor="email">Email:</label>
@@ -72,7 +81,8 @@ export const SignupForm = () => {
       const loginResponse = await authService.login({ email, password });
       // Store user data and token in auth context
       authLogin(loginResponse.user, loginResponse.token);
-      navigate('/calendar');
+      // Redirect to onboarding flow instead of directly to calendar
+      navigate('/onboarding');
     } catch (error) {
       setError(error.message);
     }

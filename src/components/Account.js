@@ -680,7 +680,7 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
           <h2 data-testid="canvas-instructions">Canvas Integration Instructions</h2>
           <p>To use Canvas integration, you need to configure your access token:</p>
           <ol>
-            <li>Go to Canvas {'>'} Settings {'>'} Developer {'>'} Approved Integrations {'>'} New Access Token</li>
+          <li>Go to Canvas {'>'} Account {'>'} Settings {'>'} Scroll to Approved Integrations {'>'} New Access Token</li>
             <li>Enter "Kairos" for "Purpose" and leave the expiration fields blank. Click "Generate Token"</li>
             <li>Copy the generated token and paste it into the "Canvas Access Token" field in your Kairos account</li>
             <li>Enter your institution's full Canvas domain (e.g., canvas.harvard.edu or harvard.instructure.com)</li>

@@ -5,6 +5,7 @@ import Calendar from './components/Calendar';
 import Account from './components/Account';
 import SyllabusParser from './components/SyllabusParser';
 import Landing from './components/Landing';
+import Onboarding from './components/Onboarding';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { getCurrentUserId } from './services/userService';
@@ -87,6 +88,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <SyllabusParser onAddEvents={handleAddEvents} />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/onboarding" 
+            element={
+              <ProtectedRoute>
+                <Onboarding />
               </ProtectedRoute>
             } 
           />
