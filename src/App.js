@@ -54,53 +54,63 @@ function AppContent() {
     }
   };
 
+  // Determine if we're on the landing page
+  const isLandingPage = location.pathname === '/';
+
   return (
     <div className="app-container" data-testid="app-container">
+      {/* The Header component is now a sidebar that only shows when user is logged in */}
       <Header activeTab={activeTab} onTabChange={handleTabChange} />
-      <main className="main-content">
-        <Routes>
-          <Route 
-            path="/" 
-            element={<Landing />}
-          />
-          <Route 
-            path="/calendar" 
-            element={
-              <ProtectedRoute>
-                <Calendar 
-                  data-testid="calendar-component" 
-                  initialEvents={events} 
-                  userId={userId}
-                />
-              </ProtectedRoute>
-            }
-          />
-          <Route 
-            path="/account" 
-            element={
-              <ProtectedRoute>
-                <Account />
-              </ProtectedRoute>
-            }
-          />
-          <Route 
-            path="/syllabusParser" 
-            element={
-              <ProtectedRoute>
-                <SyllabusParser onAddEvents={handleAddEvents} />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/onboarding" 
-            element={
-              <ProtectedRoute>
-                <Onboarding />
-              </ProtectedRoute>
-            } 
-          />
-        </Routes>
-      </main>
+      
+      {/* Conditionally render content based on whether we're on the landing page or not */}
+      {isLandingPage ? (
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Landing />} />
+          </Routes>
+        </main>
+      ) : (
+        <main className="authenticated-content">
+          <Routes>
+            <Route 
+              path="/calendar" 
+              element={
+                <ProtectedRoute>
+                  <Calendar 
+                    data-testid="calendar-component" 
+                    initialEvents={events} 
+                    userId={userId}
+                  />
+                </ProtectedRoute>
+              }
+            />
+            <Route 
+              path="/account" 
+              element={
+                <ProtectedRoute>
+                  <Account />
+                </ProtectedRoute>
+              }
+            />
+            <Route 
+              path="/syllabusParser" 
+              element={
+                <ProtectedRoute>
+                  <SyllabusParser onAddEvents={handleAddEvents} />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/onboarding" 
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </main>
+      )}
     </div>
   );
 }

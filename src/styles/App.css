@@ -16,11 +16,11 @@ body {
 
 .app-container {
   display: flex;
-  flex-direction: column;
   min-height: 100vh;
   overflow: hidden;
 }
 
+/* Header Styles for Landing Page */
 .header {
   background-color: var(--primary-color);
   padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm) var(--spacing-md);
@@ -29,76 +29,122 @@ body {
   align-items: center;
 }
 
-.nav-links {
+/* Sidebar Styles for Authenticated Pages */
+.sidebar {
+  width: 250px;
+  height: 100vh;
+  background-color: var(--primary-color);
+  border-right: 1px solid var(--border-color);
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.logo-container {
+  padding: var(--spacing-md);
   display: flex;
   align-items: center;
-  gap: var(--spacing-xl);
+  justify-content: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.logo-link {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  text-decoration: none;
+  color: var(--text-color);
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+}
+
+.app-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: var(--spacing-md) 0;
+  overflow-y: auto;
+}
+
+.nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-item {
+  margin-bottom: var(--spacing-xs);
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
   color: var(--text-color);
   text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s ease;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--border-radius-md);
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
 }
 
 .nav-link:hover {
-  background-color: var(--primary-dark);
+  background-color: var(--hover-color);
+  border-left-color: var(--accent-color);
+}
+
+.nav-link.active {
+  background-color: var(--hover-color);
+  border-left-color: var(--accent-color);
   color: var(--accent-color);
 }
 
-.account-link {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--border-radius-md);
-  transition: background-color 0.2s ease;
+.nav-icon {
+  width: 20px;
+  text-align: center;
+  margin-right: var(--spacing-md);
 }
 
-.account-link:hover {
-  background-color: var(--primary-dark);
-  color: var(--accent-color);
+.nav-text {
+  font-weight: 500;
+}
+
+.sidebar-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
 }
 
 .logout-button {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  color: inherit;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-md);
+  color: var(--text-color);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border-radius: var(--border-radius-md);
 }
 
 .logout-button:hover {
-  color: var(--primary-color);
-}
-
-@media (max-width: 576px) {
-  .account-text {
-    display: none;
-  }
-}
-
-.logo-container {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.nav-tabs {
-  display: flex;
-  gap: var(--spacing-md);
+  background-color: var(--hover-color);
+  color: var(--error-color);
 }
 
 .nav-tab {
-  background: none;
-  border: none;
   color: var(--text-color);
   font-size: var(--font-size-md);
   font-weight: 500;
@@ -143,6 +189,16 @@ body {
   flex-direction: column;
 }
 
+.authenticated-content {
+  flex: 1;
+  margin-left: 250px; /* Same as sidebar width */
+  padding: var(--spacing-md);
+  overflow-y: auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
 .calendar-container {
   background-color: white;
   border-radius: var(--border-radius-md);
@@ -151,6 +207,7 @@ body {
   flex-direction: column;
   flex: 1;
   height: 100%;
+  max-height: 100vh;
 }
 
 /* Calendar Navigation Header */
@@ -251,19 +308,33 @@ body {
 }
 
 /* Calendar grid styles */
+.month-view-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  overflow: hidden;
+}
+
+.month-rows-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden; /* Prevent scrolling */
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(auto-fit, 1fr);
   border-bottom: 1px solid var(--border-color);
-  flex: 1; /* Each grid will take equal space */
-  min-height: 0; /* Important for flex children to shrink properly */
+  flex: 1;
 }
 
 .calendar-day-names {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   background-color: var(--primary-light);
+  height: 40px;
 }
 
 .day-name {
@@ -278,6 +349,18 @@ body {
   border-bottom: 1px solid var(--border-color);
   padding: var(--spacing-xs);
   position: relative;
+  height: auto; /* Allow height to adjust based on available space */
+  display: flex;
+  flex-direction: column;
+}
+
+.day-events {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 80%;
 }
 
 .calendar-day:nth-child(7n) {
@@ -287,7 +370,6 @@ body {
 .day-number {
   font-size: var(--font-size-sm);
   font-weight: 500;
-  margin-bottom: var(--spacing-xs);
 }
 
 .other-month {

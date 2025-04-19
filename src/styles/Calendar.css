@@ -1,6 +1,6 @@
 /* Calendar Container */
 .calendar-container {
-  padding: var(--spacing-lg);
+  padding: var(--spacing-sm);
   background: var(--background-color);
   border-radius: 8px;
 }
@@ -20,7 +20,6 @@
   grid-template-columns: repeat(7, 1fr);
   gap: 1px;
   background-color: var(--border-color);
-  margin-bottom: 1px;
 }
 
 .day-name {
@@ -54,7 +53,6 @@
 
 .day-number {
   font-weight: 500;
-  padding: var(--spacing-xs);
   text-align: center;
 }
 

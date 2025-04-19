@@ -15,6 +15,7 @@
   /* Text Colors */
   --text-color: #202124; /* Nearly black dark gray */
   --text-color-secondary: #5f6368; /* Medium gray for secondary text */
+  --text-color-tertiary: #bca267;
 
   /* Borders & Highlights */
   --border-color: #dadce0; /* Light grey border */
