@@ -35,6 +35,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/groups', require('./routes/groups'));
 app.use('/api/lmsintegration', require('./routes/lmsintegration'));
+app.use('/api/gemini', require('./routes/gemini'));
 
 // Proxy all Canvas API requests
 app.use('/api/canvas/*', async (req, res) => {

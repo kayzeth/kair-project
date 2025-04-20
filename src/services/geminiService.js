@@ -13,70 +13,66 @@ import eventService from './eventService';
 let genAI = null;
 
 /**
- * Get API key from storage or use null if not available
- * @returns {string|null} - The API key or null if not found
+ * Fetch API key from the server
+ * @returns {Promise<string|null>} - The API key or null if not available
  */
-export const getApiKey = () => {
-  // Try sessionStorage first (temporary, cleared when browser closes)
-  const sessionKey = sessionStorage.getItem('geminiApiKey');
-  if (sessionKey) return sessionKey;
-  
-  // Then try localStorage (persists between sessions)
-  const localKey = localStorage.getItem('geminiApiKey');
-  return localKey || null;
+export const getApiKey = async () => {
+  try {
+    // Try to get the API key from the public endpoint first (no authentication required)
+    // This is useful during development and initial page load
+    const response = await fetch('/api/gemini/api-key-public', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch API key: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.apiKey;
+  } catch (error) {
+    console.error('Error fetching Gemini API key:', error);
+    return null;
+  }
 };
 
 /**
- * Save API key with specified persistence
+ * Stub function for backward compatibility
+ * @deprecated Use server-side API key instead
  * @param {string} apiKey - The API key to save
  * @param {string} persistence - Where to save the key: 'session', 'local', or 'none'
- * @returns {boolean} - Whether the operation was successful
+ * @returns {boolean} - Always returns true
  */
 export const saveApiKey = (apiKey, persistence = 'session') => {
-  if (!apiKey) return false;
-  
-  try {
-    // Clear any existing keys first
-    localStorage.removeItem('geminiApiKey');
-    sessionStorage.removeItem('geminiApiKey');
-    
-    // Save according to requested persistence
-    if (persistence === 'local') {
-      localStorage.setItem('geminiApiKey', apiKey);
-    } else if (persistence === 'session') {
-      sessionStorage.setItem('geminiApiKey', apiKey);
-    }
-    // If persistence is 'none', don't save the key at all
-    
-    return true;
-  } catch (error) {
-    console.error('Error saving API key:', error);
-    return false;
-  }
+  console.warn('saveApiKey is deprecated. Using server-side API key instead.');
+  return true;
 };
 
 /**
- * Clear API key from all storage
- * @returns {boolean} - Whether the operation was successful
+ * Stub function for backward compatibility
+ * @deprecated Use server-side API key instead
+ * @returns {boolean} - Always returns true
  */
 export const clearApiKey = () => {
-  try {
-    localStorage.removeItem('geminiApiKey');
-    sessionStorage.removeItem('geminiApiKey');
-    return true;
-  } catch (error) {
-    console.error('Error clearing API key:', error);
-    return false;
-  }
+  console.warn('clearApiKey is deprecated. Using server-side API key instead.');
+  return true;
 };
 
 /**
- * Initialize the Gemini API with the API key from storage
- * @returns {Object|null} - The Gemini API client or null if initialization failed
+ * Initialize the Gemini API with the API key from the server
+ * @returns {Promise<Object|null>|Object|null} - The Gemini API client or null if initialization failed
  */
-export const initializeGenAI = () => {
+export const initializeGenAI = async () => {
   try {
-    const apiKey = getApiKey();
+    // If genAI is already initialized, return it
+    if (genAI) {
+      return genAI;
+    }
+    
+    const apiKey = await getApiKey();
     if (!apiKey) {
       console.error('No API key available for Gemini');
       return null;
@@ -90,6 +86,18 @@ export const initializeGenAI = () => {
     console.error('Error initializing Gemini API:', error);
     return null;
   }
+};
+
+// Synchronous version for backward compatibility
+export const initializeGenAISync = () => {
+  if (genAI) {
+    return genAI;
+  }
+  
+  console.warn('Using synchronous initializeGenAI - this will be deprecated in future versions');
+  // Start the async initialization but return the current state
+  initializeGenAI().catch(err => console.error('Async initialization failed:', err));
+  return genAI;
 };
 
 /**
@@ -132,7 +140,7 @@ const determineEventType = (event) => {
  * @param {number} toleranceMinutes - Acceptable difference in minutes (default: 15)
  * @returns {Object} - Validation result with isValid flag and totalHours
  */
-const validateStudySuggestions = (suggestions, requestedHours, toleranceMinutes = null) => {
+const validateStudySuggestions = async (suggestions, requestedHours, toleranceMinutes = null) => {
   if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
     console.error('Invalid suggestions array provided for validation');
     return { isValid: false, totalHours: 0, totalMinutes: 0 };
@@ -206,7 +214,7 @@ export const generateSmartStudySuggestions = async (eventsOrUserId, targetEvent,
   try {
     // Initialize Gemini API if not already initialized
     if (!genAI) {
-      const initialized = initializeGenAI();
+      const initialized = await initializeGenAI();
       if (!initialized) {
         console.error('Failed to initialize Gemini API');
         return [];
@@ -496,7 +504,7 @@ Example format:
           console.log(`Formatted suggestions for attempt ${attempts}:`, formattedSuggestions);
           
           // Validate the study suggestions
-          const validation = validateStudySuggestions(formattedSuggestions, preparationHours);
+          const validation = await validateStudySuggestions(formattedSuggestions, preparationHours);
           isValid = validation.isValid;
           
           if (isValid) {
@@ -554,11 +562,12 @@ const calculateTotalHours = (suggestions) => {
 // Create a named export object
 const geminiService = {
   getApiKey,
-  saveApiKey,
-  clearApiKey,
   initializeGenAI,
+  initializeGenAISync,
   generateSmartStudySuggestions,
-  validateStudySuggestions
+  validateStudySuggestions,
+  saveApiKey,
+  clearApiKey
 };
 
 export default geminiService;
