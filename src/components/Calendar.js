@@ -851,14 +851,10 @@ const Calendar = ({ initialEvents = [], userId }) => {
       const savedEvent = await eventService.updateEvent(eventId, updatedEvent);
       
       setEvents(prevEvents => 
-        prevEvents.map(event => 
-          event.id === savedEvent.id ? savedEvent : event
-        )
+        prevEvents.map(event => event.id === savedEvent.id ? savedEvent : event)
       );
       
-      setEventsNeedingPreparation(prev => 
-        prev.filter(event => event.id !== eventId)
-      );
+      setEventsNeedingPreparation(prev => prev.filter(event => event.id !== eventId));
       
       if (eventsNeedingPreparation.length <= 1) {
         setShowPreparationPrompt(false);
@@ -873,14 +869,16 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
   };
 
-  const dismissPreparationPrompt = (eventId) => {
-    const reminderTime = new Date().getTime() + (3 * 60 * 60 * 1000);
+  const dismissPreparationPrompt = (eventId, whenToRemind) => {
+    const reminderTime = whenToRemind || new Date().getTime() + (3 * 60 * 60 * 1000);
     
+    // Update the dismissed events state
     setDismissedEvents(prev => ({
       ...prev,
       [eventId]: reminderTime
     }));
     
+    // Show notification
     setSyncStatus({
       status: 'info',
       message: `You'll be reminded about this event in 3 hours`
@@ -889,8 +887,39 @@ const Calendar = ({ initialEvents = [], userId }) => {
     setTimeout(() => {
       setSyncStatus({ status: 'idle', message: '' });
     }, 3000);
+    
+    // Find the event and update its whenToRemind field
+    const eventToUpdate = events.find(e => e.id === eventId);
+    if (eventToUpdate) {
+      // Update the event in the database
+      eventService.updateEvent(eventId, { 
+        ...eventToUpdate,
+        when_to_remind: new Date(reminderTime)
+      })
+      .then(() => {
+        // Update the local events state
+        setEvents(prevEvents => 
+          prevEvents.map(e => 
+            e.id === eventId 
+              ? { ...e, when_to_remind: new Date(reminderTime) } 
+              : e
+          )
+        );
+      })
+      .catch(error => {
+        console.error('Error updating event with reminder time:', error);
+      });
+    }
+    
+    // Close the preparation prompt by removing this event from the list
+    setEventsNeedingPreparation(prev => prev.filter(e => e.id !== eventId));
+    
+    // If no more events need preparation, close the prompt entirely
+    if (eventsNeedingPreparation.length <= 1) {
+      setShowPreparationPrompt(false);
+    }
   };
-  
+
   const closePreparationPrompt = () => {
     setShowPreparationPrompt(false);
   };

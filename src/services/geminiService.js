@@ -18,6 +18,12 @@ let genAI = null;
  */
 export const getApiKey = async () => {
   try {
+    // For testing environments, use a mock API key
+    if (process.env.NODE_ENV === 'test') {
+      console.log('Using mock API key for testing environment');
+      return 'test-api-key';
+    }
+    
     // Try to get the API key from the public endpoint first (no authentication required)
     // This is useful during development and initial page load
     const response = await fetch('/api/gemini/api-key-public', {
@@ -35,6 +41,12 @@ export const getApiKey = async () => {
     return data.apiKey;
   } catch (error) {
     console.error('Error fetching Gemini API key:', error);
+    
+    // Fallback for testing or when server is unavailable
+    if (process.env.NODE_ENV === 'test') {
+      return 'test-api-key';
+    }
+    
     return null;
   }
 };
