@@ -42,6 +42,10 @@
       "src": "/api/openai/(.*)",
       "dest": "server/index.js"
     },
+    {
+      "src": "/api/gemini/(.*)",
+      "dest": "server/index.js"
+    },
     { "src": "/.*", "dest": "/index.html" }
   ]
 }
