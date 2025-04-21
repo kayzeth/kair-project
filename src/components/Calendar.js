@@ -503,17 +503,29 @@ const Calendar = ({ initialEvents = [], userId }) => {
       
       // CRITICAL CHECK: Check if the event already has related study sessions
       // This is more reliable than checking the studySuggestionsAccepted flag
-      if (event.id) {
+      // Only perform this check if forceGenerate is false
+      if (event.id && !forceGenerate) {
         try {
           const hasStudySessions = await eventService.hasRelatedStudySessions(event.id);
           if (hasStudySessions) {
-            console.log(`Event "${event.title}" already has study sessions. Silently aborting.`);
+            console.log(`Event "${event.title}" already has study sessions. Skipping generation.`);
             return;
           }
         } catch (error) {
           console.error('Error checking for related study sessions:', error);
           // Continue with the process even if we couldn't check for related study sessions
         }
+      }
+      
+      // If forceGenerate is true, allow generating new study suggestions even if the event already has them
+      if (event.id && forceGenerate) {
+        console.log(`Generating new study suggestions for event "${event.title}" (force=true)`);
+        
+        // Show a notification that we're generating a new study plan
+        setSyncStatus({
+          status: 'info',
+          message: 'Generating new study plan...'
+        });
       }
       
       // Check if the event is within 8 days, but allow override with forceGenerate
@@ -579,9 +591,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
         // If no suggestions were generated, show a message
         setSyncStatus({
           status: 'info',
-          message: forceGenerate 
-            ? 'No study suggestions could be generated. Please try again later.' 
-            : 'No study suggestions are needed at this time.'
+          message: 'No study suggestions could be generated. Please try again later.'
         });
         
         setTimeout(() => {
@@ -717,11 +727,13 @@ const Calendar = ({ initialEvents = [], userId }) => {
   };
   
   // Simplified handlers for study suggestions
-  const handleAcceptStudySuggestions = async (acceptedSuggestions) => {
+  const handleAcceptStudySuggestions = async (acceptedSuggestions, dontClose = false) => {
     try {
       // Skip in test environment
       if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
-        setShowStudySuggestions(false);
+        if (!dontClose) {
+          setShowStudySuggestions(false);
+        }
         return;
       }
       
@@ -773,7 +785,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
         }, 3000);
       }
       
-      setShowStudySuggestions(false);
+      if (!dontClose) {
+        setShowStudySuggestions(false);
+      }
     } catch (error) {
       console.error('Error accepting study suggestions:', error);
       
@@ -786,7 +800,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
       
-      setShowStudySuggestions(false);
+      if (!dontClose) {
+        setShowStudySuggestions(false);
+      }
     }
   };
   
@@ -854,14 +870,10 @@ const Calendar = ({ initialEvents = [], userId }) => {
       const savedEvent = await eventService.updateEvent(eventId, updatedEvent);
       
       setEvents(prevEvents => 
-        prevEvents.map(event => 
-          event.id === savedEvent.id ? savedEvent : event
-        )
+        prevEvents.map(event => event.id === savedEvent.id ? savedEvent : event)
       );
       
-      setEventsNeedingPreparation(prev => 
-        prev.filter(event => event.id !== eventId)
-      );
+      setEventsNeedingPreparation(prev => prev.filter(event => event.id !== eventId));
       
       if (eventsNeedingPreparation.length <= 1) {
         setShowPreparationPrompt(false);
@@ -876,14 +888,16 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
   };
 
-  const dismissPreparationPrompt = (eventId) => {
-    const reminderTime = new Date().getTime() + (3 * 60 * 60 * 1000);
+  const dismissPreparationPrompt = (eventId, whenToRemind) => {
+    const reminderTime = whenToRemind || new Date().getTime() + (3 * 60 * 60 * 1000);
     
+    // Update the dismissed events state
     setDismissedEvents(prev => ({
       ...prev,
       [eventId]: reminderTime
     }));
     
+    // Show notification
     setSyncStatus({
       status: 'info',
       message: `You'll be reminded about this event in 3 hours`
@@ -892,8 +906,39 @@ const Calendar = ({ initialEvents = [], userId }) => {
     setTimeout(() => {
       setSyncStatus({ status: 'idle', message: '' });
     }, 3000);
+    
+    // Find the event and update its whenToRemind field
+    const eventToUpdate = events.find(e => e.id === eventId);
+    if (eventToUpdate) {
+      // Update the event in the database
+      eventService.updateEvent(eventId, { 
+        ...eventToUpdate,
+        when_to_remind: new Date(reminderTime)
+      })
+      .then(() => {
+        // Update the local events state
+        setEvents(prevEvents => 
+          prevEvents.map(e => 
+            e.id === eventId 
+              ? { ...e, when_to_remind: new Date(reminderTime) } 
+              : e
+          )
+        );
+      })
+      .catch(error => {
+        console.error('Error updating event with reminder time:', error);
+      });
+    }
+    
+    // Close the preparation prompt by removing this event from the list
+    setEventsNeedingPreparation(prev => prev.filter(e => e.id !== eventId));
+    
+    // If no more events need preparation, close the prompt entirely
+    if (eventsNeedingPreparation.length <= 1) {
+      setShowPreparationPrompt(false);
+    }
   };
-  
+
   const closePreparationPrompt = () => {
     setShowPreparationPrompt(false);
   };
@@ -1009,6 +1054,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
           onAccept={handleAcceptStudySuggestions}
           onReject={handleRejectStudySuggestions}
           onClose={() => setShowStudySuggestions(false)}
+          userId={userId}
         />
       )}
     </div>

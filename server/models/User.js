@@ -20,6 +20,14 @@ const userSchema = new mongoose.Schema({
   },
   google_calendar_sync_token: {
     type: String
+  },
+  bedtime: {
+    type: String,
+    default: '00:00' // Default to 12:00 AM in 24-hour format
+  },
+  wakeupTime: {
+    type: String,
+    default: '08:00' // Default to 8:00 AM in 24-hour format
   }
 }, {
   timestamps: true

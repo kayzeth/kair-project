@@ -487,6 +487,134 @@
   animation: spin 1s linear infinite;
 }
 
+/* Sleep schedule form styling */
+.sleep-schedule-form {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.sleep-schedule-description {
+  margin-bottom: 15px;
+  color: #666;
+}
+
+.sleep-schedule-inputs {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.sleep-schedule-inputs .form-group {
+  flex: 1;
+}
+
+.sleep-schedule-inputs label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.time-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.sleep-hours-note {
+  font-style: italic;
+  color: #666;
+  margin-top: 10px;
+}
+
+.schedule-icon {
+  margin-right: 5px;
+  color: #4285F4;
+}
+
+/* Feature description styling */
+.feature-description {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.feature-description h4 {
+  color: #495057;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.feature-description h5 {
+  color: #495057;
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.feature-description ul {
+  padding-left: 20px;
+  margin-bottom: 15px;
+}
+
+.feature-description li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.feature-description p {
+  margin-top: 15px;
+  margin-bottom: 0;
+  font-style: italic;
+}
+
+.feature-icon {
+  color: #4285F4;
+  font-size: 1.5rem;
+}
+
+/* Feature card styling */
+.feature-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+}
+
+.feature-card-content {
+  padding: 30px;
+}
+
+.feature-card h3 {
+  margin-top: 15px;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 20px;
+}
+
+.feature-card p {
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.feature-card .feature-icon {
+  color: #4285F4;
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.preparation-section {
+  margin-top: 20px;
+}
+
 @media (max-width: 768px) {
   .google-actions {
     flex-direction: column;
