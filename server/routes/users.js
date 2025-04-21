@@ -140,4 +140,70 @@ router.get('/:userId/google-sync-token', async (req, res) => {
   }
 });
 
+// Get user's sleep schedule
+router.get('/:userId/sleep-schedule', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Find the user
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      bedtime: user.bedtime || '00:00', // Default to midnight if not set
+      wakeupTime: user.wakeupTime || '08:00' // Default to 8 AM if not set
+    });
+  } catch (error) {
+    console.error('Error getting sleep schedule:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update user's sleep schedule
+router.put('/:userId/sleep-schedule', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { bedtime, wakeupTime } = req.body;
+    
+    console.log(`Updating sleep schedule for user ${userId}:`, { bedtime, wakeupTime });
+    
+    // Validate time format (HH:MM)
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (bedtime && !timeRegex.test(bedtime)) {
+      return res.status(400).json({ message: 'Invalid bedtime format. Use HH:MM in 24-hour format.' });
+    }
+    if (wakeupTime && !timeRegex.test(wakeupTime)) {
+      return res.status(400).json({ message: 'Invalid wakeupTime format. Use HH:MM in 24-hour format.' });
+    }
+    
+    // Prepare update object with only provided fields
+    const updateFields = {};
+    if (bedtime) updateFields.bedtime = bedtime;
+    if (wakeupTime) updateFields.wakeupTime = wakeupTime;
+    
+    // Find and update the user
+    const user = await User.findByIdAndUpdate(
+      userId,
+      updateFields,
+      { new: true } // Return the updated document
+    );
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      message: 'Sleep schedule updated successfully',
+      bedtime: user.bedtime,
+      wakeupTime: user.wakeupTime
+    });
+  } catch (error) {
+    console.error('Error updating sleep schedule:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

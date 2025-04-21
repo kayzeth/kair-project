@@ -315,16 +315,85 @@ export const generateSmartStudySuggestions = async (eventsOrUserId, targetEvent,
       }
     }).join('\n');
     
-    // Create the base prompt for Gemini
-    const basePromptText = `
-I need to create a study plan for an upcoming ${eventType}. Here are the details:
+    // Get user ID from the events or userId parameter
+    let userId;
+    if (typeof eventsOrUserId === 'string') {
+      userId = eventsOrUserId;
+    } else if (targetEvent && targetEvent.userId) {
+      userId = targetEvent.userId;
+    } else {
+      console.warn('No user ID available for sleep schedule, using defaults');
+    }
+    
+    // Get sleep schedule from database or use defaults
+    let bedtime = '00:00';
+    let wakeupTime = '08:00';
+    
+    // Try to fetch from database if we have a userId
+    if (userId) {
+      try {
+        const response = await fetch(`/api/users/${userId}/sleep-schedule`);
+        if (response.ok) {
+          const data = await response.json();
+          bedtime = data.bedtime;
+          wakeupTime = data.wakeupTime;
+          console.log('Using sleep schedule from database:', { bedtime, wakeupTime });
+        }
+      } catch (error) {
+        console.error('Error fetching sleep schedule from database:', error);
+        // Fall back to localStorage as backup
+        bedtime = localStorage.getItem('bedtime') || '00:00';
+        wakeupTime = localStorage.getItem('wakeupTime') || '08:00';
+      }
+    } else {
+      // Fall back to localStorage if no userId
+      bedtime = localStorage.getItem('bedtime') || '00:00';
+      wakeupTime = localStorage.getItem('wakeupTime') || '08:00';
+    }
+    
+    // Format times for display (convert from 24h to 12h format)
+    const formatTimeForDisplay = (time24h) => {
+      const [hours, minutes] = time24h.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
+      return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+    };
+    
+    // Calculate sleep hours
+    const calculateSleepHours = () => {
+      // Parse times
+      const [bedHours, bedMinutes] = bedtime.split(':').map(Number);
+      const [wakeHours, wakeMinutes] = wakeupTime.split(':').map(Number);
+      
+      // Convert to minutes since midnight
+      let bedTimeMinutes = bedHours * 60 + bedMinutes;
+      let wakeTimeMinutes = wakeHours * 60 + wakeMinutes;
+      
+      // Handle case where wake time is earlier than bed time (next day)
+      if (wakeTimeMinutes < bedTimeMinutes) {
+        wakeTimeMinutes += 24 * 60; // Add a day in minutes
+      }
+      
+      // Calculate difference in hours, rounded to nearest 0.5
+      const sleepHours = Math.round((wakeTimeMinutes - bedTimeMinutes) / 30) / 2;
+      return sleepHours;
+    };
+    
+    const sleepHours = calculateSleepHours();
+    const availableHours = 24 - sleepHours;
+    
+    const bedtimeFormatted = formatTimeForDisplay(bedtime);
+    const wakeupTimeFormatted = formatTimeForDisplay(wakeupTime);
+
+    // Generate the prompt for Gemini
+    const promptText = `I need to create a study plan for an upcoming ${eventType}. Here are the details:
 
 EVENT INFORMATION:
 - Title: ${targetEvent.title}
 - Date and Time: ${formattedEventDate}
 - Hours needed for preparation: ${preparationHours}
 - Days until event: ${daysUntilEvent}
-- Current date and time: ${formatDate(now)}
+- Current date and time: ${formatDate(new Date())}
 
 EXISTING CALENDAR EVENTS (that I need to work around):
 ${formattedEvents || "No other events scheduled"}
@@ -334,7 +403,7 @@ STUDY PLAN RULES:
 - Don't schedule any sessions in the past
 - CRITICAL: Do NOT schedule any study sessions that overlap with the existing calendar events listed above
 - Ensure at least 30 minutes buffer time before and after existing calendar events
-- Don't schedule anything between 1:00 AM and 8:00 AM (respect natural sleep schedule)
+- Don't schedule anything between ${bedtimeFormatted} and ${wakeupTimeFormatted} because the user will be asleep. So you can only schedule events for the ${availableHours.toFixed(1)} hours following ${wakeupTimeFormatted}
 - Maximum session length should be 4 hours
 - Schedule all sessions to start and end on 15-minute increments (e.g., 9:00, 9:15, 9:30, 9:45)
 - Limit study to a maximum of ${Math.max(1, Math.ceil(preparationHours / 2))} different days
@@ -415,12 +484,16 @@ Example format:
     let formattedSuggestions = [];
     let isValid = false;
     
+    // Store the original prompt text
+    let currentPromptText = promptText;
+    
     while (attempts < MAX_RETRIES && !isValid) {
       attempts++;
       
       // Add retry-specific instructions to the prompt if this isn't the first attempt
-      let promptText = basePromptText;
-      if (attempts > 1) {
+      if (attempts === 1) {
+        // First attempt uses the original prompt
+      } else {
         // Calculate the difference from the previous attempt
         const previousTotalHours = formattedSuggestions.length > 0 ? 
           calculateTotalHours(formattedSuggestions) : 0;
@@ -471,11 +544,11 @@ Example format:
         });
         
         // Place the feedback at the beginning of the prompt
-        promptText = `IMPORTANT FEEDBACK (Attempt ${attempts} of ${MAX_RETRIES}):\n${feedbackMessage}\n\nYour task is to create a study plan that EXACTLY equals ${preparationHours} hours total.\n\n${basePromptText}`;
+        currentPromptText = `IMPORTANT FEEDBACK (Attempt ${attempts} of ${MAX_RETRIES}):\n${feedbackMessage}\n\nYour task is to create a study plan that EXACTLY equals ${preparationHours} hours total.\n\n${promptText}`;
       }
       
       console.log(`Attempt ${attempts} of ${MAX_RETRIES} to generate valid study suggestions`);
-      console.log('Sending prompt to Gemini:', promptText);
+      console.log('Sending prompt to Gemini:', currentPromptText);
       
       try {
         // For @google/generative-ai, use the gemini-2.0-flash model
@@ -484,7 +557,7 @@ Example format:
           contents: [
             {
               role: "user",
-              parts: [{ text: promptText }]
+              parts: [{ text: currentPromptText }]
             }
           ]
         });

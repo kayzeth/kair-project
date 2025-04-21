@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
-import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
+import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
 import googleCalendarService from '../services/googleCalendarService';
 import googleCalendarDbService from '../services/googleCalendarDbService';
@@ -18,11 +18,108 @@ const Account = () => {
   const [canvasSyncStatus, setCanvasSyncStatus] = useState({ status: 'idle', message: '' });
   const [canvasFormData, setCanvasFormData] = useState({ token: '', domain: '' });
   const [isCanvasConnected, setIsCanvasConnected] = useState(false);
+  const [sleepSchedule, setSleepSchedule] = useState({
+    bedtime: '00:00',
+    wakeupTime: '08:00'
+  });
 
   // Debug logging
   useEffect(() => {
     console.log('Auth state:', { isLoggedIn, authUser });
   }, [isLoggedIn, authUser]);
+  
+  // Fetch sleep schedule from database when user is logged in
+  useEffect(() => {
+    if (isLoggedIn && authUser) {
+      const fetchData = async () => {
+        try {
+          const response = await fetch(`/api/users/${authUser.id}/sleep-schedule`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Fetched sleep schedule:', data);
+            setSleepSchedule({
+              bedtime: data.bedtime,
+              wakeupTime: data.wakeupTime
+            });
+          } else {
+            throw new Error('Failed to fetch sleep schedule');
+          }
+        } catch (error) {
+          console.error('Error fetching sleep schedule:', error);
+          // Fall back to defaults if there's an error
+          setSleepSchedule({
+            bedtime: '00:00',
+            wakeupTime: '08:00'
+          });
+        }
+      };
+      
+      fetchData();
+    }
+  }, [isLoggedIn, authUser]);
+  
+
+  
+  // Function to handle changes to sleep schedule inputs
+  const handleSleepScheduleChange = async (e) => {
+    const { name, value } = e.target;
+    
+    // Update local state first for immediate UI feedback
+    setSleepSchedule(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Save to database
+    try {
+      const updateData = { [name]: value };
+      const response = await fetch(`/api/users/${authUser.id}/sleep-schedule`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (response.ok) {
+        console.log(`Updated ${name} to ${value} in database`);
+      } else {
+        throw new Error('Failed to update sleep schedule');
+      }
+      
+      // Also update localStorage as a fallback
+      localStorage.setItem(name, value);
+    } catch (error) {
+      console.error(`Error updating ${name}:`, error);
+      // If API call fails, at least we have the value in localStorage
+      localStorage.setItem(name, value);
+    }
+  };
+
+  // Function to calculate hours between bedtime and wakeup
+  const calculateSleepHours = () => {
+    if (!sleepSchedule.bedtime || !sleepSchedule.wakeupTime) {
+      return 8; // Default to 8 hours if not set
+    }
+    
+    // Parse times
+    const [bedHours, bedMinutes] = sleepSchedule.bedtime.split(':').map(Number);
+    const [wakeHours, wakeMinutes] = sleepSchedule.wakeupTime.split(':').map(Number);
+    
+    // Convert to minutes since midnight
+    let bedTimeMinutes = bedHours * 60 + bedMinutes;
+    let wakeTimeMinutes = wakeHours * 60 + wakeMinutes;
+    
+    // Handle case where wake time is earlier than bed time (next day)
+    if (wakeTimeMinutes < bedTimeMinutes) {
+      wakeTimeMinutes += 24 * 60; // Add a day in minutes
+    }
+    
+    // Calculate difference in hours, rounded to nearest 0.5
+    const sleepHours = Math.round((wakeTimeMinutes - bedTimeMinutes) / 30) / 2;
+    
+    return sleepHours;
+  };
 
   // Check Canvas connection status on component mount and when authUser changes
   useEffect(() => {
@@ -669,8 +766,84 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
           <p>After the initial sync, a sync button will be available for you to manually sync your Canvas assignments, announcements, quizzes, and events. Kairos can automate creating these events for you.</p>
       </div>
       </div>
+      
+      <div className="account-section">
+        <h2 className="section-title">Smart Preparation Planning</h2>
+        
+        <div className="preparation-section">
+          <div className="sleep-schedule-form">
+            <h4>Your Sleep Schedule</h4>
+            <p className="sleep-schedule-description">
+              Set your typical sleep hours so we can avoid scheduling preparation sessions during this time.
+            </p>
+            
+            <div className="sleep-schedule-inputs">
+              <div className="form-group">
+                <label htmlFor="bedtime">
+                  <FontAwesomeIcon icon={faMoon} className="schedule-icon" /> Bedtime
+                </label>
+                <input
+                  type="time"
+                  id="bedtime"
+                  name="bedtime"
+                  value={sleepSchedule.bedtime}
+                  onChange={handleSleepScheduleChange}
+                  className="time-input"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="wakeupTime">
+                  <FontAwesomeIcon icon={faSun} className="schedule-icon" /> Wake-up Time
+                </label>
+                <input
+                  type="time"
+                  id="wakeupTime"
+                  name="wakeupTime"
+                  value={sleepSchedule.wakeupTime}
+                  onChange={handleSleepScheduleChange}
+                  className="time-input"
+                />
+              </div>
+            </div>
+            
+            <p className="sleep-hours-note">
+              We will not schedule any events during the {calculateSleepHours()} hours you are asleep.
+            </p>
+          </div>
+          
+          <div className="feature-description">
+            <h4>How Kairos Helps You Prepare for Important Events</h4>
+            
+            <h5>Setting Up Preparation Reminders</h5>
+            <ul>
+              <li>When creating a calendar event, check the "Requires Preparation" box for exams, assignments, or any event you need to prepare for.</li>
+              <li>You can specify preparation hours immediately, or leave it blank to decide later.</li>
+              <li>If you don't specify hours, Kairos will remind you 2 weeks before the event.</li>
+            </ul>
+            
+            <h5>How the Preparation Planning Works</h5>
+            <ul>
+              <li>Early Reminder: If you didn't specify preparation hours when creating the event, you'll receive a reminder 2 weeks before the event asking how much time you need.</li>
+              <li>Preparation Suggestions: 8 days before your event, Kairos will generate personalized preparation sessions based on your existing calendar commitments, the type of event, and your available free time.</li>
+              <li>Manual Generation: You can also click the "Generate Study Plan" button in an event's details at any time to immediately create preparation suggestions, even if the event is more than 8 days away.</li>
+            </ul>
+            
+            <h5>Adding Preparation Sessions to Your Calendar</h5>
+            <ul>
+              <li>Review the suggested preparation plan</li>
+              <li>Click "Accept" to add all sessions to your calendar</li>
+              <li>Or select which of the suggestions you would like to add to the calendar</li>
+            </ul>
+            
+            <p>Your preparation sessions will appear in your calendar with reminders to help you stay on track!</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
+
+
 
 export default Account;
