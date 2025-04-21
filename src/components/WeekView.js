@@ -168,7 +168,8 @@ const WeekView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
             // Create a new date at this hour
             const newDate = new Date(currentDay);
             newDate.setHours(i, 0, 0, 0);
-            onAddEvent(newDate);
+            // Pass both the date and the suggested hour
+            onAddEvent(newDate, i);
           }}
         ></div>
       );

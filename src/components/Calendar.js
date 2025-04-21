@@ -707,9 +707,12 @@ const Calendar = ({ initialEvents = [], userId }) => {
   };
 
   // Event handlers
-  const addEventHandler = (date = currentDate) => {
+  const addEventHandler = (date = currentDate, suggestedHour = null) => {
     setSelectedDate(date);
     setSelectedEvent(null);
+    // Store the suggested hour in a state variable to pass to the EventModal
+    const eventData = suggestedHour !== null ? { suggestedHour } : null;
+    setSelectedEvent(eventData);
     setShowModal(true);
   };
 
