@@ -35,30 +35,52 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   // Ref for the color dropdown to handle outside clicks
   const colorDropdownRef = useRef(null);
   
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    location: '',
-    start: format(selectedDate, 'yyyy-MM-dd'),
-    end: format(selectedDate, 'yyyy-MM-dd'),
-    startTime: '09:00',
-    endTime: '10:00',
-    allDay: false,
-    color: '#d2b48c',
-    requiresPreparation: false,
-    preparationHours: '',
-    // Recurring event fields
-    isRecurring: false,
-    recurrenceFrequency: 'WEEKLY',
-    recurrenceEndDate: format(addMonths(selectedDate, 3), 'yyyy-MM-dd'), // Default to 3 months
-    recurrenceDays: [],
-    // Track the source of the event
-    source: '',
-    studySuggestionsShown: false,
-    studySuggestionsAccepted: false,
-    isStudySession: false,
-    relatedEventId: null
-  });
+  // Initialize with default values
+  const getInitialFormData = () => {
+    // Default start and end times
+    let startTime = '09:00';
+    let endTime = '10:00';
+    
+    // If there's a suggested hour from clicking a time slot in week view
+    if (event && event.suggestedHour !== undefined) {
+      // Format the hour as a string with leading zero if needed
+      const hour = event.suggestedHour.toString().padStart(2, '0');
+      startTime = `${hour}:00`;
+      
+      // Set end time to be 1 hour after start time
+      const endHour = (event.suggestedHour + 1) % 24;
+      endTime = `${endHour.toString().padStart(2, '0')}:00`;
+    }
+    
+    return {
+      title: '',
+      description: '',
+      location: '',
+      start: format(selectedDate, 'yyyy-MM-dd'),
+      end: format(selectedDate, 'yyyy-MM-dd'),
+      startTime: startTime,
+      endTime: endTime,
+      allDay: false,
+      color: '#d2b48c',
+      requiresPreparation: false,
+      preparationHours: '',
+      // Recurring event fields
+      isRecurring: false,
+      recurrenceFrequency: 'WEEKLY',
+      recurrenceEndDate: format(addMonths(selectedDate, 3), 'yyyy-MM-dd'), // Default to 3 months
+      recurrenceDays: [],
+      // Track the source of the event
+      source: '',
+      studySuggestionsShown: false,
+      studySuggestionsAccepted: false,
+      isStudySession: false,
+      relatedEventId: null
+    };
+  };
+  
+  const [formData, setFormData] = useState(getInitialFormData());
+  const [formErrors, setFormErrors] = useState({});
+  const [isFormValid, setIsFormValid] = useState(true);
 
   useEffect(() => {
     if (event) {
@@ -69,6 +91,11 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
 
   useEffect(() => {
     if (event) {
+      // Skip initialization if this is just a suggestedHour object
+      if (event.suggestedHour !== undefined) {
+        return;
+      }
+      
       // For Date objects, use proper formatting
       let startDate, endDate, startTime, endTime;
       
@@ -142,19 +169,78 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     }
   }, [event]);
 
+  // Validate time values to ensure they're in a valid format
+  const validateTimeValues = (data) => {
+    const errors = {};
+    let isValid = true;
+    
+    // Skip validation for all-day events
+    if (data.allDay) {
+      return { isValid, errors };
+    }
+    
+    try {
+      // Validate start time
+      const [startHours, startMinutes] = data.startTime.split(':').map(Number);
+      if (isNaN(startHours) || startHours < 0 || startHours > 23 || 
+          isNaN(startMinutes) || startMinutes < 0 || startMinutes > 59) {
+        errors.startTime = 'Invalid start time format';
+        isValid = false;
+      }
+      
+      // Validate end time
+      const [endHours, endMinutes] = data.endTime.split(':').map(Number);
+      if (isNaN(endHours) || endHours < 0 || endHours > 23 || 
+          isNaN(endMinutes) || endMinutes < 0 || endMinutes > 59) {
+        errors.endTime = 'Invalid end time format';
+        isValid = false;
+      }
+      
+      // Validate that end date/time is after start date/time
+      if (isValid) {
+        const [startYear, startMonth, startDay] = data.start.split('-').map(Number);
+        const startDate = new Date(startYear, startMonth - 1, startDay, startHours, startMinutes);
+        
+        const [endYear, endMonth, endDay] = data.end.split('-').map(Number);
+        const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes);
+        
+        if (endDate <= startDate) {
+          errors.timeRange = 'End time must be after start time';
+          isValid = false;
+        }
+      }
+    } catch (error) {
+      console.error('Error validating time values:', error);
+      errors.timeRange = 'Invalid time format';
+      isValid = false;
+    }
+    
+    return { isValid, errors };
+  };
+  
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
+    let updatedFormData;
     if (type === 'checkbox') {
-      setFormData(prevData => ({
-        ...prevData,
+      updatedFormData = {
+        ...formData,
         [name]: checked
-      }));
+      };
     } else {
-      setFormData(prevData => ({
-        ...prevData,
+      updatedFormData = {
+        ...formData,
         [name]: value
-      }));
+      };
+    }
+    
+    setFormData(updatedFormData);
+    
+    // Validate the form after any changes to time-related fields
+    if (['start', 'end', 'startTime', 'endTime', 'allDay'].includes(name)) {
+      const { isValid, errors } = validateTimeValues(updatedFormData);
+      setIsFormValid(isValid);
+      setFormErrors(errors);
     }
   };
 
@@ -163,6 +249,14 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     
     if (!formData.title.trim()) {
       alert('Event title is required');
+      return;
+    }
+    
+    // Validate time values before submitting
+    const { isValid, errors } = validateTimeValues(formData);
+    if (!isValid) {
+      setIsFormValid(false);
+      setFormErrors(errors);
       return;
     }
     
@@ -861,44 +955,59 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
             </div>
           </div>
           <div className="modal-footer">
-            {event && (
-              <button 
-                type="button" 
-                className="button button-danger button-left"
-                data-testid="eventmodal-delete-button" 
-                onClick={handleDelete}
-              >
-                <FontAwesomeIcon icon={faTrashAlt} className="button-icon" />
-                Delete
-              </button>
+            {/* Display form validation errors */}
+            {!isFormValid && Object.keys(formErrors).length > 0 && (
+              <div className="form-error-message" style={{ color: 'red', marginBottom: '10px' }}>
+                {Object.values(formErrors).map((error, index) => (
+                  <div key={index}>{error}</div>
+                ))}
+              </div>
             )}
-            {formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
+            
+            <div className="form-buttons">
+              {event && (
+                <button 
+                  type="button" 
+                  className="button button-danger button-left"
+                  data-testid="eventmodal-delete-button" 
+                  onClick={handleDelete}
+                >
+                  <FontAwesomeIcon icon={faTrashAlt} className="button-icon" />
+                  Delete
+                </button>
+              )}
+              
+              {formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
+                <button 
+                  type="button" 
+                  className="button button-secondary button-right"
+                  data-testid="eventmodal-trigger-study-suggestions-button" 
+                  onClick={handleTriggerStudySuggestions}
+                  title={event ? "Generate a study plan for this event" : "Save the event first to generate a study plan"}
+                >
+                  <FontAwesomeIcon icon={faBookOpen} className="button-icon" />
+                  Generate Study Plan
+                </button>
+              )}
+              
               <button 
                 type="button" 
                 className="button button-secondary button-right"
-                data-testid="eventmodal-trigger-study-suggestions-button" 
-                onClick={handleTriggerStudySuggestions}
-                title={event ? "Generate a study plan for this event" : "Save the event first to generate a study plan"}
+                data-testid="eventmodal-cancel-button" 
+                onClick={onClose}
               >
-                <FontAwesomeIcon icon={faBookOpen} className="button-icon" />
-                Generate Study Plan
+                Cancel
               </button>
-            )}
-            <button 
-              type="button" 
-              className="button button-secondary button-right"
-              data-testid="eventmodal-cancel-button" 
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              className="button button-primary button-right"
-              data-testid="eventmodal-save-button"
-            >
-              {event ? 'Save' : 'Save'}
-            </button>
+              
+              <button 
+                type="submit" 
+                className="button button-primary button-right"
+                data-testid="eventmodal-save-button"
+                disabled={!isFormValid}
+              >
+                {event ? 'Save' : 'Save'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
