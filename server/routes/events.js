@@ -247,77 +247,99 @@ router.post('/google-import', async (req, res) => {
       errors: []
     };
 
-    // Process each event
-    for (const event of events) {
-      try {
-        // Check if event is deleted
-        if (event.isDeleted) {
-          // If the event is deleted, remove it from our database
-          if (event.googleEventId) {
-            const deleteResult = await Event.deleteOne({ google_event_id: event.googleEventId });
-            if (deleteResult.deletedCount > 0) {
-              results.deleted++;
-              console.log(`Deleted event with Google ID: ${event.googleEventId}`);
+    // Process events in batches to prevent timeouts
+    const BATCH_SIZE = 50; // Process 50 events at a time
+    const totalEvents = events.length;
+    const batches = Math.ceil(totalEvents / BATCH_SIZE);
+    
+    console.log(`Processing ${totalEvents} events in ${batches} batches of ${BATCH_SIZE}`);
+    
+    for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
+      const start = batchIndex * BATCH_SIZE;
+      const end = Math.min(start + BATCH_SIZE, totalEvents);
+      const batchEvents = events.slice(start, end);
+      
+      console.log(`Processing batch ${batchIndex + 1}/${batches} with ${batchEvents.length} events`);
+      
+      // Use Promise.all to process events in a batch concurrently
+      const batchPromises = batchEvents.map(async (event) => {
+        try {
+          // Check if event is deleted
+          if (event.isDeleted) {
+            // If the event is deleted, remove it from our database
+            if (event.googleEventId) {
+              const deleteResult = await Event.deleteOne({ 
+                google_event_id: event.googleEventId,
+                user_id: userId
+              });
+              if (deleteResult.deletedCount > 0) {
+                results.deleted++;
+              }
             }
+            return;
           }
-          continue;
-        }
-        
-        // Check if required fields are present for non-deleted events
-        if (!event.title || event.allDay === undefined || 
-            !event.start || !event.end || !event.googleEventId) {
+          
+          // Check if required fields are present for non-deleted events
+          if (!event.title || event.allDay === undefined || 
+              !event.start || !event.end || !event.googleEventId) {
+            results.errors.push({
+              eventId: event.googleEventId || 'unknown',
+              error: 'Missing required fields'
+            });
+            return;
+          }
+
+          // Check if event already exists by google_event_id
+          const existingEvent = await Event.findOne({ 
+            google_event_id: event.googleEventId, 
+            user_id: userId 
+          });
+
+          if (existingEvent) {
+            // Update existing event
+            existingEvent.title = event.title;
+            existingEvent.all_day = event.allDay;
+            existingEvent.start_time = new Date(event.start);
+            existingEvent.end_time = new Date(event.end);
+            existingEvent.description = event.description || '';
+            existingEvent.location = event.location || '';
+            existingEvent.color = event.color || '#d2b48c';
+            
+            await existingEvent.save();
+            results.updated++;
+          } else {
+            // Create new event
+            const newEvent = new Event({
+              user_id: userId,
+              title: event.title,
+              all_day: event.allDay,
+              start_time: new Date(event.start),
+              end_time: new Date(event.end),
+              source: 'GOOGLE_CALENDAR',
+              description: event.description || '',
+              location: event.location || '',
+              requires_preparation: false,
+              color: event.color || '#d2b48c',
+              google_event_id: event.googleEventId
+            });
+            
+            await newEvent.save();
+            results.imported++;
+          }
+        } catch (error) {
+          console.error(`Error processing event ${event.googleEventId || 'unknown'}:`, error);
           results.errors.push({
             eventId: event.googleEventId || 'unknown',
-            error: 'Missing required fields'
+            error: error.message
           });
-          continue;
         }
-
-        // Check if event already exists by google_event_id
-        const existingEvent = await Event.findOne({ 
-          google_event_id: event.googleEventId, 
-          user_id: userId 
-        });
-
-        if (existingEvent) {
-          // Update existing event
-          existingEvent.title = event.title;
-          existingEvent.all_day = event.allDay;
-          existingEvent.start_time = new Date(event.start);
-          existingEvent.end_time = new Date(event.end);
-          existingEvent.description = event.description || '';
-          existingEvent.location = event.location || '';
-          existingEvent.color = event.color || '#d2b48c';
-          
-          await existingEvent.save();
-          results.updated++;
-        } else {
-          // Create new event
-          const newEvent = new Event({
-            user_id: userId,
-            title: event.title,
-            all_day: event.allDay,
-            start_time: new Date(event.start),
-            end_time: new Date(event.end),
-            source: 'GOOGLE_CALENDAR',
-            description: event.description || '',
-            location: event.location || '',
-            requires_preparation: false,
-            color: event.color || '#d2b48c',
-            google_event_id: event.googleEventId
-            // group_id is not required as we've made it optional in the schema
-          });
-          
-          await newEvent.save();
-          results.imported++;
-        }
-      } catch (error) {
-        console.error(`Error processing event ${event.googleEventId || 'unknown'}:`, error);
-        results.errors.push({
-          eventId: event.googleEventId || 'unknown',
-          error: error.message
-        });
-      }
+      });
+      
+      // Wait for all events in this batch to be processed
+      await Promise.all(batchPromises);
+      
+      // Log progress after each batch
+      console.log(`Completed batch ${batchIndex + 1}/${batches}. Progress: imported=${results.imported}, updated=${results.updated}, deleted=${results.deleted}, errors=${results.errors.length}`);
     }
 
     res.status(200).json({

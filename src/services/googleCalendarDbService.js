@@ -80,60 +80,164 @@ const clearSyncData = async (userId) => {
 };
 
 /**
- * Imports events from Google Calendar and stores them in MongoDB
- * @param {Array} events - Array of Google Calendar events
+ * Store Google Calendar events in MongoDB with retry mechanism
+ * @param {Array} events - Array of events from Google Calendar
  * @param {string} userId - ID of the current user
- * @returns {Promise<Object>} Results of the import operation
+ * @param {number} retryCount - Number of retries attempted (internal use)
+ * @returns {Promise<Object>} Results of the storage operation
  */
-const storeGoogleEventsInDb = async (events, userId) => {
+const storeGoogleEventsInDb = async (events, userId, retryCount = 0) => {
   try {
-    if (!events || !Array.isArray(events) || events.length === 0) {
-      console.log('No events to import');
-      return { 
-        imported: 0, 
-        updated: 0,
-        deleted: 0,
-        skipped: 0, 
-        errors: [] 
-      };
-    }
-
     if (!userId) {
       throw new Error('User ID is required to import events');
     }
 
-    console.log(`Attempting to store ${events.length} Google Calendar events in database`);
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 60000; // 60 seconds timeout
+    
+    console.log(`Attempting to store ${events.length} Google Calendar events in database (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+    
+    // Split events into smaller batches if there are many events
+    const BATCH_SIZE = 200;
+    if (events.length > BATCH_SIZE && retryCount === 0) {
+      console.log(`Large number of events (${events.length}), splitting into batches of ${BATCH_SIZE}`);
+      
+      const batches = [];
+      for (let i = 0; i < events.length; i += BATCH_SIZE) {
+        batches.push(events.slice(i, i + BATCH_SIZE));
+      }
+      
+      console.log(`Processing ${batches.length} batches`);
+      
+      // Process batches sequentially to avoid overwhelming the server
+      let combinedResults = {
+        imported: 0,
+        updated: 0,
+        deleted: 0,
+        skipped: 0,
+        errors: []
+      };
+      
+      for (let i = 0; i < batches.length; i++) {
+        console.log(`Processing batch ${i + 1}/${batches.length} with ${batches[i].length} events`);
+        try {
+          const batchResult = await storeGoogleEventsInDb(batches[i], userId);
+          // Combine results
+          combinedResults.imported += batchResult.imported || 0;
+          combinedResults.updated += batchResult.updated || 0;
+          combinedResults.deleted += batchResult.deleted || 0;
+          combinedResults.skipped += batchResult.skipped || 0;
+          if (batchResult.errors && batchResult.errors.length) {
+            combinedResults.errors = [...combinedResults.errors, ...batchResult.errors];
+          }
+        } catch (error) {
+          console.error(`Error processing batch ${i + 1}:`, error);
+          combinedResults.errors.push({
+            batch: i + 1,
+            error: error.message
+          });
+        }
+      }
+      
+      // Dispatch an event to notify the Calendar component to refresh
+      setTimeout(() => {
+        console.log('Dispatching calendar update event...');
+        window.dispatchEvent(new Event('calendarEventsUpdated'));
+      }, 500);
+      
+      return combinedResults;
+    }
+    
+    // Create an AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
     
     // Make the API request using the relative URL (works with proxy setup)
-    const response = await fetch(`${BASE_URL}/google-import`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        events,
-        userId
-      }),
-    });
+    try {
+      const response = await fetch(`${BASE_URL}/google-import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          events,
+          userId
+        }),
+        signal: controller.signal
+      });
+      
+      // Clear the timeout since we got a response
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to store events in database');
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage;
+        
+        try {
+          // Try to parse as JSON
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || 'Failed to store events in database';
+        } catch (parseError) {
+          // If not valid JSON, use the text directly
+          errorMessage = errorText || 'Failed to store events in database';
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const resultText = await response.text();
+      let result;
+      
+      try {
+        result = JSON.parse(resultText);
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        throw new Error('Invalid response format from server');
+      }
+      
+      console.log('Google Calendar events stored in database:', result);
+      
+      // Dispatch an event to notify the Calendar component to refresh
+      setTimeout(() => {
+        console.log('Dispatching calendar update event...');
+        window.dispatchEvent(new Event('calendarEventsUpdated'));
+      }, 500);
+      
+      return result.results;
+    } catch (fetchError) {
+      // Clear the timeout if there was an error
+      clearTimeout(timeoutId);
+      
+      // Handle abort errors (timeout)
+      if (fetchError.name === 'AbortError') {
+        console.error('Request timed out after', TIMEOUT_MS, 'ms');
+        throw new Error(`Request timed out after ${TIMEOUT_MS / 1000} seconds`);
+      }
+      
+      throw fetchError;
     }
-
-    const result = await response.json();
-    console.log('Google Calendar events stored in database:', result);
-    
-    // Dispatch an event to notify the Calendar component to refresh
-    // This is done asynchronously to avoid blocking the UI
-    setTimeout(() => {
-      console.log('Dispatching calendar update event...');
-      window.dispatchEvent(new Event('calendarEventsUpdated'));
-    }, 500);
-    
-    return result.results;
   } catch (error) {
     console.error('Error storing Google Calendar events in database:', error);
+    
+    // Implement retry logic
+    const MAX_RETRIES = 3;
+    if (retryCount < MAX_RETRIES) {
+      const backoffTime = Math.pow(2, retryCount) * 1000; // Exponential backoff
+      console.log(`Retrying in ${backoffTime}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      
+      return new Promise((resolve, reject) => {
+        setTimeout(async () => {
+          try {
+            const result = await storeGoogleEventsInDb(events, userId, retryCount + 1);
+            resolve(result);
+          } catch (retryError) {
+            // If all retries fail, reject with the error
+            reject(retryError);
+          }
+        }, backoffTime);
+      });
+    }
+    
     throw error;
   }
 };
