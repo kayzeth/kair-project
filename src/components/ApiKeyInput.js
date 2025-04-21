@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faKey, faCheck, faEye, faEyeSlash, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { getApiKey, saveApiKey, clearApiKey, initializeGenAI } from '../services/geminiService';
+import { getApiKey, saveApiKey, clearApiKey, initializeGenAISync } from '../services/geminiService';
 
 /**
  * Component for entering and managing the Gemini API key
@@ -15,14 +15,22 @@ const ApiKeyInput = ({ onApiKeySubmit }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [persistence, setPersistence] = useState('session');
   
-  // Check if API key exists in storage on component mount
+  // Check if API key exists on component mount
   useEffect(() => {
-    const savedApiKey = getApiKey();
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-      setMessage('API key loaded from storage');
-      setTimeout(() => setMessage(''), 3000);
-    }
+    const checkApiKey = async () => {
+      try {
+        const savedApiKey = await getApiKey();
+        if (savedApiKey) {
+          setApiKey(savedApiKey);
+          setMessage('API key loaded from server');
+          setTimeout(() => setMessage(''), 3000);
+        }
+      } catch (error) {
+        console.error('Error checking API key:', error);
+      }
+    };
+    
+    checkApiKey();
   }, []);
 
   const handleSubmit = (e) => {
@@ -42,7 +50,7 @@ const ApiKeyInput = ({ onApiKeySubmit }) => {
     }
     
     // Reinitialize the Gemini API with the new key
-    const genAI = initializeGenAI();
+    const genAI = initializeGenAISync();
     
     if (!genAI) {
       setError('API key saved but failed to initialize Gemini API');
@@ -58,9 +66,7 @@ const ApiKeyInput = ({ onApiKeySubmit }) => {
     setIsExpanded(false);
     
     // Show success message
-    setMessage(`API key saved ${persistence === 'none' ? 'for this session only (not stored)' : 
-               persistence === 'session' ? 'until browser is closed' : 
-               'permanently in browser'}`);
+    setMessage('API key is now managed by the server for all users');
     setTimeout(() => setMessage(''), 5000);
   };
 
@@ -92,107 +98,23 @@ const ApiKeyInput = ({ onApiKeySubmit }) => {
       {isExpanded ? (
         <div className="api-key-section-content">
           <p className="api-key-description">
-            Enter your Gemini API key to enable advanced study suggestions.
-            Choose how you want to store your key for security.
+            <strong>Note:</strong> Gemini API key is now managed by the server for all users.
+            You no longer need to provide your own API key.
           </p>
           
-          <form onSubmit={handleSubmit}>
-            <div className="api-key-input-group">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  setError('');
-                }}
-                placeholder="Enter your Gemini API key"
-                className={error ? "error" : ""}
-              />
-              <button 
-                type="button" 
-                className="toggle-visibility"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
-              </button>
-              <button type="submit" className="save-button">
-                <FontAwesomeIcon icon={faCheck} /> Save
-              </button>
-              {apiKey && (
-                <button 
-                  type="button" 
-                  className="clear-button"
-                  onClick={handleClear}
-                >
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
-              )}
-            </div>
-            
-            <div className="storage-options">
-              <label>
-                <input
-                  type="radio"
-                  name="persistence"
-                  value="none"
-                  checked={persistence === 'none'}
-                  onChange={() => setPersistence('none')}
-                />
-                Don't store (most secure, must re-enter each time)
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="persistence"
-                  value="session"
-                  checked={persistence === 'session'}
-                  onChange={() => setPersistence('session')}
-                />
-                Session only (cleared when browser closes)
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="persistence"
-                  value="local"
-                  checked={persistence === 'local'}
-                  onChange={() => setPersistence('local')}
-                />
-                Remember permanently (convenient but less secure)
-              </label>
-            </div>
-            
-            {error && (
-              <div className="api-key-message error">
-                {error}
-              </div>
-            )}
-            
-            {message && (
-              <div className="api-key-message success">
-                {message}
-              </div>
-            )}
-            
-            <div className="api-key-info">
-              <p>
-                <strong>How to get an API key:</strong> Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>, 
-                create or sign in to your Google account, and create a new API key.
-              </p>
-              <p>
-                <strong>Security note:</strong> Your API key is only stored in your browser and is never sent to our servers.
-                For maximum security, use the "Don't store" option and re-enter your key when needed.
-              </p>
-            </div>
-          </form>
+          <div className="api-key-info">
+            <p>
+              The application now uses a centralized API key managed by the server.
+              This provides a better user experience as you no longer need to create and manage your own API key.
+            </p>
+            <p>
+              All study suggestions and AI features will work automatically without any additional setup.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="api-key-status">
-          {apiKey ? (
-            <span className="api-key-set">API key is set {message && `(${message})`}</span>
-          ) : (
-            <span className="api-key-not-set">No API key set - click "Show Details" to add one</span>
-          )}
+          <span className="api-key-set">Gemini API key is managed by the server</span>
         </div>
       )}
     </div>

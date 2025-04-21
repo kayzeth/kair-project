@@ -328,12 +328,9 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   const handleTriggerStudySuggestions = async () => {
     if (event && event.id) {
       try {
-        // Check if study suggestions have already been accepted
-        // If so, silently abort without showing any alerts
+        // Allow regenerating study plans even if the event already has accepted study suggestions
         if (event.studySuggestionsAccepted === true) {
-          console.log(`Event "${event.title}" already has accepted study suggestions. Silently aborting.`);
-          onClose();
-          return;
+          console.log(`Event "${event.title}" already has accepted study suggestions. Regenerating anyway.`);
         }
         
         // First, save the current form data to update the event in the database

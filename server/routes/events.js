@@ -211,8 +211,8 @@ router.get('/related/:eventId', async (req, res) => {
     
     // Find all study sessions that are related to this event
     const relatedStudySessions = await Event.find({
-      related_event_id: eventId,
-      is_study_session: true
+      is_study_session: true,
+      related_event_id: eventId
     });
     
     console.log(`Found ${relatedStudySessions.length} study sessions related to event ID: ${eventId}`);
@@ -222,6 +222,8 @@ router.get('/related/:eventId', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
 
 // Import events from Google Calendar with uniqueness check
 router.post('/google-import', async (req, res) => {

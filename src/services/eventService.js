@@ -429,6 +429,8 @@ const hasRelatedStudySessions = async (eventId) => {
   }
 };
 
+
+
 // Create an object with all the service methods
 const eventService = {
   getUserEvents,
