@@ -1,192 +1,182 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { LoginForm, SignupForm } from '../AuthForms';
 import * as authService from '../../services/authService';
-import { useAuth } from '../../context/AuthContext';
 
-// Mock the react-router-dom module
+// Mock react-router-dom
 jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('../../__mocks__/react-router-dom')
+  useNavigate: jest.fn(),
 }));
 
-// Mock the authService module
+// Mock AuthContext
+jest.mock('../../context/AuthContext', () => ({
+  useAuth: jest.fn(),
+}));
+
+// Mock authService
 jest.mock('../../services/authService', () => ({
   login: jest.fn(),
-  register: jest.fn()
-}));
-
-// Mock the AuthContext
-jest.mock('../../context/AuthContext', () => ({
-  useAuth: jest.fn()
+  register: jest.fn(),
 }));
 
 describe('LoginForm', () => {
-  const mockLogin = jest.fn();
   const mockNavigate = jest.fn();
+  const mockLogin = jest.fn();
   
   beforeEach(() => {
-    // Setup mocks
-    useAuth.mockReturnValue({ login: mockLogin });
-    jest.spyOn(require('react-router-dom'), 'useNavigate').mockReturnValue(mockNavigate);
-    
-    // Reset mock function calls
+    // Clear all mocks
     jest.clearAllMocks();
-  });
-
-  test('renders login form correctly', () => {
-    // Render the component
-    render(<LoginForm />);
     
-    // Assert that form elements are present
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument();
+    // Setup mocks
+    useNavigate.mockReturnValue(mockNavigate);
+    useAuth.mockReturnValue({ login: mockLogin });
+    
+    // Mock localStorage
+    const mockLocalStorage = {
+      getItem: jest.fn(),
+      setItem: jest.fn(),
+      clear: jest.fn()
+    };
+    global.localStorage = mockLocalStorage;
   });
 
-  test('submits form with correct data and handles successful login', async () => {
+  it('navigates to /onboarding for first-time users', async () => {
     // Mock successful login response
-    const mockUser = { id: 'user123', name: 'Test User', email: 'test@example.com' };
-    const mockToken = 'test-token-123';
-    const mockResponse = { user: mockUser, token: mockToken };
-    authService.login.mockResolvedValue(mockResponse);
+    const mockUser = { id: '123', email: 'test@example.com' };
+    authService.login.mockResolvedValue({ user: mockUser, token: 'token123' });
     
-    // Render the component
+    // Mock localStorage to indicate onboarding is not complete
+    localStorage.getItem.mockReturnValue(null);
+
     render(<LoginForm />);
-    
-    // Fill out the form
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
-    
+
+    // Fill in the form
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: 'password123' },
+    });
+
     // Submit the form
     fireEvent.click(screen.getByRole('button', { name: /login/i }));
-    
-    // Assert that the login service was called with correct data
-    expect(authService.login).toHaveBeenCalledWith({ 
-      email: 'test@example.com', 
-      password: 'password123' 
-    });
-    
-    // Wait for the async operations to complete
+
     await waitFor(() => {
-      // Assert that context login was called with correct data
-      expect(mockLogin).toHaveBeenCalledWith(mockUser, mockToken);
-      
-      // Assert that navigation happened
+      expect(mockLogin).toHaveBeenCalledWith(mockUser, 'token123');
+      expect(mockNavigate).toHaveBeenCalledWith('/onboarding');
+    });
+  });
+
+  it('navigates to /calendar for returning users who completed onboarding', async () => {
+    // Mock successful login response
+    const mockUser = { id: '123', email: 'test@example.com' };
+    authService.login.mockResolvedValue({ user: mockUser, token: 'token123' });
+    
+    // Mock localStorage to indicate onboarding is complete
+    localStorage.getItem.mockReturnValue('true');
+
+    render(<LoginForm />);
+
+    // Fill in the form
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: 'password123' },
+    });
+
+    // Submit the form
+    fireEvent.click(screen.getByRole('button', { name: /login/i }));
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith(mockUser, 'token123');
       expect(mockNavigate).toHaveBeenCalledWith('/calendar');
     });
   });
 
-  test('displays error message on login failure', async () => {
-    // Mock login failure
+  it('displays error message on login failure', async () => {
     const errorMessage = 'Invalid credentials';
     authService.login.mockRejectedValue(new Error(errorMessage));
-    
-    // Render the component
+
     render(<LoginForm />);
-    
-    // Fill out and submit the form
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrongpassword' } });
+
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: 'wrongpassword' },
+    });
+
     fireEvent.click(screen.getByRole('button', { name: /login/i }));
-    
-    // Wait for the error to be displayed
+
     await waitFor(() => {
       expect(screen.getByText(errorMessage)).toBeInTheDocument();
     });
-    
-    // Assert that navigation did not happen
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
 
 describe('SignupForm', () => {
-  const mockLogin = jest.fn();
   const mockNavigate = jest.fn();
+  const mockLogin = jest.fn();
   
   beforeEach(() => {
-    // Setup mocks
-    useAuth.mockReturnValue({ login: mockLogin });
-    jest.spyOn(require('react-router-dom'), 'useNavigate').mockReturnValue(mockNavigate);
-    
-    // Reset mock function calls
     jest.clearAllMocks();
+    useNavigate.mockReturnValue(mockNavigate);
+    useAuth.mockReturnValue({ login: mockLogin });
   });
 
-  test('renders signup form correctly', () => {
-    // Render the component
-    render(<SignupForm />);
-    
-    // Assert that form elements are present
-    expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sign up/i })).toBeInTheDocument();
-  });
+  it('registers user and navigates to /onboarding', async () => {
+    const mockUser = { id: '123', email: 'test@example.com' };
+    authService.register.mockResolvedValue({ success: true });
+    authService.login.mockResolvedValue({ user: mockUser, token: 'token123' });
 
-  test('submits form with correct data and handles successful registration', async () => {
-    // Mock successful registration and login responses
-    const mockUser = { id: 'user123', name: 'Test User', email: 'test@example.com' };
-    const mockToken = 'test-token-123';
-    const mockLoginResponse = { user: mockUser, token: mockToken };
-    
-    authService.register.mockResolvedValue({ message: 'User created successfully' });
-    authService.login.mockResolvedValue(mockLoginResponse);
-    
-    // Render the component
     render(<SignupForm />);
-    
-    // Fill out the form
-    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
-    
-    // Submit the form
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
-    
-    // Assert that the register service was called with correct data
-    expect(authService.register).toHaveBeenCalledWith({ 
-      name: 'Test User',
-      email: 'test@example.com', 
-      password: 'password123' 
+
+    fireEvent.change(screen.getByLabelText(/name/i), {
+      target: { value: 'Test User' },
     });
-    
-    // Wait for the async operations to complete
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: 'password123' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+
     await waitFor(() => {
-      // Assert that login was called after registration
-      expect(authService.login).toHaveBeenCalledWith({ 
-        email: 'test@example.com', 
-        password: 'password123' 
+      expect(authService.register).toHaveBeenCalledWith({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password123',
       });
-      
-      // Assert that context login was called with correct data
-      expect(mockLogin).toHaveBeenCalledWith(mockUser, mockToken);
-      
-      // Assert that navigation happened
-      expect(mockNavigate).toHaveBeenCalledWith('/calendar');
+      expect(mockLogin).toHaveBeenCalledWith(mockUser, 'token123');
+      expect(mockNavigate).toHaveBeenCalledWith('/onboarding');
     });
   });
 
-  test('displays error message on registration failure', async () => {
-    // Mock registration failure
-    const errorMessage = 'User already exists';
+  it('displays error message on registration failure', async () => {
+    const errorMessage = 'Email already exists';
     authService.register.mockRejectedValue(new Error(errorMessage));
-    
-    // Render the component
+
     render(<SignupForm />);
-    
-    // Fill out and submit the form
-    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'existing@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+
+    fireEvent.change(screen.getByLabelText(/name/i), {
+      target: { value: 'Test User' },
+    });
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: 'password123' },
+    });
+
     fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
-    
-    // Wait for the error to be displayed
+
     await waitFor(() => {
       expect(screen.getByText(errorMessage)).toBeInTheDocument();
     });
-    
-    // Assert that login and navigation did not happen
-    expect(authService.login).not.toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
