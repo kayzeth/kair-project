@@ -21,13 +21,13 @@ function AppContent() {
   const { user } = useAuth();
   
   // Set initial active tab based on current route
-  const getInitialTab = () => {
+  const getInitialTab = React.useCallback(() => {
     const path = location.pathname;
     if (path === '/account') return 'account';
     if (path === '/syllabusParser') return 'syllabusParser';
     if (path === '/calendar') return 'calendar';
     return 'calendar'; // default
-  };
+  }, [location.pathname]);
   
   const [activeTab, setActiveTab] = React.useState(getInitialTab());
   const [events, setEvents] = React.useState([]);
@@ -36,7 +36,7 @@ function AppContent() {
   React.useEffect(() => {
     const currentTab = getInitialTab();
     setActiveTab(currentTab);
-  }, [location.pathname]);
+  }, [getInitialTab]);
   
   // Get user ID from auth context or userService, or use a temporary ID for testing
   const userId = user?.id || getCurrentUserId() || '6574a7d5b5a7f3001c8f8f8f'; // Temporary ID for testing
