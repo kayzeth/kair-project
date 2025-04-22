@@ -31,6 +31,11 @@
       "dest": "server/index.js"
     },
     {
+      "src": "/api/lmsintegration",
+      "methods": ["POST", "GET", "PUT", "DELETE", "OPTIONS"],
+      "dest": "server/index.js"
+    },
+    {
       "src": "/api/lmsintegration/(.*)",
       "dest": "server/index.js"
     },
