@@ -3,7 +3,6 @@
  */
 // Import constants
 import { API_URL } from '../config';
-import googleCalendarService from './googleCalendarService';
 
 // Log the API URL to help with debugging
 console.log('Event Service initialized with API_URL:', API_URL);
