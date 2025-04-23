@@ -162,7 +162,6 @@ router.delete('/:id', async (req, res) => {
     // Check if this is a recurring instance ID (format: originalId-timestamp)
     let isRecurringInstance = false;
     if (eventId.includes('-')) {
-      isRecurringInstance = true;
       // Extract the original event ID
       eventId = eventId.split('-')[0];
       console.log(`Recurring instance detected. Original event ID: ${eventId}`);
@@ -174,21 +173,17 @@ router.delete('/:id', async (req, res) => {
       is_study_session: true
     });
     
-    console.log(`Deleted ${studySessionsResult.deletedCount} associated study sessions`);
-    
-    // Whether it's a recurring instance or a regular event, delete the original event
+    // Delete the event from our database
     const event = await Event.findByIdAndDelete(eventId);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    
+
     // If it was a recurring instance, inform the client
     if (isRecurringInstance) {
       return res.json({ 
-        message: 'Recurring event deleted successfully',
-        originalEventId: eventId,
-        wasRecurring: true,
-        studySessionsDeleted: studySessionsResult.deletedCount
+        message: 'Recurring event deleted successfully', 
+        studySessionsDeleted: studySessionsResult.deletedCount 
       });
     }
     
@@ -222,8 +217,6 @@ router.get('/related/:eventId', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-
 
 // Import events from Google Calendar with uniqueness check
 router.post('/google-import', async (req, res) => {

@@ -11,6 +11,7 @@ import StudySuggestions from './StudySuggestions';
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
 import eventService from '../services/eventService';
+import googleCalendarService from '../services/googleCalendarService'; // Import googleCalendarService
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
@@ -411,82 +412,61 @@ const Calendar = ({ initialEvents = [], userId }) => {
   // Simplified deleteEvent function
   const deleteEvent = async (id) => {
     try {
-      console.log('Deleting event with ID:', id);
-      
-      // Skip in test environment
-      if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
-        setEvents(prevEvents => prevEvents.filter(event => 
-          event.id !== id && !(event.isStudySession && String(event.relatedEventId) === String(id))
-        ));
-        setShowModal(false);
-        return;
+      // First find the event in our local state
+      const event = events.find(e => e.id === id);
+      if (!event) {
+        throw new Error('Event not found in local state');
       }
-      
-      // Extract the original ID if this is a recurring instance
-      const originalId = id.includes('-') ? id.split('-')[0] : id;
-      console.log('Original event ID:', originalId);
-      
-      // Send the ID to the backend - the server will handle parsing if it's a recurring instance
-      console.log('Sending delete request to backend for ID:', id);
+
+      // If it's a Google Calendar event, delete it from Google Calendar first
+      if (event.source === 'GOOGLE_CALENDAR' && event.googleEventId) {
+        try {
+          await googleCalendarService.deleteEvent({
+            googleEventId: event.googleEventId
+          });
+          console.log('Successfully deleted event from Google Calendar');
+        } catch (googleError) {
+          console.error('Error deleting event from Google Calendar:', googleError);
+          // Show error but continue with local deletion
+          setSyncStatus({
+            status: 'error',
+            message: 'Failed to delete from Google Calendar. The event will only be removed from Kairos.'
+          });
+        }
+      }
+
+      // Then delete from our backend
       await eventService.deleteEvent(id);
       
-      // Check if this is a recurring instance (ID format: originalId-timestamp)
-      if (id.includes('-')) {
-        console.log('Handling recurring event deletion UI update');
-        
-        // For recurring instances, remove ALL instances with the same original ID from the UI
-        setDisplayEvents(prevEvents => prevEvents.filter(event => {
-          // If it's a recurring instance, check if it has the same original ID
-          if (event.isRecurringInstance && event.originalEventId) {
-            return event.originalEventId !== originalId;
-          }
-          // Also remove the original event itself
-          return event.id !== originalId;
-        }));
-        
-        // Also remove from the main events array
-        setEvents(prevEvents => prevEvents.filter(event => 
-          event.id !== originalId && !(event.isStudySession && String(event.relatedEventId) === String(originalId))
-        ));
-        
-        // Show success message
-        setSyncStatus({
-          status: 'success',
-          message: 'Recurring event and all its instances deleted successfully'
-        });
-      } else {
-        // For regular events, update the UI to remove both the main event and any associated study sessions
-        setEvents(prevEvents => prevEvents.filter(event => 
-          event.id !== id && !(event.isStudySession && String(event.relatedEventId) === String(id))
-        ));
-        
-        // Show success message
-        setSyncStatus({
-          status: 'success',
-          message: 'Event and associated study sessions deleted successfully'
-        });
-      }
-      
+      // Remove from local state
+      setEvents(prevEvents => prevEvents.filter(e => e.id !== id));
+      setSyncStatus({
+        status: 'success',
+        message: 'Event deleted successfully'
+      });
+
+      // Close any open modals
+      setShowModal(false);
+
+      // Clear status after 3 seconds
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
-      
-      setShowModal(false);
+
     } catch (error) {
       console.error('Error deleting event:', error);
-      
-      // Show error message
       setSyncStatus({
         status: 'error',
-        message: `Failed to delete event: ${error.message}`
+        message: 'Failed to delete event'
       });
       
+      // Clear error after 3 seconds
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
     }
   };
-  
+
   // Simplified triggerStudySuggestions function
   const triggerStudySuggestions = useCallback(async (event, forceGenerate = false) => {
     try {
