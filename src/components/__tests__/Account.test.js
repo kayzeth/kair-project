@@ -8,11 +8,13 @@ import { useAuth, AuthProvider } from '../../context/AuthContext';
 // Mock the dependencies before importing them
 jest.mock('../../services/googleCalendarService');
 jest.mock('../../config/googleCalendarConfig');
+jest.mock('../../services/googleCalendarDbService');
 jest.mock('../../services/canvasService');
 jest.mock('../../config/canvasConfig');
 
 // Import the mocked modules after mocking
 import googleCalendarService from '../../services/googleCalendarService';
+import googleCalendarDbService from '../../services/googleCalendarDbService';
 import { isConfigured as isGoogleConfigured } from '../../config/googleCalendarConfig';
 import canvasService from '../../services/canvasService';
 import { isConfigured as isCanvasConfigured } from '../../config/canvasConfig';
@@ -30,10 +32,10 @@ const MockAuthProvider = ({ children }) => {
   const mockAuthValue = {
     user: { _id: 'test-user-id', email: 'test@example.com', name: 'Test User' },
     isAuthenticated: true,
-    authToken: 'test-token',
-    login: jest.fn(),
-    logout: jest.fn()
-  };
+  authToken: 'test-token',
+  login: jest.fn(),
+  logout: jest.fn()
+};
 
   return (
     <TestAuthContext.Provider value={mockAuthValue}>
@@ -54,7 +56,7 @@ jest.mock('../../context/AuthContext', () => ({
   AuthProvider: ({ children }) => <>{children}</>
 }));
 
-// Custom render function 
+// Custom render function
 const renderWithAuth = (ui) => {
   return render(ui);
 };
@@ -229,52 +231,43 @@ describe('Account Component', () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId('sync-button'));
     });
-    
+
+    const mockUser = {
+      name: 'Test User',
+      email: 'test@example.com'
+    };
+
     // Wait for the import method to be called
+    // Test the direct interaction instead
     await waitFor(() => {
-      expect(googleCalendarService.importEvents).toHaveBeenCalled();
+      expect(googleCalendarDbService.forceSyncGoogleCalendar).toHaveBeenCalledWith(mockUser.id);
     });
   });
 
   test('displays sync status messages', async () => {
-    // Mock signed-in state
-    googleCalendarService.isSignedIn.mockReturnValue(true);
-    googleCalendarService.getCurrentUser.mockReturnValue({
+    // Set up localStorage with proper user data first
+    const mockUser = {
+      id: 'test-user-id',  // <-- This is crucial!
       name: 'Test User',
       email: 'test@example.com'
-    });
+    };
+    localStorage.setItem('userData', JSON.stringify(mockUser));
     
-    // Mock the initialize method to resolve immediately
-    googleCalendarService.initialize.mockResolvedValue();
+    await act(() => {
+      renderWithAuth(<Account />, {
+        authState: {
+          ...mockAuthContext,
+          user: mockUser  // Make sure auth context matches localStorage
+        }
+      });
+    });
   
-    // Mock the importEvents method which is called by the component's syncWithGoogleCalendar function
-    googleCalendarService.importEvents.mockResolvedValue([{ id: '1', summary: 'Test Event' }]);
-  
-    // Render the component within act
+    const syncButton = await screen.findByTestId('sync-button');
     await act(async () => {
-      renderWithAuth(<Account />);
+      fireEvent.click(syncButton);
     });
     
-    // Wait for the component to finish initializing
-    await act(async () => {
-      // Manually trigger the sign-in callback that was registered
-      if (googleCalendarService.signInCallback) {
-        googleCalendarService.signInCallback(true);
-      }
-    });
-    
-    // Wait for the sync button to appear
-    await waitFor(() => {
-      expect(screen.getByTestId('sync-button')).toBeInTheDocument();
-    });
-    
-    // Click the sync button to trigger status update
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('sync-button'));
-    });
-    
-    // Just verify that the sync method was called
-    expect(googleCalendarService.importEvents).toHaveBeenCalled();
+    expect(screen.getByTestId('sync-message')).toHaveTextContent('Syncing with Google Calendar...');
   });
 
   test('updates UI when sign-in state changes', async () => {

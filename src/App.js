@@ -13,16 +13,32 @@ import './styles/App.css';
 import './styles/Account.css';
 import './styles/SyllabusParser.css';
 import './styles/Landing.css';
+import './styles/LoadingSpinner.css';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = React.useState('calendar');
-  const [events, setEvents] = React.useState([]);
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // Set initial active tab based on current route
+  const getInitialTab = React.useCallback(() => {
+    const path = location.pathname;
+    if (path === '/account') return 'account';
+    if (path === '/syllabusParser') return 'syllabusParser';
+    if (path === '/calendar') return 'calendar';
+    return 'calendar'; // default
+  }, [location.pathname]);
+  
+  const [activeTab, setActiveTab] = React.useState(getInitialTab());
+  const [events, setEvents] = React.useState([]);
+  
+  // Update active tab when location changes
+  React.useEffect(() => {
+    const currentTab = getInitialTab();
+    setActiveTab(currentTab);
+  }, [getInitialTab]);
   
   // Get user ID from auth context or userService, or use a temporary ID for testing
-  // This ensures we always have a user ID for testing the MongoDB integration
   const userId = user?.id || getCurrentUserId() || '6574a7d5b5a7f3001c8f8f8f'; // Temporary ID for testing
 
   console.log('DIAGNOSTIC: App.js - Current user ID:', userId);

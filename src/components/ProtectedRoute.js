@@ -1,12 +1,18 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from './LoadingSpinner';
 
 const ProtectedRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { isLoggedIn, isInitialized } = useAuth();
 
-  if (!user) {
-    // Redirect to landing page if not authenticated
+  // Show loading spinner while auth state is initializing
+  if (!isInitialized) {
+    return <LoadingSpinner />;
+  }
+
+  // Only redirect if we're sure user isn't authenticated
+  if (!isLoggedIn) {
     return <Navigate to="/" replace />;
   }
 

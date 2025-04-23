@@ -5,6 +5,13 @@ const cors = require('cors');
 const connectDB = require('./config/database');
 const fetch = require('node-fetch');
 
+// Set NODE_ENV to 'development' if not set
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+}
+
+console.log('Server starting in', process.env.NODE_ENV, 'mode');
+
 const app = express();
 
 // Connect to MongoDB

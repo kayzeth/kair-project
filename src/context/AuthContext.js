@@ -6,6 +6,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize auth state from localStorage on mount
   useEffect(() => {
@@ -18,6 +19,7 @@ export const AuthProvider = ({ children }) => {
       setIsLoggedIn(true);
       console.log('Auth initialized:', { storedToken, storedUser });
     }
+    setIsInitialized(true);
   }, []);
 
   const login = (userData, token) => {
@@ -49,6 +51,7 @@ export const AuthProvider = ({ children }) => {
     isLoggedIn,
     user,
     authToken,
+    isInitialized,
     login,
     logout
   };
