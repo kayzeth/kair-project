@@ -195,8 +195,6 @@ const canvasService = {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: userId,
-          lms_type: 'CANVAS',
           token: formattedToken,
           domain: formattedDomain
         })
@@ -205,9 +203,17 @@ const canvasService = {
       console.log(`[Canvas] API Response status: ${response.status}`);
       
       if (!response.ok) {
-        const error = await response.json();
-        console.error('[Canvas] API Error response:', error.message);
-        throw new Error(error.message || 'Failed to save Canvas credentials');
+        let errorMessage;
+        try {
+          const error = await response.json();
+          errorMessage = error.message;
+        } catch (parseError) {
+          // If JSON parsing fails, try to get the raw text
+          const errorText = await response.text();
+          errorMessage = errorText;
+        }
+        console.error('[Canvas] API Error response:', errorMessage);
+        throw new Error(errorMessage || 'Failed to save Canvas credentials');
       }
 
       console.log('[Canvas] Credentials validated successfully');
