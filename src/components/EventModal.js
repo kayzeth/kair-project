@@ -828,6 +828,10 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                         checked={formData.requiresPreparation}
                         onChange={handleChange}
                         data-testid="eventmodal-requires-preparation"
+                        // Additional data-testid for Safari-specific tests
+                        {...(navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? {
+                          'data-testid': 'eventmodalsafari-requires-preparation-checkbox'
+                        } : {})}
                       />
                       Requires Preparation
                     </div>
@@ -836,7 +840,10 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
               )}
                 
               {formData.requiresPreparation && (
-                <div className="date-time-row">
+                <div 
+                  className="date-time-row"
+                  data-testid="eventmodalsafari-preparation-hours-container"
+                >
                   <label htmlFor="preparationHours" className="form-label">
                     Preparation Hours:
                   </label>
@@ -849,6 +856,10 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                     onChange={handleChange}
                     placeholder="Enter hours"
                     min="0"
+                    // Additional data-testid for Safari-specific tests
+                    {...(navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? {
+                      'data-testid': 'eventmodalsafari-preparation-hours-input'
+                    } : {})}
                     step="0.5"
                     data-testid="eventmodal-preparation-hours"
                   />
