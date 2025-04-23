@@ -195,6 +195,8 @@ const canvasService = {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          user_id: userId,
+          lms_type: 'CANVAS',
           token: formattedToken,
           domain: formattedDomain
         })
