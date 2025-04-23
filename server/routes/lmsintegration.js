@@ -35,6 +35,13 @@ router.post('/', async (req, res) => {
   try {
     const { domain, token, user_id } = req.body;
     
+    console.log('[LMS] Request body:', {
+      domain,
+      tokenPresent: !!token,
+      tokenLength: token?.length,
+      user_id
+    });
+    
     if (!domain || !token || !user_id) {
       console.error('[LMS] Missing domain, token, or user_id');
       return res.status(400).json({ message: 'Domain, token, and user_id are required' });
@@ -50,6 +57,10 @@ router.post('/', async (req, res) => {
         : 'http://localhost:3001/api/canvas/users/self';
 
       console.log(`[LMS] Using proxy URL: ${proxyUrl}`);
+      console.log('[LMS] Headers:', {
+        'Authorization': token.substring(0, 10) + '...',
+        'x-canvas-domain': domain
+      });
 
       const testResponse = await fetch(proxyUrl, {
         headers: {
@@ -64,7 +75,10 @@ router.post('/', async (req, res) => {
       if (!testResponse.ok) {
         const errorText = await testResponse.text();
         console.error('[LMS] Canvas API validation failed:', errorText);
-        return res.status(401).json({ message: 'Invalid Canvas credentials' });
+        return res.status(401).json({ 
+          message: 'Invalid Canvas credentials',
+          details: errorText
+        });
       }
 
       await testResponse.json();

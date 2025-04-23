@@ -188,6 +188,12 @@ const canvasService = {
         formattedDomain = `canvas.${domain}.edu`;
       }
 
+      console.log('[Canvas] Sending integration request with:', {
+        domain: formattedDomain,
+        tokenLength: formattedToken.length,
+        userId
+      });
+
       // Store in database
       const response = await fetch(`${API_URL}/lmsintegration`, {
         method: 'POST',
@@ -209,10 +215,11 @@ const canvasService = {
         try {
           const error = await response.json();
           errorMessage = error.message;
+          console.error('[Canvas] Detailed error:', error);
         } catch (parseError) {
-          // If JSON parsing fails, try to get the raw text
           const errorText = await response.text();
           errorMessage = errorText;
+          console.error('[Canvas] Raw error text:', errorText);
         }
         console.error('[Canvas] API Error response:', errorMessage);
         throw new Error(errorMessage || 'Failed to save Canvas credentials');
