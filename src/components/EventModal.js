@@ -812,7 +812,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
             </div>
             
             {/* [KAIR-16] Add Requires Preparation checkbox and hours input */}
-            <div className="form-group form-group-flex-center">
+            <div className="form-group form-group-flex-top">
               {/* Only show the book icon and preparation checkbox for non-NUDGER events */}
               {formData.source !== 'NUDGER' && (
                 <>
@@ -827,43 +827,49 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                         className="checkbox-input"
                         checked={formData.requiresPreparation}
                         onChange={handleChange}
-                        data-testid="eventmodal-requires-preparation"
-                        // Additional data-testid for Safari-specific tests
-                        {...(navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? {
-                          'data-testid': 'eventmodalsafari-requires-preparation-checkbox'
-                        } : {})}
+                        data-testid="eventmodalsafari-requires-preparation-checkbox"
                       />
                       Requires Preparation
                     </div>
+                    
+                    {formData.requiresPreparation && (
+                      <div 
+                        className="date-time-row"
+                        data-testid="eventmodalsafari-preparation-hours-container"
+                        style={{ marginTop: '10px' }}
+                      >
+                        <label htmlFor="preparationHours" className="form-label">
+                          Preparation Hours:
+                        </label>
+                        <input
+                          type="number"
+                          id="preparationHours"
+                          name="preparationHours"
+                          className="form-input preparation-hours-input"
+                          value={formData.preparationHours}
+                          onChange={handleChange}
+                          placeholder="Enter hours"
+                          min="0"
+                          data-testid="eventmodalsafari-preparation-hours-input"
+                          step="0.5"
+                        />
+                      </div>
+                    )}
+
+                    {formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
+                      <button 
+                        type="button" 
+                        className="button button-secondary"
+                        data-testid="eventmodal-trigger-study-suggestions-button" 
+                        onClick={handleTriggerStudySuggestions}
+                        title={event ? "Generate a study plan for this event" : "Save the event first to generate a study plan"}
+                      >
+                        <FontAwesomeIcon icon={faBookOpen} className="button-icon" />
+                        Generate Study Plan
+                      </button>
+                    )}
                   </div>
                 </>
-              )}
-                
-              {formData.requiresPreparation && (
-                <div 
-                  className="date-time-row"
-                  data-testid="eventmodalsafari-preparation-hours-container"
-                >
-                  <label htmlFor="preparationHours" className="form-label">
-                    Preparation Hours:
-                  </label>
-                  <input
-                    type="number"
-                    id="preparationHours"
-                    name="preparationHours"
-                    className="form-input preparation-hours-input"
-                    value={formData.preparationHours}
-                    onChange={handleChange}
-                    placeholder="Enter hours"
-                    min="0"
-                    // Additional data-testid for Safari-specific tests
-                    {...(navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? {
-                      'data-testid': 'eventmodalsafari-preparation-hours-input'
-                    } : {})}
-                    step="0.5"
-                    data-testid="eventmodal-preparation-hours"
-                  />
-                </div>
               )}
             </div>
             
@@ -972,29 +978,16 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
               </div>
             )}
             
-            <div className="form-buttons">
+            <div className="form-buttons" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
               {event && (
                 <button 
                   type="button" 
-                  className="button button-danger button-left"
+                  className="button button-danger"
                   data-testid="eventmodal-delete-button" 
                   onClick={handleDelete}
                 >
                   <FontAwesomeIcon icon={faTrashAlt} className="button-icon" />
                   Delete
-                </button>
-              )}
-              
-              {formData.requiresPreparation && (formData.preparationHours !== undefined && formData.preparationHours !== null && formData.preparationHours !== '') && (
-                <button 
-                  type="button" 
-                  className="button button-secondary button-right"
-                  data-testid="eventmodal-trigger-study-suggestions-button" 
-                  onClick={handleTriggerStudySuggestions}
-                  title={event ? "Generate a study plan for this event" : "Save the event first to generate a study plan"}
-                >
-                  <FontAwesomeIcon icon={faBookOpen} className="button-icon" />
-                  Generate Study Plan
                 </button>
               )}
               
@@ -1009,7 +1002,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
               
               <button 
                 type="submit" 
-                className="button button-primary button-right"
+                className="button button-primary"
                 data-testid="eventmodal-save-button"
                 disabled={!isFormValid}
               >
