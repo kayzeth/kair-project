@@ -104,48 +104,75 @@ const storeGoogleEventsInDb = async (events, userId) => {
 
     console.log(`Attempting to store ${events.length} Google Calendar events in database`);
     
-    // Make the API request using the relative URL (works with proxy setup)
-    const response = await fetch(`${BASE_URL}/google-import`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        events,
-        userId
-      }),
-    });
+    // Process events in batches of 50
+    const BATCH_SIZE = 50;
+    let totalResults = {
+      imported: 0,
+      updated: 0,
+      deleted: 0,
+      skipped: 0,
+      errors: []
+    };
 
-    if (!response.ok) {
-      // For 504 Gateway Timeout errors, we want to show the full error message
-      if (response.status === 504) {
-        throw new Error('Server timeout while storing events. The request took too long to complete. This usually happens when trying to process too many events at once.');
-      }
+    // Split events into batches
+    for (let i = 0; i < events.length; i += BATCH_SIZE) {
+      const batch = events.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1} of ${Math.ceil(events.length/BATCH_SIZE)} (${batch.length} events)`);
       
-      // For other errors, try to get the error details from response
-      let errorMessage;
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || 'Failed to store events in database';
-      } catch (parseError) {
-        // If we can't parse the JSON, get the raw text
-        const errorText = await response.text();
-        errorMessage = `Server error: ${errorText}`;
+        // Make the API request using the relative URL (works with proxy setup)
+        const response = await fetch(`${BASE_URL}/google-import`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            events: batch,
+            userId
+          }),
+        });
+
+        if (!response.ok) {
+          // For 504 Gateway Timeout errors, we want to show the full error message
+          if (response.status === 504) {
+            throw new Error('Server timeout while storing events. The request took too long to complete. This usually happens when trying to process too many events at once.');
+          }
+          
+          // For other errors, try to get the error details from response
+          let errorMessage;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || 'Failed to store events in database';
+          } catch (parseError) {
+            // If we can't parse the JSON, get the raw text
+            const errorText = await response.text();
+            errorMessage = `Server error: ${errorText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        const batchResult = await response.json();
+        
+        // Aggregate results
+        totalResults.imported += batchResult.imported || 0;
+        totalResults.updated += batchResult.updated || 0;
+        totalResults.deleted += batchResult.deleted || 0;
+        totalResults.skipped += batchResult.skipped || 0;
+        totalResults.errors = totalResults.errors.concat(batchResult.errors || []);
+        
+        console.log(`Batch ${Math.floor(i/BATCH_SIZE) + 1} completed:`, batchResult);
+      } catch (error) {
+        console.error(`Error processing batch ${Math.floor(i/BATCH_SIZE) + 1}:`, error);
+        totalResults.errors.push({
+          message: error.message,
+          batchStart: i,
+          batchSize: batch.length
+        });
       }
-      throw new Error(errorMessage);
     }
 
-    const result = await response.json();
-    console.log('Google Calendar events stored in database:', result);
-    
-    // Dispatch an event to notify the Calendar component to refresh
-    // This is done asynchronously to avoid blocking the UI
-    setTimeout(() => {
-      console.log('Dispatching calendar update event...');
-      window.dispatchEvent(new Event('calendarEventsUpdated'));
-    }, 500);
-    
-    return result.results;
+    console.log('All batches processed. Final results:', totalResults);
+    return totalResults;
   } catch (error) {
     console.error('Error storing Google Calendar events in database:', error);
     throw error;
