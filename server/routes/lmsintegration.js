@@ -31,24 +31,52 @@ router.get('/:id', async (req, res) => {
 
 // Create new LMS integration
 router.post('/', async (req, res) => {
+  console.log('[LMS] Received integration request');
   try {
-    const integration = new LmsIntegration(req.body);
-    await integration.save();
-
-    // If this is a Canvas integration, trigger initial sync
-    if (integration.lms_type === 'CANVAS') {
-      try {
-        // Make internal request to sync endpoint
-        await syncCanvasEvents(integration.user_id);
-      } catch (syncError) {
-        console.error('Error during initial Canvas sync:', syncError);
-        // Don't fail the integration creation if sync fails
-      }
+    const { domain, token } = req.body;
+    
+    if (!domain || !token) {
+      console.error('[LMS] Missing domain or token');
+      return res.status(400).json({ message: 'Domain and token are required' });
     }
 
-    res.status(201).json(integration);
+    console.log(`[LMS] Validating Canvas credentials for domain: ${domain}`);
+    
+    // Validate the token with Canvas
+    try {
+      const testResponse = await fetch(`https://${domain}/api/v1/users/self`, {
+        headers: {
+          'Authorization': token,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log(`[LMS] Canvas API validation status: ${testResponse.status}`);
+
+      if (!testResponse.ok) {
+        const errorText = await testResponse.text();
+        console.error('[LMS] Canvas API validation failed:', errorText);
+        return res.status(401).json({ message: 'Invalid Canvas credentials' });
+      }
+
+      const userData = await testResponse.json();
+      console.log('[LMS] Canvas API validation successful');
+
+      // Create or update the integration
+      const integration = await LmsIntegration.findOneAndUpdate(
+        { user_id: userData.id, lms_type: 'CANVAS' },
+        { domain, token },
+        { upsert: true, new: true }
+      );
+
+      console.log('[LMS] Integration saved to database');
+      res.json(integration);
+    } catch (error) {
+      console.error('[LMS] Canvas API validation error:', error.message);
+      res.status(500).json({ message: 'Failed to validate Canvas credentials' });
+    }
   } catch (error) {
-    console.error('Error creating LMS integration:', error);
+    console.error('[LMS] Server error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
