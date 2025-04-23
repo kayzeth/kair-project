@@ -104,8 +104,8 @@ const storeGoogleEventsInDb = async (events, userId) => {
 
     console.log(`Attempting to store ${events.length} Google Calendar events in database`);
     
-    // Process events in batches of 50
-    const BATCH_SIZE = 50;
+    // Process events in batches of 200
+    const BATCH_SIZE = 200;
     let totalResults = {
       imported: 0,
       updated: 0,
