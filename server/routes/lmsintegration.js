@@ -97,12 +97,22 @@ async function syncCanvasEvents(userId) {
   }
 
   // Fetch courses from Canvas
-  const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?include[]=term&per_page=100`, {
-    headers: {
-      'Authorization': integration.token,
-      'Content-Type': 'application/json'
+  const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?` +
+    `include[]=term&` +
+    `include[]=concluded&` + // Include concluded courses
+    `enrollment_state[]=active&` +
+    `enrollment_state[]=completed&` + // Include completed enrollments
+    `per_page=100&` +
+    `state[]=available&` +
+    `state[]=completed&` + // Include completed courses
+    `state[]=unpublished`, // Include unpublished courses
+    {
+      headers: {
+        'Authorization': integration.token,
+        'Content-Type': 'application/json'
+      }
     }
-  });
+  );
 
   if (!coursesResponse.ok) {
     throw new Error('Failed to fetch Canvas courses');
@@ -118,9 +128,8 @@ async function syncCanvasEvents(userId) {
       `https://${integration.domain}/api/v1/courses/${course.id}/assignments?` +
       `include[]=due_at&` +
       `include[]=description&` +
-      `bucket=upcoming&` +
-      `order_by=due_at&` +
-      `per_page=100`,
+      `per_page=100&` +
+      `order_by=due_at`,  // Remove bucket=upcoming to get all assignments
       {
         headers: {
           'Authorization': integration.token,
@@ -154,14 +163,15 @@ async function syncCanvasEvents(userId) {
       events.push(...assignmentEvents);
     }
 
-    // Fetch calendar events
+    // Fetch calendar events with expanded date range
     const calendarResponse = await fetch(
       `https://${integration.domain}/api/v1/calendar_events?` + 
       `context_codes[]=course_${course.id}&` +
       `all_events=1&` +
       `type=event&` +
-      `start_date=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}&` +
-      `end_date=${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString()}`,
+      `start_date=${new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()}&` + // 1 year ago
+      `end_date=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()}&` + // 1 year in future
+      `per_page=100`,
       {
         headers: {
           'Authorization': integration.token,
