@@ -31,84 +31,24 @@ router.get('/:id', async (req, res) => {
 
 // Create new LMS integration
 router.post('/', async (req, res) => {
-  console.log('[LMS] Received integration request');
   try {
-    const { domain, token, user_id } = req.body;
-    
-    if (!domain || !token || !user_id) {
-      console.error('[LMS] Missing domain, token, or user_id');
-      return res.status(400).json({ message: 'Domain, token, and user_id are required' });
-    }
+    const integration = new LmsIntegration(req.body);
+    await integration.save();
 
-    console.log(`[LMS] Validating Canvas credentials for domain: ${domain}`);
-    
-    // Validate the token with Canvas through the proxy
-    try {
-      // Use the proxy server to handle CORS
-      const proxyUrl = process.env.NODE_ENV === 'production' 
-        ? `${process.env.PROXY_URL || 'http://localhost:3001'}/api/canvas/users/self`
-        : 'http://localhost:3001/api/canvas/users/self';
-
-      console.log(`[LMS] Using proxy URL: ${proxyUrl}`);
-
-      const testResponse = await fetch(proxyUrl, {
-        headers: {
-          'Authorization': token,
-          'x-canvas-domain': domain,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log(`[LMS] Canvas API validation status: ${testResponse.status}`);
-
-      if (!testResponse.ok) {
-        const errorText = await testResponse.text();
-        console.error('[LMS] Canvas API validation failed:', errorText);
-        return res.status(401).json({ message: 'Invalid Canvas credentials' });
-      }
-
-      await testResponse.json();
-      console.log('[LMS] Canvas API validation successful');
-
-      // Create or update the integration using the provided MongoDB user_id
-      const integration = await LmsIntegration.findOneAndUpdate(
-        { user_id, lms_type: 'CANVAS' },
-        { domain, token },
-        { upsert: true, new: true }
-      );
-
-      console.log('[LMS] Integration saved to database');
-      
-      // Sync Canvas events immediately after creating/updating the integration
+    // If this is a Canvas integration, trigger initial sync
+    if (integration.lms_type === 'CANVAS') {
       try {
-        console.log('[LMS] Starting initial Canvas sync');
-        const eventsAdded = await syncCanvasEvents(user_id);
-        console.log(`[LMS] Initial sync completed, added ${eventsAdded} events`);
-        
-        res.json({
-          integration,
-          syncStatus: {
-            success: true,
-            eventsAdded
-          }
-        });
+        // Make internal request to sync endpoint
+        await syncCanvasEvents(integration.user_id);
       } catch (syncError) {
-        console.error('[LMS] Initial sync error:', syncError);
-        // Still return success for the integration, but include sync error
-        res.json({
-          integration,
-          syncStatus: {
-            success: false,
-            error: syncError.message
-          }
-        });
+        console.error('Error during initial Canvas sync:', syncError);
+        // Don't fail the integration creation if sync fails
       }
-    } catch (error) {
-      console.error('[LMS] Canvas API validation error:', error.message);
-      res.status(500).json({ message: 'Failed to validate Canvas credentials' });
     }
+
+    res.status(201).json(integration);
   } catch (error) {
-    console.error('[LMS] Server error:', error.message);
+    console.error('Error creating LMS integration:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -157,23 +97,6 @@ async function syncCanvasEvents(userId) {
   }
 
   // Fetch courses from Canvas
-  // const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?` +
-  //   `include[]=term&` +
-  //   `include[]=concluded&` + // Include concluded courses
-  //   `enrollment_state[]=active&` +
-  //   `enrollment_state[]=completed&` + // Include completed enrollments
-  //   `per_page=100&` +
-  //   `state[]=available&` +
-  //   `state[]=completed&` + // Include completed courses
-  //   `state[]=unpublished`, // Include unpublished courses
-  //   {
-  //     headers: {
-  //       'Authorization': integration.token,
-  //       'Content-Type': 'application/json'
-  //     }
-  //   }
-  // );
-
   const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?include[]=term&per_page=100`, {
     headers: {
       'Authorization': integration.token,
@@ -195,8 +118,9 @@ async function syncCanvasEvents(userId) {
       `https://${integration.domain}/api/v1/courses/${course.id}/assignments?` +
       `include[]=due_at&` +
       `include[]=description&` +
-      `per_page=100&` +
-      `order_by=due_at`,  // Remove bucket=upcoming to get all assignments
+      `bucket=upcoming&` +
+      `order_by=due_at&` +
+      `per_page=100`,
       {
         headers: {
           'Authorization': integration.token,
@@ -230,15 +154,14 @@ async function syncCanvasEvents(userId) {
       events.push(...assignmentEvents);
     }
 
-    // Fetch calendar events with expanded date range
+    // Fetch calendar events
     const calendarResponse = await fetch(
       `https://${integration.domain}/api/v1/calendar_events?` + 
       `context_codes[]=course_${course.id}&` +
       `all_events=1&` +
       `type=event&` +
-      `start_date=${new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()}&` + // 1 year ago
-      `end_date=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()}&` + // 1 year in future
-      `per_page=100`,
+      `start_date=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}&` +
+      `end_date=${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString()}`,
       {
         headers: {
           'Authorization': integration.token,
