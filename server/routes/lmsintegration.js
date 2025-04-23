@@ -34,6 +34,18 @@ router.post('/', async (req, res) => {
   try {
     const integration = new LmsIntegration(req.body);
     await integration.save();
+
+    // If this is a Canvas integration, trigger initial sync
+    if (integration.lms_type === 'CANVAS') {
+      try {
+        // Make internal request to sync endpoint
+        await syncCanvasEvents(integration.user_id);
+      } catch (syncError) {
+        console.error('Error during initial Canvas sync:', syncError);
+        // Don't fail the integration creation if sync fails
+      }
+    }
+
     res.status(201).json(integration);
   } catch (error) {
     console.error('Error creating LMS integration:', error);
@@ -73,139 +85,152 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Sync Canvas events for a user
-router.post('/sync/canvas/:userId', async (req, res) => {
-  try {
-    // Find the user's Canvas integration
-    const integration = await LmsIntegration.findOne({ 
-      user_id: req.params.userId,
-      lms_type: 'CANVAS'
-    });
+// Helper function to sync Canvas events
+async function syncCanvasEvents(userId) {
+  const integration = await LmsIntegration.findOne({ 
+    user_id: userId,
+    lms_type: 'CANVAS'
+  });
 
-    if (!integration) {
-      return res.status(404).json({ message: 'Canvas integration not found for user' });
-    }
+  if (!integration) {
+    throw new Error('Canvas integration not found for user');
+  }
 
-    // Fetch courses from Canvas
-    const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?include[]=term&per_page=100`, {
+  // Fetch courses from Canvas
+  const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?` +
+    `include[]=term&` +
+    `include[]=concluded&` + // Include concluded courses
+    `enrollment_state[]=active&` +
+    `enrollment_state[]=completed&` + // Include completed enrollments
+    `per_page=100&` +
+    `state[]=available&` +
+    `state[]=completed&` + // Include completed courses
+    `state[]=unpublished`, // Include unpublished courses
+    {
       headers: {
         'Authorization': integration.token,
         'Content-Type': 'application/json'
       }
-    });
-
-    if (!coursesResponse.ok) {
-      throw new Error('Failed to fetch Canvas courses');
     }
+  );
 
-    const courses = await coursesResponse.json();
-    const events = [];
+  if (!coursesResponse.ok) {
+    throw new Error('Failed to fetch Canvas courses');
+  }
 
-    // For each course, fetch assignments and calendar events
-    for (const course of courses) {
-      // Fetch assignments
-      const assignmentsResponse = await fetch(
-        `https://${integration.domain}/api/v1/courses/${course.id}/assignments?` +
-        `include[]=due_at&` +
-        `include[]=description&` +
-        `bucket=upcoming&` + // Get upcoming and past assignments
-        `order_by=due_at&` +
-        `per_page=100`,
-        {
-          headers: {
-            'Authorization': integration.token,
-            'Content-Type': 'application/json'
-          }
+  const courses = await coursesResponse.json();
+  const events = [];
+
+  // For each course, fetch assignments and calendar events
+  for (const course of courses) {
+    // Fetch assignments
+    const assignmentsResponse = await fetch(
+      `https://${integration.domain}/api/v1/courses/${course.id}/assignments?` +
+      `include[]=due_at&` +
+      `include[]=description&` +
+      `per_page=100&` +
+      `order_by=due_at`,  // Remove bucket=upcoming to get all assignments
+      {
+        headers: {
+          'Authorization': integration.token,
+          'Content-Type': 'application/json'
         }
-      );
-
-      if (assignmentsResponse.ok) {
-        const assignments = await assignmentsResponse.json();
-        
-        // Convert assignments to events
-        const assignmentEvents = assignments
-          .filter(assignment => assignment.due_at)
-          .map(assignment => ({
-            user_id: req.params.userId,
-            title: `${course.name}: ${assignment.name}`,
-            all_day: false,
-            start_time: new Date(assignment.due_at),
-            end_time: new Date(assignment.due_at),
-            description: assignment.description || '',
-            source: 'LMS',
-            metadata: {
-              courseId: course.id,
-              assignmentId: assignment.id,
-              points: assignment.points_possible,
-              url: assignment.html_url
-            }
-          }));
-        
-        events.push(...assignmentEvents);
       }
+    );
 
-      // Fetch calendar events
-      const calendarResponse = await fetch(
-        `https://${integration.domain}/api/v1/calendar_events?` + 
-        `context_codes[]=course_${course.id}&` +
-        `all_events=1&` +
-        `type=event&` +
-        `start_date=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}&` + // 30 days ago
-        `end_date=${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString()}`, // 180 days in future
-        {
-          headers: {
-            'Authorization': integration.token,
-            'Content-Type': 'application/json'
+    if (assignmentsResponse.ok) {
+      const assignments = await assignmentsResponse.json();
+      
+      const assignmentEvents = assignments
+        .filter(assignment => assignment.due_at)
+        .map(assignment => ({
+          user_id: userId,
+          title: `${course.name}: ${assignment.name}`,
+          all_day: false,
+          start_time: new Date(assignment.due_at),
+          end_time: new Date(assignment.due_at),
+          description: assignment.description || '',
+          source: 'LMS',
+          requires_preparation: true,
+          metadata: {
+            courseId: course.id,
+            assignmentId: assignment.id,
+            points: assignment.points_possible,
+            url: assignment.html_url
           }
+        }));
+      
+      events.push(...assignmentEvents);
+    }
+
+    // Fetch calendar events with expanded date range
+    const calendarResponse = await fetch(
+      `https://${integration.domain}/api/v1/calendar_events?` + 
+      `context_codes[]=course_${course.id}&` +
+      `all_events=1&` +
+      `type=event&` +
+      `start_date=${new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()}&` + // 1 year ago
+      `end_date=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()}&` + // 1 year in future
+      `per_page=100`,
+      {
+        headers: {
+          'Authorization': integration.token,
+          'Content-Type': 'application/json'
         }
-      );
-
-      if (calendarResponse.ok) {
-        const calendarEvents = await calendarResponse.json();
-        
-        // Convert calendar events to events
-        const classEvents = calendarEvents
-          .filter(event => event.start_at)
-          .map(event => ({
-            user_id: req.params.userId,
-            title: `${course.name}: ${event.title}`,
-            all_day: event.all_day || false,
-            start_time: new Date(event.start_at),
-            end_time: event.end_at ? new Date(event.end_at) : new Date(event.start_at),
-            description: event.description || '',
-            location: event.location_name || '',
-            source: 'LMS',
-            metadata: {
-              courseId: course.id,
-              eventId: event.id,
-              url: event.html_url
-            }
-          }));
-        
-        events.push(...classEvents);
       }
+    );
+
+    if (calendarResponse.ok) {
+      const calendarEvents = await calendarResponse.json();
+      
+      const classEvents = calendarEvents
+        .filter(event => event.start_at)
+        .map(event => ({
+          user_id: userId,
+          title: `${course.name}: ${event.title}`,
+          all_day: event.all_day || false,
+          start_time: new Date(event.start_at),
+          end_time: event.end_at ? new Date(event.end_at) : new Date(event.start_at),
+          description: event.description || '',
+          location: event.location_name || '',
+          source: 'LMS',
+          metadata: {
+            courseId: course.id,
+            eventId: event.id,
+            url: event.html_url
+          }
+        }));
+      
+      events.push(...classEvents);
     }
+  }
 
-    // Delete existing Canvas events for this user
-    await Event.deleteMany({ 
-      user_id: req.params.userId,
-      source: 'LMS'
-    });
+  // Delete existing Canvas events for this user
+  await Event.deleteMany({ 
+    user_id: userId,
+    source: 'LMS'
+  });
 
-    // Insert new events
-    if (events.length > 0) {
-      await Event.insertMany(events);
-    }
+  // Insert new events
+  if (events.length > 0) {
+    await Event.insertMany(events);
+  }
 
-    // Update last_synced timestamp
-    integration.last_synced = new Date();
-    await integration.save();
+  // Update last_synced timestamp
+  integration.last_synced = new Date();
+  await integration.save();
 
+  return events.length;
+}
+
+// Sync Canvas events for a user
+router.post('/sync/canvas/:userId', async (req, res) => {
+  try {
+    const eventsAdded = await syncCanvasEvents(req.params.userId);
     res.json({ 
       message: 'Canvas sync completed successfully',
-      eventsAdded: events.length
+      eventsAdded
     });
-
   } catch (error) {
     console.error('Error syncing Canvas events:', error);
     res.status(500).json({ message: 'Server error during Canvas sync' });
