@@ -35,13 +35,6 @@ router.post('/', async (req, res) => {
   try {
     const { domain, token, user_id } = req.body;
     
-    console.log('[LMS] Request body:', {
-      domain,
-      tokenPresent: !!token,
-      tokenLength: token?.length,
-      user_id
-    });
-    
     if (!domain || !token || !user_id) {
       console.error('[LMS] Missing domain, token, or user_id');
       return res.status(400).json({ message: 'Domain, token, and user_id are required' });
@@ -57,10 +50,6 @@ router.post('/', async (req, res) => {
         : 'http://localhost:3001/api/canvas/users/self';
 
       console.log(`[LMS] Using proxy URL: ${proxyUrl}`);
-      console.log('[LMS] Headers:', {
-        'Authorization': token.substring(0, 10) + '...',
-        'x-canvas-domain': domain
-      });
 
       const testResponse = await fetch(proxyUrl, {
         headers: {
@@ -75,10 +64,7 @@ router.post('/', async (req, res) => {
       if (!testResponse.ok) {
         const errorText = await testResponse.text();
         console.error('[LMS] Canvas API validation failed:', errorText);
-        return res.status(401).json({ 
-          message: 'Invalid Canvas credentials',
-          details: errorText
-        });
+        return res.status(401).json({ message: 'Invalid Canvas credentials' });
       }
 
       await testResponse.json();
@@ -171,22 +157,29 @@ async function syncCanvasEvents(userId) {
   }
 
   // Fetch courses from Canvas
-  const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?` +
-    `include[]=term&` +
-    `include[]=concluded&` + // Include concluded courses
-    `enrollment_state[]=active&` +
-    `enrollment_state[]=completed&` + // Include completed enrollments
-    `per_page=100&` +
-    `state[]=available&` +
-    `state[]=completed&` + // Include completed courses
-    `state[]=unpublished`, // Include unpublished courses
-    {
-      headers: {
-        'Authorization': integration.token,
-        'Content-Type': 'application/json'
-      }
+  // const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?` +
+  //   `include[]=term&` +
+  //   `include[]=concluded&` + // Include concluded courses
+  //   `enrollment_state[]=active&` +
+  //   `enrollment_state[]=completed&` + // Include completed enrollments
+  //   `per_page=100&` +
+  //   `state[]=available&` +
+  //   `state[]=completed&` + // Include completed courses
+  //   `state[]=unpublished`, // Include unpublished courses
+  //   {
+  //     headers: {
+  //       'Authorization': integration.token,
+  //       'Content-Type': 'application/json'
+  //     }
+  //   }
+  // );
+
+  const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?include[]=term&per_page=100`, {
+    headers: {
+      'Authorization': integration.token,
+      'Content-Type': 'application/json'
     }
-  );
+  });
 
   if (!coursesResponse.ok) {
     throw new Error('Failed to fetch Canvas courses');
