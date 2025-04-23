@@ -117,8 +117,22 @@ const storeGoogleEventsInDb = async (events, userId) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to store events in database');
+      // For 504 Gateway Timeout errors, we want to show the full error message
+      if (response.status === 504) {
+        throw new Error('Server timeout while storing events. The request took too long to complete. This usually happens when trying to process too many events at once.');
+      }
+      
+      // For other errors, try to get the error details from response
+      let errorMessage;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || 'Failed to store events in database';
+      } catch (parseError) {
+        // If we can't parse the JSON, get the raw text
+        const errorText = await response.text();
+        errorMessage = `Server error: ${errorText}`;
+      }
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
@@ -203,8 +217,20 @@ const syncGoogleCalendarWithDb = async (userId, forceFullSync = false) => {
       }
     }
     
-    console.error('Error syncing Google Calendar with database:', error);
-    throw error;
+    // Log the full error details
+    console.error('Error syncing Google Calendar with database:', {
+      message: error.message,
+      status: error.status,
+      stack: error.stack,
+      forceFullSync
+    });
+    
+    // Provide a more descriptive error message
+    if (error.message.includes('Server timeout')) {
+      throw new Error(`Sync failed: ${error.message}`);
+    } else {
+      throw new Error(`Failed to sync with Google Calendar: ${error.message}`);
+    }
   }
 };
 
