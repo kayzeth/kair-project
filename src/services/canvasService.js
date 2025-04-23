@@ -36,8 +36,11 @@ const canvasService = {
         }
       });
 
+      console.log(`[Canvas] API Response status: ${testResponse.status}`);
+      
       if (!testResponse.ok) {
         const error = await testResponse.text();
+        console.error('[Canvas] API Error response:', error);
         throw new Error(error || 'Failed to connect to Canvas API');
       }
       return true;
@@ -52,6 +55,8 @@ const canvasService = {
       console.log('Fetching all courses...');
       const response = await fetch(PROXY_URL + 'courses?include[]=term&per_page=100');
 
+      console.log(`[Canvas] API Response status: ${response.status}`);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch courses');
       }
@@ -84,9 +89,11 @@ const canvasService = {
       console.log(`Fetching assignments for course ${courseId}...`);
       const response = await fetch(PROXY_URL + `courses/${courseId}/assignments?include[]=due_at&include[]=description`);
 
+      console.log(`[Canvas] API Response status: ${response.status}`);
+      
       if (!response.ok) {
         const error = await response.text();
-        console.error(`Failed to fetch assignments for course ${courseId}:`, error);
+        console.error(`[Canvas] API Error response:`, error);
         throw new Error(`Failed to fetch assignments: ${error}`);
       }
 
@@ -108,9 +115,11 @@ const canvasService = {
       // - Added all_events=1 to get all events including hidden ones
       const response = await fetch(PROXY_URL + `calendar_events?context_codes[]=course_${courseId}&all_events=1&include[]=web_conference&per_page=100`);
 
+      console.log(`[Canvas] API Response status: ${response.status}`);
+      
       if (!response.ok) {
         const error = await response.text();
-        console.error(`Failed to fetch calendar events for course ${courseId}:`, error);
+        console.error(`[Canvas] API Error response:`, error);
         throw new Error(`Failed to fetch calendar events: ${error}`);
       }
 
@@ -133,16 +142,22 @@ const canvasService = {
     }
 
     try {
+      console.log('[Canvas] Syncing with calendar - Starting validation');
       const response = await fetch(`${API_URL}/lmsintegration/sync/canvas/${userId}`, {
         method: 'POST'
       });
 
+      console.log(`[Canvas] API Response status: ${response.status}`);
+      
       if (!response.ok) {
         const error = await response.json();
+        console.error('[Canvas] API Error response:', error.message);
         throw new Error(error.message || 'Failed to sync Canvas calendar');
       }
 
       const result = await response.json();
+      console.log('[Canvas] Synced with calendar successfully');
+
       return result.eventsAdded;
     } catch (error) {
       console.error('Failed to sync Canvas calendar:', error);
@@ -155,23 +170,24 @@ const canvasService = {
       throw new Error('User ID is required');
     }
 
-    // Add Bearer prefix to token if not present
-    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-
-    // Accept either canvas.*.edu or *.instructure.com format
-    let formattedDomain = domain;
-    if (domain.includes('instructure.com')) {
-      // Already in instructure.com format, use as is
-      formattedDomain = domain;
-    } else if (domain.includes('canvas.') && domain.endsWith('.edu')) {
-      // Already in canvas.*.edu format, use as is
-      formattedDomain = domain;
-    } else {
-      // Try to format as canvas.*.edu
-      formattedDomain = `canvas.${domain}.edu`;
-    }
-
+    console.log('[Canvas] Setting credentials - Starting validation');
     try {
+      // Add Bearer prefix to token if not present
+      const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+      // Accept either canvas.*.edu or *.instructure.com format
+      let formattedDomain = domain;
+      if (domain.includes('instructure.com')) {
+        // Already in instructure.com format, use as is
+        formattedDomain = domain;
+      } else if (domain.includes('canvas.') && domain.endsWith('.edu')) {
+        // Already in canvas.*.edu format, use as is
+        formattedDomain = domain;
+      } else {
+        // Try to format as canvas.*.edu
+        formattedDomain = `canvas.${domain}.edu`;
+      }
+
       // Store in database
       const response = await fetch(`${API_URL}/lmsintegration`, {
         method: 'POST',
@@ -186,15 +202,20 @@ const canvasService = {
         })
       });
 
+      console.log(`[Canvas] API Response status: ${response.status}`);
+      
       if (!response.ok) {
         const error = await response.json();
+        console.error('[Canvas] API Error response:', error.message);
         throw new Error(error.message || 'Failed to save Canvas credentials');
       }
+
+      console.log('[Canvas] Credentials validated successfully');
 
       // Test connection with new credentials
       await canvasService.testConnection(userId);
     } catch (error) {
-      console.error('Failed to save Canvas credentials:', error);
+      console.error('[Canvas] Failed to save credentials:', error);
       throw error;
     }
   },
@@ -210,6 +231,8 @@ const canvasService = {
         method: 'GET'
       });
 
+      console.log(`[Canvas] API Response status: ${response.status}`);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch LMS integrations');
       }
@@ -224,12 +247,14 @@ const canvasService = {
           method: 'DELETE'
         });
 
+        console.log(`[Canvas] API Response status: ${deleteResponse.status}`);
+        
         if (!deleteResponse.ok) {
           throw new Error('Failed to delete Canvas integration');
         }
       }
     } catch (error) {
-      console.error('Failed to clear Canvas credentials:', error);
+      console.error('[Canvas] Failed to clear credentials:', error);
       throw error;
     }
   }

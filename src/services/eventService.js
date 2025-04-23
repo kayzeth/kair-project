@@ -312,10 +312,9 @@ const deleteEvent = async (eventId) => {
       throw new Error('Event ID is required to delete an event');
     }
     
-    console.log(`Deleting event ID: ${eventId}`);
-    console.log(`API URL: ${API_URL}/events/${eventId}`);
-    
-    // Delete the event (server will automatically delete associated study sessions)
+    console.log(`Deleting event with ID: ${eventId}`);
+
+    // Delete from our backend
     const response = await fetch(`${API_URL}/events/${eventId}`, {
       method: 'DELETE',
     });
