@@ -33,20 +33,28 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   console.log('[LMS] Received integration request');
   try {
-    const { domain, token } = req.body;
+    const { domain, token, user_id } = req.body;
     
-    if (!domain || !token) {
-      console.error('[LMS] Missing domain or token');
-      return res.status(400).json({ message: 'Domain and token are required' });
+    if (!domain || !token || !user_id) {
+      console.error('[LMS] Missing domain, token, or user_id');
+      return res.status(400).json({ message: 'Domain, token, and user_id are required' });
     }
 
     console.log(`[LMS] Validating Canvas credentials for domain: ${domain}`);
     
-    // Validate the token with Canvas
+    // Validate the token with Canvas through the proxy
     try {
-      const testResponse = await fetch(`https://${domain}/api/v1/users/self`, {
+      // Use the proxy server to handle CORS
+      const proxyUrl = process.env.NODE_ENV === 'production' 
+        ? `${process.env.PROXY_URL || 'http://localhost:3001'}/api/canvas/users/self`
+        : 'http://localhost:3001/api/canvas/users/self';
+
+      console.log(`[LMS] Using proxy URL: ${proxyUrl}`);
+
+      const testResponse = await fetch(proxyUrl, {
         headers: {
           'Authorization': token,
+          'x-canvas-domain': domain,
           'Content-Type': 'application/json'
         }
       });
@@ -59,18 +67,42 @@ router.post('/', async (req, res) => {
         return res.status(401).json({ message: 'Invalid Canvas credentials' });
       }
 
-      const userData = await testResponse.json();
+      await testResponse.json();
       console.log('[LMS] Canvas API validation successful');
 
-      // Create or update the integration
+      // Create or update the integration using the provided MongoDB user_id
       const integration = await LmsIntegration.findOneAndUpdate(
-        { user_id: userData.id, lms_type: 'CANVAS' },
+        { user_id, lms_type: 'CANVAS' },
         { domain, token },
         { upsert: true, new: true }
       );
 
       console.log('[LMS] Integration saved to database');
-      res.json(integration);
+      
+      // Sync Canvas events immediately after creating/updating the integration
+      try {
+        console.log('[LMS] Starting initial Canvas sync');
+        const eventsAdded = await syncCanvasEvents(user_id);
+        console.log(`[LMS] Initial sync completed, added ${eventsAdded} events`);
+        
+        res.json({
+          integration,
+          syncStatus: {
+            success: true,
+            eventsAdded
+          }
+        });
+      } catch (syncError) {
+        console.error('[LMS] Initial sync error:', syncError);
+        // Still return success for the integration, but include sync error
+        res.json({
+          integration,
+          syncStatus: {
+            success: false,
+            error: syncError.message
+          }
+        });
+      }
     } catch (error) {
       console.error('[LMS] Canvas API validation error:', error.message);
       res.status(500).json({ message: 'Failed to validate Canvas credentials' });

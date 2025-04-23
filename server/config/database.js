@@ -9,7 +9,7 @@ const connectDB = async () => {
     
     // Use different MongoDB URIs for development and production
     const uri = isDevelopment 
-      ? process.env.MONGODB_URI.replace('kairos', 'kairos-dev') // Use development database
+      ? process.env.MONGODB_URI.replace('kairos-prod', 'kairos-dev') // Use development database
       : process.env.MONGODB_URI;                                 // Use production database
     
     console.log('Connecting to database:', isDevelopment ? 'kairos-dev' : 'kairos');
