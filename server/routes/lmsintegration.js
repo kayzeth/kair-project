@@ -179,7 +179,7 @@ async function syncCanvasEvents(userId) {
       'Authorization': integration.token,
       'Content-Type': 'application/json'
     }
-  };
+  });
 
   if (!coursesResponse.ok) {
     throw new Error('Failed to fetch Canvas courses');
