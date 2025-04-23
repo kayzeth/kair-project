@@ -97,12 +97,22 @@ async function syncCanvasEvents(userId) {
   }
 
   // Fetch courses from Canvas
-  const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?include[]=term&per_page=100`, {
-    headers: {
-      'Authorization': integration.token,
-      'Content-Type': 'application/json'
+  const coursesResponse = await fetch(`https://${integration.domain}/api/v1/courses?` +
+    `include[]=term&` +
+    `include[]=concluded&` + // Include concluded courses
+    `enrollment_state[]=active&` +
+    `enrollment_state[]=completed&` + // Include completed enrollments
+    `per_page=100&` +
+    `state[]=available&` +
+    `state[]=completed&` + // Include completed courses
+    `state[]=unpublished`, // Include unpublished courses
+    {
+      headers: {
+        'Authorization': integration.token,
+        'Content-Type': 'application/json'
+      }
     }
-  });
+  );
 
   if (!coursesResponse.ok) {
     throw new Error('Failed to fetch Canvas courses');
@@ -118,6 +128,7 @@ async function syncCanvasEvents(userId) {
       `https://${integration.domain}/api/v1/courses/${course.id}/assignments?` +
       `include[]=due_at&` +
       `include[]=description&` +
+      `bucket=upcoming&` +
       `order_by=due_at&` +
       `per_page=100`,
       {
