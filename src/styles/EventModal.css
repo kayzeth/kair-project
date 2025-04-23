@@ -79,6 +79,12 @@
   margin-top: 10px;
 }
 
+.form-group-flex-top {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+
 .form-group-border-top {
   border-top: 1px solid var(--border-color);
   padding-top: 12px;
