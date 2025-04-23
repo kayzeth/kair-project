@@ -6,13 +6,15 @@ const connectDB = async () => {
     // In production (Vercel), NODE_ENV is automatically set to 'production'
     const isDevelopment = process.env.NODE_ENV === 'development';
     console.log('Current NODE_ENV:', process.env.NODE_ENV);
+
+    process.env.MONGODB_URI.replace('kairos', 'kairos-prod');
     
     // Use different MongoDB URIs for development and production
     const uri = isDevelopment 
       ? process.env.MONGODB_URI.replace('kairos-prod', 'kairos-dev') // Use development database
       : process.env.MONGODB_URI;                                 // Use production database
     
-    console.log('Connecting to database:', isDevelopment ? 'kairos-dev' : 'kairos');
+    console.log('Connecting to database:', isDevelopment ? 'kairos-dev' : 'kairos-prod');
     
     const conn = await mongoose.connect(uri, {
       useNewUrlParser: true,
