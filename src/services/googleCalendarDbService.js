@@ -161,6 +161,10 @@ const storeGoogleEventsInDb = async (events, userId) => {
         totalResults.errors = totalResults.errors.concat(batchResult.errors || []);
         
         console.log(`Batch ${Math.floor(i/BATCH_SIZE) + 1} completed:`, batchResult);
+        
+        // Dispatch an event to notify the calendar component to update after each batch
+        // This ensures users see events as they're imported without needing to refresh
+        window.dispatchEvent(new Event('calendarDataUpdated'));
       } catch (error) {
         console.error(`Error processing batch ${Math.floor(i/BATCH_SIZE) + 1}:`, error);
         totalResults.errors.push({

@@ -365,7 +365,7 @@ const Account = () => {
       }
       
       // Force sync with Google Calendar and store in database
-      const result = await googleCalendarDbService.forceSyncGoogleCalendar(userId);
+      const result = await googleCalendarDbService.syncGoogleCalendarWithDb(userId, forceFullSync);
       console.log(`Synced ${result.events.length} events from Google Calendar to database`);
       
       // Show detailed results in the success message
