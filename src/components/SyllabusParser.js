@@ -154,6 +154,7 @@ const SyllabusParser = ({ onAddEvents }) => {
   };
 
   const [file, setFile] = useState(null);
+  const [pastedText, setPastedText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [extractedInfo, setExtractedInfo] = useState(null);
@@ -170,15 +171,29 @@ const SyllabusParser = ({ onAddEvents }) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
+      // Clear pasted text when a file is selected
+      setPastedText('');
       setError(null);
+    }
+  };
+  
+  const handleTextChange = (e) => {
+    const text = e.target.value;
+    setPastedText(text);
+    // Clear file selection if text is entered
+    if (text.trim().length > 0 && file) {
+      setFile(null);
+      // Reset the file input
+      const fileInput = document.getElementById('syllabus-file');
+      if (fileInput) fileInput.value = '';
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!file) {
-      setError('Please select a syllabus file to upload');
+    if (!file && !pastedText) {
+      setError('Please select a syllabus file to upload or paste syllabus content');
       return;
     }
 
@@ -189,7 +204,15 @@ const SyllabusParser = ({ onAddEvents }) => {
       // Determine file type and read content appropriately
       let content;
       
-      if (file.type === 'application/pdf') {
+      // If using pasted text instead of a file
+      if (pastedText && !file) {
+        content = pastedText;
+        console.log('Processing pasted text...');
+      } else {
+        // Get file extension
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        
+        if (file.type === 'application/pdf') {
         // For PDF files, extract text using pdf.js
         try {
           // Convert file to ArrayBuffer
@@ -218,11 +241,11 @@ const SyllabusParser = ({ onAddEvents }) => {
           const wordCount = content.trim().split(/\s+/).length;
           if (wordCount < 10) {
             console.error('Not enough text content extracted from PDF:', content);
-            throw new Error('Not enough text content could be extracted from this PDF. It may be image-based or protected. Try a .txt or .doc file instead.');
+            throw new Error('Not enough text content could be extracted from this PDF. It may be image-based or protected. Try a .txt, .doc, or .docx file instead.');
           }
         } catch (error) {
           console.error('Failed to extract text from PDF:', error);
-          setError('Failed to extract text from PDF. Try a .txt or .doc file instead.');
+          setError('Failed to extract text from PDF. Try a .txt, .doc, or .docx file instead.');
           setIsLoading(false);
           return;
         }
@@ -313,10 +336,157 @@ const SyllabusParser = ({ onAddEvents }) => {
         
         // We'll no longer automatically add events to calendar
         // The user will confirm via a button click
+      } else if (fileExt === 'docx' || fileExt === 'doc' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
+        // For Word documents (.docx and .doc)
+        try {
+          console.log('Processing Word document...', file.name, fileExt, file.type);
+          
+          // Check if DocToText is available
+          if (typeof window.DocToText !== 'function') {
+            console.error('DocToText library not loaded properly');
+            throw new Error('Document processing library not loaded properly. Please refresh the page and try again.');
+          }
+          
+          // Use docToText library to extract text from Word documents
+          const docToText = new window.DocToText();
+          console.log('DocToText instance created');
+          
+          // Read file as text first as fallback
+          const textContent = await readFileAsText(file);
+          console.log('Fallback text content length:', textContent.length);
+          
+          try {
+            // Try to extract text using docToText
+            console.log('Attempting to extract text with docToText...');
+            content = await docToText.extractToText(file, fileExt);
+            console.log('DocToText extraction successful, content length:', content ? content.length : 0);
+          } catch (docToTextError) {
+            console.error('DocToText extraction failed:', docToTextError);
+            console.log('Falling back to text content');
+            content = textContent;
+          }
+          
+          // If content is empty or undefined, use the text content
+          if (!content || content.trim().length === 0) {
+            console.log('DocToText returned empty content, using fallback text content');
+            content = textContent;
+          }
+          
+          // Check if we have enough content to process
+          const wordCount = content.trim().split(/\s+/).length;
+          console.log('Word count in extracted content:', wordCount);
+          
+          if (wordCount < 10) {
+            console.error('Not enough text content extracted from Word document:', content);
+            throw new Error('Not enough text content could be extracted from this Word document. It may be protected or corrupted.');
+          }
+          
+          // Truncate content if it's too long (though the backend will also handle this)
+          const maxContentLength = 15000; // Adjust based on token limits
+          const truncatedContent = content.length > maxContentLength 
+            ? content.substring(0, maxContentLength) + '... (content truncated)' 
+            : content;
+          
+          console.log('Sending Word document content to backend API...');
+          
+          // Call our secure backend API route
+          const response = await fetch('/api/openai/syllabus-parser', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content: truncatedContent })
+          });
+          
+          // Check response status
+          console.log('Response status:', response.status);
+          
+          if (!response.ok) {
+            // Try to get error details
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+              const errorData = await response.json();
+              console.error('OpenAI API error details:', JSON.stringify(errorData, null, 2));
+              errorMessage = `OpenAI API error: ${errorData.error?.message || errorData.message || 'Unknown error'}`;
+            } catch (jsonError) {
+              console.error('Failed to parse error response:', jsonError);
+              const errorText = await response.text();
+              console.error('Error response text:', errorText);
+            }
+            throw new Error(errorMessage);
+          }
+          
+          const data = await response.json();
+          console.log('OpenAI API Response:', data);
+          
+          // Parse the JSON response
+          let parsedData;
+          try {
+            const content = data.choices[0].message.content;
+            
+            try {
+              // First try to parse it directly
+              parsedData = JSON.parse(content);
+              
+              // Check if OpenAI returned an error message
+              if (parsedData.error) {
+                console.error('OpenAI reported an invalid syllabus:', parsedData.error);
+                setOpenAiError(parsedData.error);
+                // Still set the extracted info and API response so we can display them
+                setApiResponse(data);
+                setExtractedInfo(parsedData);
+                setCalendarEvents([]);
+                setIsLoading(false);
+                return; // Exit early without throwing an error
+              }
+            } catch (directParseError) {
+              // If that fails, it might be a string with escape characters that needs to be parsed differently
+              console.log('Direct parsing failed, trying alternative method');
+              try {
+                // If the string contains escaped characters, try to clean it up
+                if (content.includes('\\n')) {
+                  // This is a JSON string with escape characters
+                  // eslint-disable-next-line no-eval
+                  parsedData = JSON.parse(JSON.stringify(eval('(' + content + ')')));
+                } else {
+                  throw directParseError; // Re-throw if not the escape character issue
+                }
+              } catch (evalError) {
+                console.error('Alternative parsing method failed:', evalError);
+                throw directParseError; // Use the original error for better debugging
+              }
+            }
+            
+            // Validate that the parsed data contains expected syllabus fields
+            if (!validateSyllabusData(parsedData)) {
+              console.error('Invalid syllabus data structure:', parsedData);
+              throw new Error('The AI generated an invalid syllabus structure. This may be due to a non-syllabus document or unrecognizable content.');
+            }
+          } catch (parseError) {
+            console.error('Error parsing OpenAI response:', parseError);
+            throw new Error('Failed to parse the syllabus data. The AI response was not in the expected format.');
+          }
+          
+          setApiResponse(data);
+          setExtractedInfo(parsedData);
+          
+          // Convert parsed data to calendar events
+          const events = convertToCalendarEvents(parsedData);
+          console.log('Generated calendar events:', events);
+          
+          // Set the events
+          setCalendarEvents(events);
+        } catch (error) {
+          console.error('Failed to extract text from Word document:', error);
+          setError('Failed to extract text from Word document: ' + error.message);
+          setIsLoading(false);
+          return;
+        }
       } else {
         // For text files
         content = await readFileAsText(file);
         console.log('Processing text file...');
+      }
         
         // Truncate content if it's too long (though the backend will also handle this)
         const maxContentLength = 15000; // Adjust based on token limits
@@ -426,7 +596,9 @@ const SyllabusParser = ({ onAddEvents }) => {
       if (err.message.includes('non-syllabus PDF') || err.message.includes('invalid syllabus structure')) {
         setError('This doesn\'t appear to be a valid syllabus. Please try a different file or check that your PDF contains recognizable syllabus content.');
       } else if (err.message.includes('extract text from PDF')) {
-        setError('Unable to extract text from this PDF. The file may be scanned, image-based, or protected. Try a .txt or .doc file instead.');
+        setError('Unable to extract text from this PDF. The file may be scanned, image-based, or protected. Try a .txt, .doc, or .docx file instead.');
+      } else if (err.message.includes('extract text from Word document')) {
+        setError('Unable to extract text from this Word document. The file may be protected or corrupted. Try a different file format.');
       } else if (err.message.includes('API')) {
         setError('There was an issue with the AI service. Please try again later.');
       } else {
@@ -783,13 +955,13 @@ const SyllabusParser = ({ onAddEvents }) => {
   return (
     <div className="syllabus-parser-container">
       <h2 data-testid="syllabus-title">Syllabus Parser</h2>
-      <p data-testid="syllabus-upload-instruction">Upload your course syllabus (PDF or text file) to automatically extract important dates and add them to your calendar using OpenAI.</p>
+      <p data-testid="syllabus-upload-instruction">Upload or paste your course syllabus to automatically extract important dates and add them to your calendar using OpenAI.</p>
       
       <form onSubmit={handleSubmit} className="syllabus-form">
   
 
         <div className="file-upload-container">
-          <label htmlFor="syllabus-file" className="file-upload-label">
+          <label htmlFor="syllabus-file" className={`file-upload-label ${pastedText ? 'disabled-upload' : ''}`} style={{ opacity: pastedText ? 0.6 : 1, cursor: pastedText ? 'not-allowed' : 'pointer' }}>
             <FontAwesomeIcon icon={faUpload} />
             {file ? file.name : 'Choose syllabus file'}
           </label>
@@ -797,9 +969,34 @@ const SyllabusParser = ({ onAddEvents }) => {
             type="file"
             id="syllabus-file"
             data-testid="syllabus-file-input"
-            accept=".pdf,.txt"
+            accept=".pdf,.txt,.docx,.doc"
             onChange={handleFileChange}
             className="file-input"
+            disabled={!!pastedText}
+          />
+        </div>
+        
+        <div className="text-paste-container" style={{ marginTop: '20px', marginBottom: '20px' }}>
+          <label htmlFor="syllabus-paste" style={{ display: 'block', marginBottom: '8px', fontWeight: '500', opacity: file ? 0.6 : 1 }}>Or paste syllabus content here:</label>
+          <textarea
+            id="syllabus-paste"
+            data-testid="syllabus-paste-input"
+            value={pastedText}
+            onChange={handleTextChange}
+            placeholder="Paste your syllabus content here..."
+            disabled={!!file}
+            style={{
+              width: '100%',
+              minHeight: '150px',
+              padding: '12px',
+              borderRadius: '6px',
+              border: '1px solid #ddd',
+              fontFamily: 'inherit',
+              fontSize: '14px',
+              resize: 'vertical',
+              backgroundColor: file ? '#f5f5f5' : 'white',
+              cursor: file ? 'not-allowed' : 'text'
+            }}
           />
         </div>
         
@@ -807,7 +1004,7 @@ const SyllabusParser = ({ onAddEvents }) => {
           type="submit" 
           className="parse-button"
           data-testid="syllabus-parse-button"
-          disabled={isLoading || !file}
+          disabled={isLoading || (!file && !pastedText)}
         >
           {isLoading ? (
             <>
