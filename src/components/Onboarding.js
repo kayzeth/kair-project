@@ -130,51 +130,6 @@ const Onboarding = () => {
     }
   };
 
-  // Sync with Google Calendar
-  const syncWithGoogleCalendar = async (forceFullSync = false) => {
-    if (!isSignedIn) {
-      setSyncStatus({ status: 'error', message: 'Not signed in to Google Calendar' });
-      return;
-    }
-
-    setSyncStatus({ status: 'loading', message: 'Syncing with Google Calendar. This may take 30 seconds.'});
-
-    try {
-      if (!authUser?.id) {
-        throw new Error('User ID is required to sync with Google Calendar');
-      }
-
-      // If forceFullSync is true, clear the sync token first
-      if (forceFullSync) {
-        await googleCalendarDbService.clearSyncData(authUser.id);
-      }
-      
-      // Force sync with Google Calendar and store in database
-      const result = await googleCalendarDbService.forceSyncGoogleCalendar(authUser.id);
-      
-      // Show detailed results in the success message
-      const dbResults = result.databaseResults;
-      const resultSummary = `Imported: ${dbResults.imported}, Updated: ${dbResults.updated}, Deleted: ${dbResults.deleted || 0}`;
-      
-      setSyncStatus({
-        status: 'success',
-        message: `Successfully synced with Google Calendar (${resultSummary})`
-      });
-      
-      // The database service already dispatches an event to notify the Calendar component
-      setTimeout(() => {
-        setSyncStatus({ status: 'idle', message: '' });
-      }, 5000);
-      
-    } catch (error) {
-      console.error('Error syncing with Google Calendar:', error);
-      setSyncStatus({
-        status: 'error',
-        message: `Failed to sync with Google Calendar: ${error.message}`
-      });
-    }
-  };
-
   // Handle Canvas form submission
   const handleCanvasSubmit = async (e) => {
     e.preventDefault();
@@ -314,16 +269,6 @@ const Onboarding = () => {
                     <div className="connected-status">
                       <FontAwesomeIcon icon={faCheck} className="status-icon success" />
                       <span>Connected to Google Calendar</span>
-                    </div>
-                    
-                    <div className="google-actions">
-                      <button 
-                        className="button button-primary"
-                        onClick={() => syncWithGoogleCalendar(false)}
-                        style={{ marginRight: '10px' }}
-                      >
-                        <FontAwesomeIcon icon={faSync} /> Import Calendar
-                      </button>
                     </div>
                   </div>
                 </div>
