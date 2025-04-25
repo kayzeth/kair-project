@@ -315,16 +315,6 @@ const Onboarding = () => {
                       <FontAwesomeIcon icon={faCheck} className="status-icon success" />
                       <span>Connected to Google Calendar</span>
                     </div>
-                    
-                    <div className="google-actions">
-                      <button 
-                        className="button button-primary"
-                        onClick={() => syncWithGoogleCalendar(false)}
-                        style={{ marginRight: '10px' }}
-                      >
-                        <FontAwesomeIcon icon={faSync} /> Import Calendar
-                      </button>
-                    </div>
                   </div>
                 </div>
               )}
