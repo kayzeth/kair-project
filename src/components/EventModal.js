@@ -234,6 +234,66 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       };
     }
     
+    // If changing start time or date, check if we need to adjust the end time
+    if (name === 'startTime' || name === 'start') {
+      // Parse the start and end times
+      try {
+        // For start time change
+        if (name === 'startTime') {
+          const [newStartHours, newStartMinutes] = value.split(':').map(Number);
+          const [endHours, endMinutes] = updatedFormData.endTime.split(':').map(Number);
+          
+          // If start and end dates are the same and start time is now later than or equal to end time
+          if (updatedFormData.start === updatedFormData.end && 
+              (newStartHours > endHours || (newStartHours === endHours && newStartMinutes >= endMinutes))) {
+            // Set end time to be 1 hour after the new start time
+            const newEndHours = (newStartHours + 1) % 24;
+            updatedFormData.endTime = `${newEndHours.toString().padStart(2, '0')}:${newStartMinutes.toString().padStart(2, '0')}`;
+            
+            // If adding an hour crosses midnight, increment the end date if needed
+            if (newEndHours < newStartHours && updatedFormData.start === updatedFormData.end) {
+              const startDate = new Date(updatedFormData.start);
+              const nextDay = new Date(startDate);
+              nextDay.setDate(startDate.getDate() + 1);
+              updatedFormData.end = format(nextDay, 'yyyy-MM-dd');
+            }
+          }
+        }
+        
+        // For start date change
+        if (name === 'start') {
+          // If the new start date is later than the current end date
+          const startDate = new Date(value);
+          const endDate = new Date(updatedFormData.end);
+          
+          if (startDate > endDate) {
+            // Set end date to be the same as start date
+            updatedFormData.end = value;
+            
+            // Also check if times need adjustment
+            const [startHours, startMinutes] = updatedFormData.startTime.split(':').map(Number);
+            const [endHours, endMinutes] = updatedFormData.endTime.split(':').map(Number);
+            
+            if (startHours > endHours || (startHours === endHours && startMinutes >= endMinutes)) {
+              // Set end time to be 1 hour after start time
+              const newEndHours = (startHours + 1) % 24;
+              updatedFormData.endTime = `${newEndHours.toString().padStart(2, '0')}:${startMinutes.toString().padStart(2, '0')}`;
+              
+              // If adding an hour crosses midnight, increment the end date
+              if (newEndHours < startHours) {
+                const nextDay = new Date(startDate);
+                nextDay.setDate(startDate.getDate() + 1);
+                updatedFormData.end = format(nextDay, 'yyyy-MM-dd');
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error adjusting end time:', error);
+        // Continue with the form update even if there's an error in the adjustment logic
+      }
+    }
+    
     setFormData(updatedFormData);
     
     // Validate the form after any changes to time-related fields
