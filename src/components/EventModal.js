@@ -102,28 +102,43 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       console.log('Loading event into form:', event);
       console.log('Event studySuggestionsAccepted:', event.studySuggestionsAccepted);
       
-      if (event.start instanceof Date) {
-        // Store the original date objects to preserve exact timestamps
-        startDate = format(event.start, 'yyyy-MM-dd');
-        startTime = format(event.start, 'HH:mm');
-      } else if (typeof event.start === 'string') {
-        // If it's a string (like from the database), parse it carefully
-        const startDateTime = new Date(event.start);
-        startDate = format(startDateTime, 'yyyy-MM-dd');
-        startTime = format(startDateTime, 'HH:mm');
-      } else {
+      try {
+        if (event.start instanceof Date) {
+          // Store the original date objects to preserve exact timestamps
+          startDate = format(event.start, 'yyyy-MM-dd');
+          startTime = format(event.start, 'HH:mm');
+        } else if (typeof event.start === 'string' && event.start) {
+          // If it's a string (like from the database), parse it carefully
+          const startDateTime = new Date(event.start);
+          if (!isNaN(startDateTime.getTime())) {
+            startDate = format(startDateTime, 'yyyy-MM-dd');
+            startTime = format(startDateTime, 'HH:mm');
+          } else {
+            throw new Error('Invalid start date string');
+          }
+        } else {
+          throw new Error('Invalid start date format');
+        }
+        
+        if (event.end instanceof Date) {
+          endDate = format(event.end, 'yyyy-MM-dd');
+          endTime = format(event.end, 'HH:mm');
+        } else if (typeof event.end === 'string' && event.end) {
+          const endDateTime = new Date(event.end);
+          if (!isNaN(endDateTime.getTime())) {
+            endDate = format(endDateTime, 'yyyy-MM-dd');
+            endTime = format(endDateTime, 'HH:mm');
+          } else {
+            throw new Error('Invalid end date string');
+          }
+        } else {
+          throw new Error('Invalid end date format');
+        }
+      } catch (error) {
+        console.error('Error parsing event dates:', error);
+        // Use default values if there's an error
         startDate = format(new Date(), 'yyyy-MM-dd');
         startTime = '09:00';
-      }
-      
-      if (event.end instanceof Date) {
-        endDate = format(event.end, 'yyyy-MM-dd');
-        endTime = format(event.end, 'HH:mm');
-      } else if (typeof event.end === 'string') {
-        const endDateTime = new Date(event.end);
-        endDate = format(endDateTime, 'yyyy-MM-dd');
-        endTime = format(endDateTime, 'HH:mm');
-      } else {
         endDate = format(new Date(), 'yyyy-MM-dd');
         endTime = '10:00';
       }
@@ -151,7 +166,21 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         preparationHours: event.preparationHours || '',
         isRecurring: event.isRecurring || false,
         recurrenceFrequency: event.recurrenceFrequency || 'WEEKLY',
-        recurrenceEndDate: event.recurrenceEndDate ? format(new Date(event.recurrenceEndDate), 'yyyy-MM-dd') : format(addMonths(new Date(startDate), 3), 'yyyy-MM-dd'),
+        recurrenceEndDate: (() => {
+          try {
+            if (event.recurrenceEndDate) {
+              const recEndDate = new Date(event.recurrenceEndDate);
+              if (!isNaN(recEndDate.getTime())) {
+                return format(recEndDate, 'yyyy-MM-dd');
+              }
+            }
+            // Default to 3 months from start date if recurrenceEndDate is invalid
+            return format(addMonths(new Date(), 3), 'yyyy-MM-dd');
+          } catch (error) {
+            console.error('Error formatting recurrence end date:', error);
+            return format(addMonths(new Date(), 3), 'yyyy-MM-dd');
+          }
+        })(),
         recurrenceDays: event.recurrenceDays || [],
         source: event.source || '',
         // Include study suggestion status flags
@@ -371,10 +400,20 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     // Check if we're only toggling the preparation checkbox without changing dates/times
     let isJustTogglingPreparation = false;
     
-    if (event) {
+    if (event && event.start && event.end) {
       // Get the original date and time strings for comparison
-      const originalStartDate = format(new Date(event.start), 'yyyy-MM-dd');
-      const originalEndDate = format(new Date(event.end), 'yyyy-MM-dd');
+      // Safely create date objects with null checks
+      let originalStartDate, originalEndDate;
+      
+      try {
+        originalStartDate = format(new Date(event.start), 'yyyy-MM-dd');
+        originalEndDate = format(new Date(event.end), 'yyyy-MM-dd');
+      } catch (error) {
+        console.error('Error formatting event dates:', error);
+        // Set default values if formatting fails
+        originalStartDate = format(new Date(), 'yyyy-MM-dd');
+        originalEndDate = format(new Date(), 'yyyy-MM-dd');
+      }
       
       // Get original times, handling different formats
       let originalStartTime, originalEndTime;
@@ -441,21 +480,53 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         eventObject.end = endDate;
       } else {
         // For time-specific events, combine date and time with timezone preservation
-        const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
-        const [year, month, day] = formData.start.split('-').map(Number);
-        
-        // Create date using local time components
-        // This ensures the time shown to the user is exactly what they selected
-        const startDate = new Date(year, month - 1, day, startHours, startMinutes, 0);
-        
-        const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
-        const [endYear, endMonth, endDay] = formData.end.split('-').map(Number);
-        const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes, 0);
-        
-        eventObject.start = startDate;
-        eventObject.end = endDate;
-        eventObject.startTime = formData.startTime;
-        eventObject.endTime = formData.endTime;
+        try {
+          // Validate start time and date values
+          const startTimeParts = formData.startTime.split(':');
+          const startHours = parseInt(startTimeParts[0] || '0', 10);
+          const startMinutes = parseInt(startTimeParts[1] || '0', 10);
+          
+          const startDateParts = formData.start.split('-');
+          const year = parseInt(startDateParts[0] || '0', 10);
+          const month = parseInt(startDateParts[1] || '1', 10);
+          const day = parseInt(startDateParts[2] || '1', 10);
+          
+          // Validate end time and date values
+          const endTimeParts = formData.endTime.split(':');
+          const endHours = parseInt(endTimeParts[0] || '0', 10);
+          const endMinutes = parseInt(endTimeParts[1] || '0', 10);
+          
+          const endDateParts = formData.end.split('-');
+          const endYear = parseInt(endDateParts[0] || '0', 10);
+          const endMonth = parseInt(endDateParts[1] || '1', 10);
+          const endDay = parseInt(endDateParts[2] || '1', 10);
+          
+          // Validate all values are within reasonable ranges
+          if (year < 1970 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 ||
+              startHours < 0 || startHours > 23 || startMinutes < 0 || startMinutes > 59 ||
+              endYear < 1970 || endYear > 2100 || endMonth < 1 || endMonth > 12 || endDay < 1 || endDay > 31 ||
+              endHours < 0 || endHours > 23 || endMinutes < 0 || endMinutes > 59) {
+            throw new Error('Invalid date or time values');
+          }
+          
+          // Create date using local time components with validated values
+          const startDate = new Date(year, month - 1, day, startHours, startMinutes, 0);
+          const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes, 0);
+          
+          // Check if the dates are valid
+          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            throw new Error('Invalid date created');
+          }
+          
+          eventObject.start = startDate;
+          eventObject.end = endDate;
+          eventObject.startTime = formData.startTime;
+          eventObject.endTime = formData.endTime;
+        } catch (error) {
+          console.error('Error creating date objects:', error);
+          alert('There was an error with the date/time values. Please check your input and try again.');
+          return; // Stop form submission if there's an error
+        }
       }
     }
     
