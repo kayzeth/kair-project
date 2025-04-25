@@ -11,7 +11,6 @@ import StudySuggestions from './StudySuggestions';
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
 import eventService from '../services/eventService';
-import googleCalendarService from '../services/googleCalendarService'; // Import googleCalendarService
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
@@ -419,21 +418,22 @@ const Calendar = ({ initialEvents = [], userId }) => {
       }
 
       // If it's a Google Calendar event, delete it from Google Calendar first
-      if (event.source === 'GOOGLE_CALENDAR' && event.googleEventId) {
-        try {
-          await googleCalendarService.deleteEvent({
-            googleEventId: event.googleEventId
-          });
-          console.log('Successfully deleted event from Google Calendar');
-        } catch (googleError) {
-          console.error('Error deleting event from Google Calendar:', googleError);
-          // Show error but continue with local deletion
-          setSyncStatus({
-            status: 'error',
-            message: 'Failed to delete from Google Calendar. The event will only be removed from Kairos.'
-          });
-        }
-      }
+      // COMMENTING OUT TO SAVE FOR A MATURE PRODUCT
+      // if (event.source === 'GOOGLE_CALENDAR' && event.googleEventId) {
+      //   try {
+      //     await googleCalendarService.deleteEvent({
+      //       googleEventId: event.googleEventId
+      //     });
+      //     console.log('Successfully deleted event from Google Calendar');
+      //   } catch (googleError) {
+      //     console.error('Error deleting event from Google Calendar:', googleError);
+      //     // Show error but continue with local deletion
+      //     setSyncStatus({
+      //       status: 'error',
+      //       message: 'Failed to delete from Google Calendar. The event will only be removed from Kairos.'
+      //     });
+      //   }
+      // }
 
       // Then delete from our backend
       await eventService.deleteEvent(id);

@@ -614,7 +614,6 @@ REACT_APP_GOOGLE_CLIENT_ID=your_client_id_here</pre>
             <li>Sign in with your Google account.</li>
             <li>Allow Kairos to access your Google Calendar.</li>
             <li>Kairos will import your Google Calendar events.</li>
-            <li>Kairos will export your Google Calendar events.</li>
           </ol>
           <p>After the initial sync, a sync button will be available for you to manually sync your Google Calendar events.</p>
         </div>
