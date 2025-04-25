@@ -11,7 +11,6 @@ import StudySuggestions from './StudySuggestions';
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
 import eventService from '../services/eventService';
-import googleCalendarService from '../services/googleCalendarService'; // Import googleCalendarService
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
