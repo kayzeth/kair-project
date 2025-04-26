@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DateTime } from 'luxon';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUpload, faSpinner } from '@fortawesome/free-solid-svg-icons';
 // Import pdf.js with specific version
@@ -724,25 +725,31 @@ const SyllabusParser = ({ onAddEvents }) => {
       syllabusData.meetingTimes.forEach((meeting, index) => {
         if (meeting.day && meeting.startTime && meeting.endTime) {
           // Calculate a default recurrence end date (end of semester - about 4 months from now)
-          const today = new Date();
-          const recurrenceEndDate = new Date(today);
-          recurrenceEndDate.setMonth(today.getMonth() + 4); // Default to 4 months of classes
+          // Use the specified timezone for consistency
+          const timezone = 'America/New_York';
+          const today = DateTime.now().setZone(timezone);
+          const recurrenceEndDate = today.plus({ months: 4 }); // Default to 4 months of classes
           
           // Map day string to array of days for recurrence
+          // Use the local day name (not UTC-shifted)
           const dayOfWeek = meeting.day.toLowerCase();
           const recurrenceDays = [dayOfWeek];
+          
+          // Generate start and end times with proper timezone handling
+          const start = formatDateTimeForEvent(meeting.day, meeting.startTime, currentYear);
+          const end = formatDateTimeForEvent(meeting.day, meeting.endTime, currentYear);
           
           events.push({
             id: `class-meeting-${index}`,
             title: `${syllabusData.courseName || 'Class'} - ${meeting.location || ''}`,
-            start: formatDateTimeForEvent(meeting.day, meeting.startTime, currentYear),
-            end: formatDateTimeForEvent(meeting.day, meeting.endTime, currentYear),
+            start,
+            end,
             allDay: false,
             // Properties needed by Calendar's generateRecurringInstances
             isRecurring: true,
             recurrenceFrequency: 'WEEKLY',
             recurrenceDays: recurrenceDays,
-            recurrenceEndDate: recurrenceEndDate.toISOString(),
+            recurrenceEndDate: recurrenceEndDate.toUTC().toISO(),
             // Keep original properties for backward compatibility
             recurring: true,
             recurringPattern: dayOfWeek,
@@ -753,24 +760,89 @@ const SyllabusParser = ({ onAddEvents }) => {
         }
       });
     }
-
+    
     // Add assignments as events
     if (syllabusData.assignments && Array.isArray(syllabusData.assignments)) {
       syllabusData.assignments.forEach((assignment, index) => {
-        // Always create an event, even if dueDate is TBD
         const dueDate = assignment.dueDate || 'TBD';
-        events.push({
-          id: `assignment-${index}`,
-          title: `Due: ${assignment.title || 'Assignment'}`,
-          start: formatDateForEvent(dueDate, currentYear),
-          end: formatDateForEvent(dueDate, currentYear),
-          allDay: true,
-          description: assignment.description || '',
-          color: '#0F9D58'
-        });
+        const formattedDate = formatDateForEvent(dueDate, currentYear);
+    
+        // Validate formatted date
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+          console.warn(`Skipping assignment with invalid date:`, formattedDate, assignment.title);
+          return;
+        }
+    
+        // Check if assignment has a specific due time
+        if (assignment.dueTime && /^\d{1,2}:\d{2}(?:\s?[APap][Mm])?$/.test(assignment.dueTime)) {
+          // If assignment has a valid due time (like "5:00 PM" or "17:00")
+          const normalizedTime = normalizeTimeTo24h(assignment.dueTime); // Helper function we'll add
+          const startISO = buildDateTimeISO(formattedDate, normalizedTime);
+    
+          events.push({
+            id: `assignment-${index}`,
+            title: `Due: ${assignment.title || 'Assignment'}`,
+            start: startISO,
+            end: startISO,
+            allDay: false, //  Timed event
+            description: assignment.description || '',
+            color: '#0F9D58'
+          });
+        } else {
+          // No due time provided — treat as all-day
+          const [startISO, endISO] = toAllDayUtcRange(formattedDate);
+    
+          if (!startISO || !endISO) {
+            console.warn(`Skipping assignment due to invalid ISO dates:`, formattedDate);
+            return;
+          }
+    
+          events.push({
+            id: `assignment-${index}`,
+            title: `Due: ${assignment.title || 'Assignment'}`,
+            start: startISO,
+            end: endISO,
+            allDay: true,
+            description: assignment.description || '',
+            color: '#0F9D58'
+          });
+        }
       });
     }
+    
+    function toAllDayUtcRange(ymd) {
+      console.log('toAllDayUtcRange called with:', ymd);
 
+      const [y, m, d] = ymd.split('-').map(Number);
+      const localMidnight = new Date(y, m - 1, d); // Local midnight
+      const utcStart = localMidnight.toISOString(); // Auto UTC shift
+      const endLocalMidnight = new Date(y, m - 1, d + 1); // Next day local midnight
+      const utcEnd = new Date(endLocalMidnight.getTime() - 1).toISOString(); // 1 ms before
+
+      return [utcStart, utcEnd];
+    }
+    function normalizeTimeTo24h(timeStr) {
+      // Accepts "5:00 PM", "5:00PM", "17:00", etc.
+      timeStr = timeStr.trim().toUpperCase();
+      const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/);
+      
+      if (ampmMatch) {
+        let [ , hours, minutes, ampm ] = ampmMatch;
+        hours = parseInt(hours, 10);
+        if (ampm === 'PM' && hours !== 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+        return `${String(hours).padStart(2, '0')}:${minutes}`;
+      }
+      
+      // If already 24-hour (like "17:00"), just return it
+      return timeStr;
+    }
+    function buildDateTimeISO(ymd, hm) {
+      const [year, month, day] = ymd.split('-').map(Number);
+      const [hour, minute] = hm.split(':').map(Number);
+      const local = new Date(year, month - 1, day, hour, minute);
+      return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
+    }
     // Add exams as events
     if (syllabusData.exams && Array.isArray(syllabusData.exams)) {
       syllabusData.exams.forEach((exam, index) => {
@@ -782,13 +854,14 @@ const SyllabusParser = ({ onAddEvents }) => {
         
         // Default to today's date if TBD
         const formattedDate = formatDateForEvent(examDate, currentYear) || formatDateForEvent(new Date().toISOString().split('T')[0], currentYear);
-        
+        const [startISO, endISO] = toAllDayUtcRange(formattedDate);
+
         // Create the event with default values for TBD fields
         events.push({
           id: `exam-${index}`,
           title: `Exam: ${exam.title || 'Exam'}`,
-          start: formattedDate,
-          end: formattedDate,
+          start: startISO,
+          end: endISO,
           allDay: true,
           location: exam.location || '',
           description: exam.description || '',
@@ -801,94 +874,102 @@ const SyllabusParser = ({ onAddEvents }) => {
   };
 
   // Helper function to format date strings
-  const formatDateForEvent = (dateStr, year) => {
-    // This is a simplified version - in a real app, you'd want more robust date parsing
+  const formatDateForEvent = (dateStr, currentYear) => {
     try {
-      // Check for TBD or undefined dates
       if (!dateStr || dateStr.toLowerCase().includes('tbd') || dateStr.toLowerCase().includes('to be determined')) {
-        // Default to today's date if TBD
         const today = new Date();
-        return `${currentYear}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+        return `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       }
-      
-      // Handle month abbreviations like FEB, MAR, APR
+  
       const monthMap = {
         'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04', 'MAY': '05', 'JUN': '06',
         'JUL': '07', 'AUG': '08', 'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
       };
-      
-      // Check for format like "FEB 11, 9:00pm" or "MAY 12"
-      const monthNameRegex = /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d+)(?:,\s+.*)?/i;
+  
+      const monthNameRegex = /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d+)/i;
       const monthNameMatch = dateStr.match(monthNameRegex);
-      
+  
       if (monthNameMatch) {
         const month = monthMap[monthNameMatch[1].toUpperCase()];
-        const day = parseInt(monthNameMatch[2]).toString().padStart(2, '0');
+        const day = String(parseInt(monthNameMatch[2])).padStart(2, '0');
         return `${currentYear}-${month}-${day}`;
       }
-      
-      // Handle various date formats
+  
       const cleanDate = dateStr.replace(/(\d+)(st|nd|rd|th)/, '$1').trim();
-      const date = new Date(cleanDate);
-      
-      // If date is invalid, try some common formats
+      let date = new Date(cleanDate);
+  
       if (isNaN(date.getTime())) {
-        // Try MM/DD format
-        const parts = cleanDate.split(/[/. -]/); //
+        const parts = cleanDate.split(/[/. -]/);
         if (parts.length >= 2) {
-          const month = parseInt(parts[0], 10) - 1;
+          const month = parseInt(parts[0], 10);
           const day = parseInt(parts[1], 10);
-          return `${currentYear}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+          if (!isNaN(month) && !isNaN(day)) {
+            return `${currentYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          }
         }
-        
-        // If all parsing fails, default to today's date
         const today = new Date();
-        return `${currentYear}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+        return `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       }
-      
-      // Check if the year is very old or missing (uses 1970 or 2001, etc.)
-      // If so, use the current year instead
-      const parsedYear = date.getFullYear();
-      if (parsedYear < 2020) {
-        return `${currentYear}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+  
+      if (date.getFullYear() < 2020) {
+        return `${currentYear}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       }
-      
-      // Format as YYYY-MM-DD
-      return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+  
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     } catch (err) {
       console.error('Error formatting date:', err);
-      // Default to today's date if there's an error
       const today = new Date();
-      return `${currentYear}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+      return `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     }
   };
 
-  // Helper function to format date and time strings
+  // Helper function to format date and time strings with proper timezone handling
   const formatDateTimeForEvent = (dayOrDate, timeStr, year) => {
     try {
-      let dateStr;
+      // Use America/New_York timezone as specified
+      const timezone = 'America/New_York';
+      let dateTime;
       
       // Check if it's a day of week or a date
       const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
       if (daysOfWeek.includes(dayOrDate.toLowerCase())) {
-        // Find the next occurrence of this day
+        // Find the next occurrence of this day in local time (America/New_York)
         const dayIndex = daysOfWeek.indexOf(dayOrDate.toLowerCase());
-        const today = new Date();
-        const targetDay = new Date();
-        const currentDayIndex = today.getDay() || 7; // Convert Sunday from 0 to 7
-        const daysToAdd = (dayIndex + 1 - currentDayIndex + 7) % 7;
         
-        targetDay.setDate(today.getDate() + daysToAdd);
-        dateStr = `${targetDay.getFullYear()}-${(targetDay.getMonth() + 1).toString().padStart(2, '0')}-${targetDay.getDate().toString().padStart(2, '0')}`;
+        // Start with current date in the specified timezone
+        const now = DateTime.now().setZone(timezone);
+        
+        // Luxon uses 1-7 for weekday (Monday-Sunday)
+        const currentDayIndex = now.weekday; // 1-7 (Monday-Sunday)
+        
+        // Calculate days to add to get to the target day (dayIndex is 0-6 for Monday-Sunday)
+        // Convert our 0-based index (Monday=0) to Luxon's 1-based (Monday=1)
+        const targetWeekday = dayIndex + 1;
+        
+        // Calculate days to add to get to the next occurrence of the target day
+        let daysToAdd;
+        if (targetWeekday >= currentDayIndex) {
+          daysToAdd = targetWeekday - currentDayIndex;
+        } else {
+          daysToAdd = 7 - (currentDayIndex - targetWeekday);
+        }
+        
+        // If daysToAdd is 0 (same day), we want the next week
+        if (daysToAdd === 0) daysToAdd = 7;
+        
+        // Create the target date in local timezone
+        dateTime = now.plus({ days: daysToAdd });
       } else {
-        // It's a date, format it
-        dateStr = formatDateForEvent(dayOrDate, year);
+        // It's a date string, parse it in local timezone
+        const dateStr = formatDateForEvent(dayOrDate, year);
+        if (!dateStr) return null;
+        
+        dateTime = DateTime.fromISO(dateStr, { zone: timezone });
       }
       
-      if (!dateStr) return null;
+      if (!dateTime.isValid) return null;
       
-      // Format the time (assuming timeStr is in a format like "10:00 AM")
-      let formattedTime = '';
+      // Parse the time string (assuming timeStr is in a format like "10:00 AM")
       const timeMatch = timeStr.match(/(\d+):?(\d*)?\s*(am|pm|AM|PM)?/);
       
       if (timeMatch) {
@@ -903,54 +984,24 @@ const SyllabusParser = ({ onAddEvents }) => {
           hours = 0;
         }
         
-        formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+        // Set the time components while preserving the date and timezone
+        dateTime = dateTime.set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
       } else {
         // Default to noon if time format is unrecognized
-        formattedTime = '12:00:00';
+        dateTime = dateTime.set({ hour: 12, minute: 0, second: 0, millisecond: 0 });
       }
+      // Ensure the time is in America/New_York
+      dateTime = dateTime.setZone('America/New_York');
+
       
-      return `${dateStr}T${formattedTime}`;
+      // Convert to UTC for storage, but ensure the original local time is preserved
+      return dateTime.toUTC().toISO();
     } catch (err) {
       console.error('Error formatting date and time:', err);
       return null;
     }
   };
 
-  // Helper function to add hours to a time string
-  // eslint-disable-next-line no-unused-vars
-  const addHoursToTime = (timeStr, hoursToAdd) => {
-    try {
-      const timeMatch = timeStr.match(/(\d+):?(\d*)?\s*(am|pm|AM|PM)?/);
-      if (!timeMatch) return timeStr;
-      
-      let hours = parseInt(timeMatch[1], 10);
-      const minutes = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
-      const period = timeMatch[3] ? timeMatch[3].toLowerCase() : null;
-      
-      // Convert to 24-hour format
-      if (period === 'pm' && hours < 12) {
-        hours += 12;
-      } else if (period === 'am' && hours === 12) {
-        hours = 0;
-      }
-      
-      // Add hours
-      hours = (hours + hoursToAdd) % 24;
-      
-      // Convert back to original format
-      let newPeriod = period;
-      if (period) {
-        newPeriod = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12;
-        if (hours === 0) hours = 12;
-      }
-      
-      return `${hours}:${minutes.toString().padStart(2, '0')}${newPeriod ? ' ' + newPeriod : ''}`;
-    } catch (err) {
-      console.error('Error adding hours to time:', err);
-      return timeStr;
-    }
-  };
 
   return (
     <div className="syllabus-parser-container">
@@ -1168,8 +1219,16 @@ const SyllabusParser = ({ onAddEvents }) => {
                             // Format date and time strings safely
                             let dateString, timeString;
                             try {
-                              dateString = eventDate.toISOString().split('T')[0];
-                              timeString = event.start && !event.allDay ? eventDate.toISOString().split('T')[1].substring(0, 5) : '';
+                              const pad = (n) => String(n).padStart(2, '0');
+                              dateString = [
+                                eventDate.getFullYear(),
+                                pad(eventDate.getMonth() + 1),
+                                pad(eventDate.getDate())
+                              ].join('-');
+                              // Format HH:mm in LOCAL time
+timeString = event.start && !event.allDay
+? `${pad(eventDate.getHours())}:${pad(eventDate.getMinutes())}`
+: '';
                             } catch (formatError) {
                               console.error('Error formatting date/time:', formatError);
                               const now = new Date();
@@ -1456,11 +1515,22 @@ const SyllabusParser = ({ onAddEvents }) => {
                                     // Create new Date objects from the edited values
                                     const dateObj = new Date(event.dateString);
                                     let startDate, endDate;
-                                    
+                                    function toAllDayUtcRange(ymd) {
+                                      console.log('toAllDayUtcRange called with:', ymd);
+                                
+                                      const [y, m, d] = ymd.split('-').map(Number);
+                                      const localMidnight = new Date(y, m - 1, d); // Local midnight
+                                      const utcStart = localMidnight.toISOString(); // Auto UTC shift
+                                      const endLocalMidnight = new Date(y, m - 1, d + 1); // Next day local midnight
+                                      const utcEnd = new Date(endLocalMidnight.getTime() - 1).toISOString(); // 1 ms before
+                                
+                                      return [utcStart, utcEnd];
+                                    }
                                     if (event.allDay) {
                                       // For all-day events
-                                      startDate = event.dateString;
-                                      endDate = event.dateString;
+                                      const [startISO, endISO] = toAllDayUtcRange(event.dateString);
+                                      startDate = startISO;
+                                      endDate = endISO;
                                     } else if (event.timeString) {
                                       // For time-specific events
                                       const [hours, minutes] = event.timeString.split(':');
