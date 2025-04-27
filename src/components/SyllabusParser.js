@@ -8,6 +8,43 @@ import 'pdfjs-dist/legacy/build/pdf.worker.entry';
 import eventService from '../services/eventService';
 import { getCurrentUserId } from '../services/userService';
 
+const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents) => {
+    // Bail if tiny
+    if (rawContent.trim().split(/\s+/).length < 10) {
+      setError('Not enough text content to parse.');
+      setIsLoading(false);
+      return;
+    }
+  
+    const maxContentLength = 15000;
+    const truncated = rawContent.length > maxContentLength
+        ? rawContent.slice(0, maxContentLength) + '... (content truncated)'
+        : rawContent;
+  
+    console.log('Sending request to backend API…');
+    const res = await fetch('/api/openai/syllabus-parser', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: truncated })
+    });
+  
+    if (!res.ok) {
+      const msg = `HTTP error: ${res.status}`;
+      setError(msg);
+      setIsLoading(false);
+      throw new Error(msg);
+    }
+  
+    const data = await res.json();
+    const content = data.choices[0].message.content;
+    // unwrap ```json ``` or ```
+    const match = content.match(/```(?:json)?\n([\s\S]*?)\n```/) || [null, content];
+    const parsed = JSON.parse(match[1].trim());
+  
+    onAddEvents(parsed);         // << your callback
+    setIsLoading(false);
+  };
+  
 
 const SyllabusParser = ({ onAddEvents }) => {
   // Get current year for default date handling
@@ -190,6 +227,8 @@ const SyllabusParser = ({ onAddEvents }) => {
     }
   };
 
+
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -902,6 +941,11 @@ function buildLocalDate(ymd) {
   // Helper function to format date strings
   const formatDateForEvent = (dateStr, currentYear) => {
     try {
+      //  If the string is already "YYYY-MM-DD", keep it untouched.
+      const isoPattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (isoPattern.test(dateStr.trim())) {
+      return dateStr.trim();          // e.g. "2025-01-29"
+    }
       if (!dateStr || dateStr.toLowerCase().includes('tbd') || dateStr.toLowerCase().includes('to be determined')) {
         const today = new Date();
         return `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
