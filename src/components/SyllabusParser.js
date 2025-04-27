@@ -713,7 +713,33 @@ const SyllabusParser = ({ onAddEvents }) => {
       setCalendarEvents([]);
     }
   }, [openAiError]);
-
+  // Make sure a start/end pair aligns with the first day listed in recurrenceDays
+  const alignToRecurrence = (isoStart, isoEnd, recurrenceDays) => {
+    const tz          = 'America/New_York';
+    const daysOfWeek  = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    let   startDT     = DateTime.fromISO(isoStart).setZone(tz);
+    let   endDT       = DateTime.fromISO(isoEnd  ).setZone(tz);
+  
+    // Already aligned? – nothing to do.
+    if (recurrenceDays.includes(startDT.weekdayLong.toLowerCase())) {
+      return [isoStart, isoEnd];
+    }
+  
+    // Pick the first recurrence day as our anchor.
+    const targetIdx   = daysOfWeek.indexOf(recurrenceDays[0]); // 0–6
+    // Luxon weekday: 1–7 (Mon–Sun)
+    const offset      = ((targetIdx + 1) - startDT.weekday + 7) % 7 || 7; // always 1-7 days ahead
+  
+    startDT = startDT.plus({ days: offset });
+    endDT   = endDT.plus({ days: offset });
+  
+    return [startDT.toUTC().toISO(), endDT.toUTC().toISO()];
+  };
+  // Build a Date in local time (America/New_York) from "YYYY-MM-DD"
+function buildLocalDate(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d); // Month is 0-based
+}
   // Convert parsed syllabus data to calendar events
   const convertToCalendarEvents = (syllabusData) => {
     const events = [];
@@ -736,9 +762,9 @@ const SyllabusParser = ({ onAddEvents }) => {
           const recurrenceDays = [dayOfWeek];
           
           // Generate start and end times with proper timezone handling
-          const start = formatDateTimeForEvent(meeting.day, meeting.startTime, currentYear);
-          const end = formatDateTimeForEvent(meeting.day, meeting.endTime, currentYear);
-          
+          let start = formatDateTimeForEvent(meeting.day, meeting.startTime, currentYear);
+          let end = formatDateTimeForEvent(meeting.day, meeting.endTime,   currentYear);
+          [start, end] = alignToRecurrence(start, end, recurrenceDays);
           events.push({
             id: `class-meeting-${index}`,
             title: `${syllabusData.courseName || 'Class'} - ${meeting.location || ''}`,
@@ -1458,8 +1484,16 @@ timeString = event.start && !event.allDay
                                         checked={event.allDay} 
                                         onChange={(e) => {
                                           const updatedEvents = [...editableEvents];
-                                          updatedEvents[index].allDay = e.target.checked;
-                                          setEditableEvents(updatedEvents);
+                                          const checked = e.target.checked;
+                                          updatedEvents[index].allDay = checked;
+                                          if (!checked && !updatedEvents[index].timeString) {
+                                               updatedEvents[index].timeString = '00:00';
+                                             }
+                                             if (checked) {
+                                               updatedEvents[index].timeString = '';   // clear again when re-checking
+                                             }
+                                             setEditableEvents(updatedEvents);
+                                          
                                         }}
                                       />
                                     </td>
@@ -1513,7 +1547,6 @@ timeString = event.start && !event.allDay
                                   .filter(event => event.selected !== false) // Only include selected events
                                   .map(event => {
                                     // Create new Date objects from the edited values
-                                    const dateObj = new Date(event.dateString);
                                     let startDate, endDate;
                                     function toAllDayUtcRange(ymd) {
                                       console.log('toAllDayUtcRange called with:', ymd);
@@ -1532,21 +1565,43 @@ timeString = event.start && !event.allDay
                                       startDate = startISO;
                                       endDate = endISO;
                                     } else if (event.timeString) {
-                                      // For time-specific events
-                                      const [hours, minutes] = event.timeString.split(':');
-                                      dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10));
-                                      startDate = dateObj.toISOString();
-                                      
-                                      // End time is 1 hour after start by default
-                                      const endDateObj = new Date(dateObj);
-                                      endDateObj.setHours(endDateObj.getHours() + 1);
-                                      endDate = endDateObj.toISOString();
+                                      // Build the base date in LOCAL time first
+                                      const base = buildLocalDate(event.dateString);
+
+                                      // Parse timeString safely: supports "HH:mm" or "HH:mm AM/PM"
+                                      let [tHours, tMinutes] = [0, 0];
+                                      const ampmMatch = event.timeString.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+                                      if (ampmMatch) {
+                                        tHours   = parseInt(ampmMatch[1], 10);
+                                        tMinutes = parseInt(ampmMatch[2], 10);
+                                        if (ampmMatch[3]) {
+                                          const isPM = ampmMatch[3].toUpperCase() === 'PM';
+                                          if (isPM && tHours < 12) tHours += 12;
+                                          if (!isPM && tHours === 12) tHours = 0;
+                                        }
+                                      }
+
+                                      base.setHours(tHours, tMinutes, 0, 0);        // local America/New_York
+                                      startDate = base.toISOString();               // convert to UTC for storage
+
+                                    // Default 1-hour duration
+  const endDateObj = new Date(base);
+  endDateObj.setHours(endDateObj.getHours() + 1);
+  endDate = endDateObj.toISOString();
                                     } else {
-                                      // Fallback for missing time
-                                      startDate = event.dateString;
-                                      endDate = event.dateString;
+                                      // No time provided ⇒ treat as local midnight
+                                      const base = buildLocalDate(event.dateString);   // local date
+                                      base.setHours(0, 0, 0, 0);                       // 00:00 local
+                                      startDate = base.toISOString();                  // e.g. 2025-10-01T04:00:00Z
+                                      const endDateObj = new Date(base);
+   endDateObj.setHours(endDateObj.getHours() + 1);  // default 1-hr duration
+   endDate = endDateObj.toISOString();
                                     }
-                                    
+                                    // If this is a recurring event, realign the start/end so that the
+                                    // first instance lands on the first valid day in recurrenceDays.
+                                    if (event.isRecurring && Array.isArray(event.recurrenceDays) && event.recurrenceDays.length) {
+                                      [startDate, endDate] = alignToRecurrence(startDate, endDate, event.recurrenceDays);
+                                    }
                                     return {
                                       ...event,
                                       start: startDate,
