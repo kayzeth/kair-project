@@ -248,6 +248,7 @@ const SyllabusParser = ({ onAddEvents }) => {
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [openAiError, setOpenAiError] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const LOCAL_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -912,7 +913,7 @@ function buildLocalDate(ymd) {
           });
         } else {
           // No due time provided — treat as all-day
-          const [startISO, endISO] = toAllDayUtcRange(formattedDate);
+          const [startISO, endISO] = toAllDayLocalRange(formattedDate);
     
           if (!startISO || !endISO) {
             console.warn(`Skipping assignment due to invalid ISO dates:`, formattedDate);
@@ -932,17 +933,21 @@ function buildLocalDate(ymd) {
       });
     }
     
-    function toAllDayUtcRange(ymd) {
-      console.log('toAllDayUtcRange called with:', ymd);
 
-      const [y, m, d] = ymd.split('-').map(Number);
-      const localMidnight = new Date(y, m - 1, d); // Local midnight
-      const utcStart = localMidnight.toISOString(); // Auto UTC shift
-      const endLocalMidnight = new Date(y, m - 1, d + 1); // Next day local midnight
-      const utcEnd = new Date(endLocalMidnight.getTime() - 1).toISOString(); // 1 ms before
-
-      return [utcStart, utcEnd];
+    
+    function toAllDayLocalRange(ymd) {
+      const start = DateTime                       // Luxon
+        .fromISO(ymd, { zone: LOCAL_ZONE })
+        .startOf('day');
+      const end   = start.plus({ days: 1 }).minus({ milliseconds: 1 });
+    
+      // Keeps the offset (-05:00, -04:00, etc.) instead of “Z”
+      return [
+        start.toISO({ suppressMilliseconds: true }),
+        end.toISO({ suppressMilliseconds: true })
+      ];
     }
+
     function normalizeTimeTo24h(timeStr) {
       // Accepts "5:00 PM", "5:00PM", "17:00", etc.
       timeStr = timeStr.trim().toUpperCase();
@@ -976,7 +981,7 @@ function buildLocalDate(ymd) {
         
         // Default to today's date if TBD
         const formattedDate = formatDateForEvent(examDate, currentYear) || formatDateForEvent(new Date().toISOString().split('T')[0], currentYear);
-        const [startISO, endISO] = toAllDayUtcRange(formattedDate);
+        const [startISO, endISO] = toAllDayLocalRange(formattedDate);
 
         // Create the event with default values for TBD fields
         events.push({
@@ -1649,8 +1654,8 @@ timeString = event.start && !event.allDay
                                   .map(event => {
                                     // Create new Date objects from the edited values
                                     let startDate, endDate;
-                                    function toAllDayUtcRange(ymd) {
-                                      console.log('toAllDayUtcRange called with:', ymd);
+                                    function toAllDayLocalRange(ymd) {
+                                      console.log('toAllDayLocalRange called with:', ymd);
                                 
                                       const [y, m, d] = ymd.split('-').map(Number);
                                       const localMidnight = new Date(y, m - 1, d); // Local midnight
@@ -1662,7 +1667,7 @@ timeString = event.start && !event.allDay
                                     }
                                     if (event.allDay) {
                                       // For all-day events
-                                      const [startISO, endISO] = toAllDayUtcRange(event.dateString);
+                                      const [startISO, endISO] = toAllDayLocalRange(event.dateString);
                                       startDate = startISO;
                                       endDate = endISO;
                                     } else if (event.timeString) {
