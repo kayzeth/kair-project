@@ -8,7 +8,7 @@ import 'pdfjs-dist/legacy/build/pdf.worker.entry';
 import eventService from '../services/eventService';
 import { getCurrentUserId } from '../services/userService';
 
-const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents) => {
+const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents, setApiResponse, setExtractedInfo, setCalendarEvents, setOpenAiError, convertToCalendarEvents) => {
     // Bail if tiny
     if (rawContent.trim().split(/\s+/).length < 10) {
       setError('Not enough text content to parse.');
@@ -21,7 +21,7 @@ const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents) => 
         ? rawContent.slice(0, maxContentLength) + '... (content truncated)'
         : rawContent;
   
-    console.log('Sending request to backend API…');
+    console.log('Sending request to backend API...');
     const res = await fetch('/api/openai/syllabus-parser', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -36,13 +36,57 @@ const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents) => 
     }
   
     const data = await res.json();
-    const content = data.choices[0].message.content;
-    // unwrap ```json ``` or ```
-    const match = content.match(/```(?:json)?\n([\s\S]*?)\n```/) || [null, content];
-    const parsed = JSON.parse(match[1].trim());
-  
-    onAddEvents(parsed);         // << your callback
-    setIsLoading(false);
+    console.log('OpenAI API Response:', data);
+    
+    try {
+      const content = data.choices[0].message.content;
+      // unwrap ```json ``` or ```
+      const match = content.match(/```(?:json)?\n([\s\S]*?)\n```/) || [null, content];
+      let parsed;
+      
+      try {
+        parsed = JSON.parse(match[1].trim());
+        
+        // Check if OpenAI returned an error message
+        if (parsed.error) {
+          console.error('OpenAI reported an invalid syllabus:', parsed.error);
+          if (typeof setOpenAiError === 'function') {
+            setOpenAiError(parsed.error);
+          }
+          setIsLoading(false);
+          return;
+        }
+      } catch (parseError) {
+        console.error('Error parsing OpenAI response:', parseError);
+        setError('Failed to parse the syllabus data. The AI response was not in the expected format.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // If we have access to these state setters, update them
+      if (typeof setApiResponse === 'function') {
+        setApiResponse(data);
+      }
+      
+      if (typeof setExtractedInfo === 'function') {
+        setExtractedInfo(parsed);
+      }
+      
+      // If we have access to the convertToCalendarEvents function and setCalendarEvents
+      if (typeof convertToCalendarEvents === 'function' && typeof setCalendarEvents === 'function') {
+        const events = convertToCalendarEvents(parsed);
+        console.log('Generated calendar events:', events);
+        setCalendarEvents(events);
+      }
+      
+      // Call the callback to add events
+      onAddEvents(parsed);
+    } catch (error) {
+      console.error('Error processing syllabus:', error);
+      setError('Failed to process syllabus data: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
 
@@ -248,6 +292,19 @@ const SyllabusParser = ({ onAddEvents }) => {
       if (pastedText && !file) {
         content = pastedText;
         console.log('Processing pasted text...');
+        // Use the sendToParser function to process pasted text with all necessary state setters
+        await sendToParser(
+          content, 
+          setError, 
+          setIsLoading, 
+          onAddEvents, 
+          setApiResponse, 
+          setExtractedInfo, 
+          setCalendarEvents, 
+          setOpenAiError, 
+          convertToCalendarEvents
+        );
+        return; // Exit after processing pasted text
       } else {
         // Get file extension
         const fileExt = file.name.split('.').pop().toLowerCase();
