@@ -56,6 +56,14 @@
   text-align: center;
 }
 
+.day-number-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
 /* Events */
 .day-events {
   display: flex;
