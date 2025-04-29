@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
-import { faArrowLeft, faArrowRight, faCheck, faSync, faTimes, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faArrowRight, faCheck, faSync, faTimes, faGraduationCap, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
 import googleCalendarService from '../services/googleCalendarService';
 import googleCalendarDbService from '../services/googleCalendarDbService';
@@ -26,6 +26,48 @@ const Onboarding = () => {
   const [canvasStatus, setCanvasStatus] = useState({ status: 'idle', message: '' });
   const [canvasSyncStatus, setCanvasSyncStatus] = useState({ status: 'idle', message: '' });
   const [canvasFormData, setCanvasFormData] = useState({ token: '', domain: '' });
+  
+  // Sleep schedule state
+  const [sleepSchedule, setSleepSchedule] = useState({
+    bedtime: '00:00',
+    wakeupTime: '08:00'
+  });
+
+  // Function to handle sleep schedule changes
+  const handleSleepScheduleChange = (e) => {
+    const { name, value } = e.target;
+    setSleepSchedule(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Function to calculate hours between bedtime and wakeup
+  const calculateSleepHours = () => {
+    if (!sleepSchedule.bedtime || !sleepSchedule.wakeupTime) {
+      return 8; // Default to 8 hours if not set
+    }
+    
+    // Parse times
+    const [bedHours, bedMinutes] = sleepSchedule.bedtime.split(':').map(Number);
+    const [wakeHours, wakeMinutes] = sleepSchedule.wakeupTime.split(':').map(Number);
+    
+    // Convert to minutes since midnight
+    let bedTimeMinutes = bedHours * 60 + bedMinutes;
+    let wakeTimeMinutes = wakeHours * 60 + wakeMinutes;
+    
+    // Calculate difference in minutes
+    let diffMinutes = wakeTimeMinutes - bedTimeMinutes;
+    if (diffMinutes < 0) {
+      diffMinutes += 24 * 60; // Add a day in minutes
+    }
+    
+    // Convert back to hours and minutes
+    const diffHours = Math.floor(diffMinutes / 60);
+    const remainingMinutes = diffMinutes % 60;
+
+    return `${diffHours} hour${diffHours !== 1 ? 's' : ''}${remainingMinutes > 0 ? ` and ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}` : ''}`;
+  };
 
   // Initialize Google Calendar
   useEffect(() => {
@@ -189,10 +231,23 @@ const Onboarding = () => {
 
   // Handle next step
   const handleNext = () => {
-    if (currentStep < 2) {
+    if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Mark onboarding as complete before navigating to calendar
+      // Save sleep schedule to database if user is logged in
+      if (isLoggedIn && authUser?.id) {
+        fetch(`/api/users/${authUser.id}/sleep-schedule`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(sleepSchedule)
+        }).catch(error => {
+          console.error('Error saving sleep schedule:', error);
+        });
+      }
+      
+      // Mark onboarding as complete
       if (authUser?.id) {
         localStorage.setItem(`onboarding_complete_${authUser.id}`, 'true');
       }
@@ -209,7 +264,7 @@ const Onboarding = () => {
 
   // Handle skip
   const handleSkip = () => {
-    if (currentStep < 2) {
+    if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     } else {
       // Mark onboarding as complete even when skipping
@@ -226,6 +281,8 @@ const Onboarding = () => {
         <div className={`progress-step ${currentStep >= 1 ? 'active' : ''}`}>1</div>
         <div className="progress-line"></div>
         <div className={`progress-step ${currentStep >= 2 ? 'active' : ''}`}>2</div>
+        <div className="progress-line"></div>
+        <div className={`progress-step ${currentStep >= 3 ? 'active' : ''}`}>3</div>
       </div>
       
       <div className="onboarding-content">
@@ -395,6 +452,69 @@ const Onboarding = () => {
           </div>
         )}
         
+        {currentStep === 3 && (
+          <div className="onboarding-step">
+            <h1>Set Your Sleep Schedule</h1>
+            <h2>Help us optimize your study sessions</h2>
+            
+            <div className="sleep-schedule-section">
+              <div className="auth-card">
+                <div className="auth-card-content">
+                  <div className="sleep-schedule-form">
+                    <h3>Your Sleep Schedule</h3>
+                    <p className="sleep-schedule-description">
+                      Set your typical sleep hours so we can avoid scheduling preparation sessions during this time.
+                    </p>
+                    
+                    <div className="sleep-schedule-inputs">
+                      <div className="form-group">
+                        <label htmlFor="bedtime">
+                          <FontAwesomeIcon icon={faMoon} className="schedule-icon" /> Bedtime
+                        </label>
+                        <input
+                          type="time"
+                          id="bedtime"
+                          name="bedtime"
+                          value={sleepSchedule.bedtime}
+                          onChange={handleSleepScheduleChange}
+                          className="time-input"
+                        />
+                      </div>
+                      
+                      <div className="form-group">
+                        <label htmlFor="wakeupTime">
+                          <FontAwesomeIcon icon={faSun} className="schedule-icon" /> Wake-up Time
+                        </label>
+                        <input
+                          type="time"
+                          id="wakeupTime"
+                          name="wakeupTime"
+                          value={sleepSchedule.wakeupTime}
+                          onChange={handleSleepScheduleChange}
+                          className="time-input"
+                        />
+                      </div>
+                    </div>
+                    
+                    <p className="sleep-hours-note">
+                      We will not schedule any events during the {calculateSleepHours()} you are asleep.
+                    </p>
+                    
+                    <div className="sleep-schedule-info">
+                      <h4>Why this matters:</h4>
+                      <ul>
+                        <li>Kairos will avoid scheduling study sessions during your sleep hours</li>
+                        <li>This helps create a more balanced and effective study plan</li>
+                        <li>You can always update this information later in the Study Suggestions page</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="onboarding-actions">
           {currentStep > 1 && (
             <button className="button button-secondary" onClick={handleBack}>
@@ -407,7 +527,7 @@ const Onboarding = () => {
           </button>
           
           <button className="button button-primary" onClick={handleNext}>
-            {currentStep < 2 ? 'Next' : 'Go to Calendar'} <FontAwesomeIcon icon={faArrowRight} />
+            {currentStep < 3 ? 'Next' : 'Go to Calendar'} <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
       </div>
