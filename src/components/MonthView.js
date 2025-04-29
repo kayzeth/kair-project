@@ -105,7 +105,7 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
           onClick={() => onAddEvent(cloneDay)}
           style={{ overflow: 'auto' }}
         >
-          <div className='day-number-container'>
+          <div className="day-number-container">
             <div className="day-number" data-testid={`monthview-day-number-${format(day, 'yyyy-MM-dd')}`}>{dayNumber}</div>
           </div>
           <div className="day-events">
