@@ -51,6 +51,7 @@
     "buffer": "^6.0.3",
     "concurrently": "^7.6.0",
     "crypto-browserify": "^3.12.1",
+    "identity-obj-proxy": "^3.0.0",
     "jest": "^27.5.1",
     "jest-environment-jsdom": "^29.5.0",
     "mongodb-memory-server": "^10.1.4",
@@ -67,9 +68,13 @@
     "server": "node server/index.js",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
+    "test:coverage": "CI=false react-app-rewired test --coverage",
+    "test:coverage:watch": "CI=false react-app-rewired test --coverage --watchAll",
+    "test:server": "jest --config=server/jest.config.js server/__tests__/*.test.js",
+    "test:server:coverage": "jest --config=server/jest.config.js server/__tests__/*.test.js --coverage",
+    "test:all:coverage": "CI=false concurrently \"npm run test:coverage\" \"npm run test:server:coverage\"",
     "eject": "react-scripts eject",
-    "serve": "serve -s build",
-    "test:server": "jest server/__tests__/*.test.js"
+    "serve": "serve -s build"
   },
   "eslintConfig": {
     "extends": [
