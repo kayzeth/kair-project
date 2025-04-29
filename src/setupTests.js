@@ -38,9 +38,16 @@ global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
 
 // Mock for Safari detection
+// First delete the existing property if it exists
+if (Object.getOwnPropertyDescriptor(window.navigator, 'userAgent')) {
+  delete Object.getOwnPropertyDescriptor(window.navigator, 'userAgent').value;
+}
+
+// Then define a new configurable property
 Object.defineProperty(window.navigator, 'userAgent', {
   value: '',
-  writable: true
+  writable: true,
+  configurable: true
 });
 
 // Suppress console errors during tests

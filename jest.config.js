@@ -23,8 +23,8 @@ module.exports = {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^react-router-dom$': '<rootDir>/src/__mocks__/react-router-dom.js',
-    '\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.js',
-    '\.(gif|ttf|eot|svg|png)$': '<rootDir>/src/__mocks__/fileMock.js'
+    '\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    '\.(gif|ttf|eot|svg|png)$': '<rootDir>/src/__mocks__/empty-module.js'
   },
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
   testMatch: ['**/__tests__/**/*.test.js'],

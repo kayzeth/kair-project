@@ -33,19 +33,20 @@ const DayEventsPopup = ({ day, events, onClose, onEditEvent, position }) => {
     <div 
       className="day-events-popup"
       ref={popupRef}
+      data-testid="day-events-popup"
       style={{
         top: position.top,
         left: position.left
       }}
     >
-      <div className="day-events-popup-header">
-        <div className="day-events-popup-date">
-          <div className="day-name">{format(day, 'EEEE')}</div>
-          <div className="day-number">{format(day, 'MMMM d, yyyy')}</div>
+      <div className="day-events-popup-header" data-testid="popup-header">
+        <div className="day-events-popup-date" data-testid="popup-date">
+          <div className="day-name" data-testid="day-name" data-date={day.toISOString()}>{format(day, 'EEEE')}</div>
+          <div className="day-number" data-testid="day-number" data-date={day.toISOString()}>{format(day, 'MMMM d, yyyy')}</div>
         </div>
-        <button className="close-button" onClick={onClose}>×</button>
+        <button className="close-button" data-testid="close-button" onClick={onClose}>×</button>
       </div>
-      <div className="day-events-popup-content">
+      <div className="day-events-popup-content" data-testid="popup-content">
         {events.length > 0 ? (
           events.map(event => {
             const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
@@ -53,6 +54,7 @@ const DayEventsPopup = ({ day, events, onClose, onEditEvent, position }) => {
               <div
                 key={event.id}
                 className={`popup-event ${event.type || ''}`}
+                data-testid={`event-item-${event.id}`}
                 onClick={() => {
                   onEditEvent(event);
                   onClose();
@@ -65,6 +67,7 @@ const DayEventsPopup = ({ day, events, onClose, onEditEvent, position }) => {
               >
                 {!event.allDay && (
                   <div 
+                    data-testid={`event-color-dot-${event.id}`}
                     style={{
                       width: '10px',
                       height: '10px',
@@ -75,15 +78,15 @@ const DayEventsPopup = ({ day, events, onClose, onEditEvent, position }) => {
                     }}
                   />
                 )}
-                <div className="popup-event-time">
+                <div className="popup-event-time" data-testid={`event-time-${event.id}`}>
                   {event.allDay ? 'All day' : formatTime(eventStart)}
                 </div>
-                <div className="popup-event-title" style={{ fontWeight: 600 }}>{event.title}</div>
+                <div className="popup-event-title" data-testid={`event-title-${event.id}`} style={{ fontWeight: 600 }}>{event.title}</div>
               </div>
             );
           })
         ) : (
-          <div className="no-events">No events for this day</div>
+          <div className="no-events" data-testid="no-events-message">No events for this day</div>
         )}
       </div>
     </div>
