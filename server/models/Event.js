@@ -48,6 +48,10 @@ const eventSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  preparationHours: {
+    type: Number,
+    default: null
+  },
   color: {
     type: String,
     default: '#d2b48c'

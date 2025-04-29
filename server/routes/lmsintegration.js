@@ -153,6 +153,9 @@ async function syncCanvasEvents(userId) {
           description: assignment.description || '',
           source: 'LMS',
           requires_preparation: true,
+          requires_hours: null, // Explicitly set to null instead of defaulting to 0
+          study_suggestions_shown: false, // Ensure this is set to false so nudger will identify it
+          study_suggestions_accepted: false, // Initialize as false
           metadata: {
             courseId: course.id,
             assignmentId: assignment.id,
