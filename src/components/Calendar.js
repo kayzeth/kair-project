@@ -532,10 +532,16 @@ const Calendar = ({ initialEvents = [], userId }) => {
       });
       
       // Generate study suggestions
+      // Use preparationHours if available, otherwise use requires_hours
+      const preparationHoursValue = event.preparationHours !== undefined && event.preparationHours !== null ? 
+        event.preparationHours : event.requires_hours;
+      
+      console.log(`Using preparation hours value: ${preparationHoursValue} for event ${event.title}`);
+      
       const suggestions = await studySuggesterService.generateStudySuggestions(
         userId, 
         event, 
-        Number(event.preparationHours),
+        Number(preparationHoursValue),
         forceGenerate // Pass the forceGenerate parameter
       );
       
@@ -568,11 +574,22 @@ const Calendar = ({ initialEvents = [], userId }) => {
           message: ''
         });
       } else {
-        // If no suggestions were generated, show a message
-        setSyncStatus({
-          status: 'info',
-          message: 'No study suggestions could be generated. Please try again later.'
-        });
+        // For Canvas/LMS events with null preparation hours, don't show any banner
+        if ((event.source === 'CANVAS' || event.source === 'LMS') && 
+            ((event.preparationHours === null || event.preparationHours === undefined || event.preparationHours === '') ||
+             (event.requires_hours === null || event.requires_hours === undefined || event.requires_hours === ''))) {
+          // Don't show any banner for Canvas/LMS events with null preparation hours
+          setSyncStatus({
+            status: 'idle',
+            message: ''
+          });
+        } else {
+          // Only show the banner for non-Canvas/LMS events or events with preparation hours set
+          setSyncStatus({
+            status: 'info',
+            message: 'No study suggestions could be generated. Please try again later.'
+          });
+        }
         
         setTimeout(() => {
           setSyncStatus({ status: 'idle', message: '' });

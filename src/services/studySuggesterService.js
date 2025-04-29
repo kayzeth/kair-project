@@ -47,6 +47,15 @@ export const generateStudySuggestions = async (eventsOrUserId, event, preparatio
 
     // Validate preparation hours - ensure it's a positive number
     const validPreparationHours = Number(preparationHours);
+    
+    // Special handling for Canvas/LMS events with null preparation hours
+    if ((event.source === 'CANVAS' || event.source === 'LMS') && 
+        (preparationHours === null || preparationHours === undefined || preparationHours === '')) {
+      console.log(`Canvas/LMS event detected with null preparation hours. This is expected for newly imported events.`);
+      console.log(`The user should be prompted to specify preparation hours before generating suggestions.`);
+      return [];
+    }
+    
     if (isNaN(validPreparationHours) || validPreparationHours <= 0) {
       console.log(`Invalid preparation hours (${preparationHours}). Must be a positive number. Skipping suggestions.`);
       return [];
