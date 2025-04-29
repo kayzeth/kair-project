@@ -6,6 +6,7 @@ import Account from './components/Account';
 import SyllabusParser from './components/SyllabusParser';
 import Landing from './components/Landing';
 import Onboarding from './components/Onboarding';
+import StudySuggestionsPage from './components/StudySuggestionsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { getCurrentUserId } from './services/userService';
@@ -14,6 +15,7 @@ import './styles/Account.css';
 import './styles/SyllabusParser.css';
 import './styles/Landing.css';
 import './styles/LoadingSpinner.css';
+import './styles/StudySuggestionsPage.css';
 
 function AppContent() {
   const location = useLocation();
@@ -26,6 +28,7 @@ function AppContent() {
     if (path === '/account') return 'account';
     if (path === '/syllabusParser') return 'syllabusParser';
     if (path === '/calendar') return 'calendar';
+    if (path === '/studySuggestions') return 'studySuggestions';
     return 'calendar'; // default
   }, [location.pathname]);
   
@@ -58,6 +61,9 @@ function AppContent() {
     } else if (tab === 'syllabusParser') {
       console.log('DIAGNOSTIC: App.js - Navigating to syllabus parser');
       navigate('/syllabusParser');
+    } else if (tab === 'studySuggestions') {
+      console.log('DIAGNOSTIC: App.js - Navigating to study suggestions');
+      navigate('/studySuggestions');
     }
   };
 
@@ -121,6 +127,14 @@ function AppContent() {
               element={
                 <ProtectedRoute>
                   <Onboarding />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/studySuggestions" 
+              element={
+                <ProtectedRoute>
+                  <StudySuggestionsPage />
                 </ProtectedRoute>
               } 
             />
