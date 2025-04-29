@@ -1,0 +1,324 @@
+.study-suggestions-container {
+  height: calc(100vh - 100px);
+  overflow-y: hidden;
+  padding: 0px 20px 20px 20px;
+  position: relative;
+  scrollbar-gutter: stable both-edges;
+  background-color: transparent;
+  max-width: 100%;
+  margin: 0;
+}
+
+.study-suggestions-container:hover {
+  overflow-y: auto;
+}
+
+.study-suggestions-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.study-suggestions-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.study-suggestions-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.study-suggestions-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Feature description styling */
+.feature-description ul {
+  padding-left: 20px;
+  margin-bottom: 20px;
+  list-style-type: disc;
+}
+
+.feature-description li {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.feature-description h5 {
+  margin-top: 20px;
+  margin-bottom: 15px;
+  color: var(--text-dark);
+  font-size: 1.1rem;
+  border-bottom: none;
+}
+
+.study-suggestions-container h2 {
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.page-title {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-lg);
+  color: var(--text-dark);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: -20px -20px 20px -20px; /* Negative margin to cover container padding */
+  padding-left: 20px; /* Restore left padding */
+  background-color: var(--primary-color);
+}
+
+.study-suggestions-content {
+  margin-top: 30px;
+  margin-bottom: 30px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.sleep-schedule-column {
+  grid-column: 1;
+}
+
+.info-column {
+  grid-column: 2;
+}
+
+.column-title {
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  display: flex;
+  align-items: center;
+}
+
+/* Sleep Schedule Section */
+.sleep-schedule-form {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.section-content {
+  margin-top: 15px;
+}
+
+.sleep-schedule-description {
+  margin-bottom: 15px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.sleep-schedule-inputs {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.sleep-schedule-inputs .form-group {
+  flex: 1;
+}
+
+.sleep-schedule-inputs label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.schedule-icon {
+  margin-right: 0.5rem;
+  color: #4a6fa5;
+}
+
+.time-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.sleep-hours-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+}
+
+.sleep-hours-note {
+  font-style: italic;
+  color: #666;
+  margin: 0;
+  flex: 1;
+}
+
+.save-button {
+  padding: 10px 20px;
+  background-color: #4285F4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.save-button:hover {
+  background-color: #3367d6;
+}
+
+.save-button:disabled {
+  background-color: #b3b3b3;
+  cursor: not-allowed;
+}
+
+.save-button.saving {
+  background-color: #f0ad4e;
+  cursor: default;
+}
+
+.save-button.saved {
+  background-color: #5cb85c;
+  cursor: default;
+}
+
+.save-button.error {
+  background-color: #d9534f;
+}
+
+.save-icon {
+  margin-right: 8px;
+  font-size: 1rem;
+}
+
+/* Feature Description Section */
+.feature-description {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e9ecef;
+}
+
+
+
+.feature-description h4 {
+  color: #343a40;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.feature-description h5 {
+  color: #495057;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.schedule-icon {
+  margin-right: 8px;
+  color: #4285F4;
+}
+
+.feature-description ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 15px;
+}
+
+.feature-description li {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  line-height: 1.5;
+  color: #555;
+}
+
+.feature-description li:last-child {
+  border-bottom: none;
+}
+
+.feature-description li strong {
+  color: #333;
+  font-weight: 600;
+}
+
+.feature-description p {
+  margin-top: 15px;
+  margin-bottom: 0;
+  font-style: italic;
+  color: #666;
+  padding: 8px;
+  background-color: #f0f8ff;
+  border-radius: 4px;
+  border-left: 3px solid #4285F4;
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .sleep-schedule-inputs {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 992px) {
+  .study-suggestions-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .sleep-schedule-column {
+    grid-column: 1;
+  }
+  
+  .info-column {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .study-suggestions-container {
+    padding: 15px;
+  }
+
+  .study-suggestions-content {
+    padding: 20px;
+  }
+
+  .sleep-schedule-inputs {
+    flex-direction: column;
+  }
+  
+  .sleep-hours-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .sleep-hours-note {
+    margin-bottom: 15px;
+  }
+  
+  .save-button {
+    width: 100%;
+  }
+}
+
+

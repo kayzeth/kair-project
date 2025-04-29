@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarAlt, faUserCircle, faFileAlt, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarAlt, faUserCircle, faFileAlt, faSignOutAlt, faBookReader } from '@fortawesome/free-solid-svg-icons';
 import logo2 from '../assets/images/logo2.png';
 import { useAuth } from '../context/AuthContext';
 
@@ -81,6 +81,17 @@ const Header = ({ activeTab, onTabChange }) => {
                   >
                     <FontAwesomeIcon icon={faFileAlt} className="nav-icon" />
                     <span className="nav-text">Syllabus Parser</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link 
+                    to="/studySuggestions" 
+                    className={`nav-link ${activeTab === 'studySuggestions' ? 'active' : ''}`}
+                    data-testid="header-nav-study-suggestions"
+                    onClick={() => onTabChange('studySuggestions')}
+                  >
+                    <FontAwesomeIcon icon={faBookReader} className="nav-icon" />
+                    <span className="nav-text">Study Suggestions</span>
                   </Link>
                 </li>
               </ul>
