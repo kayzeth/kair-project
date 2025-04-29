@@ -10,4 +10,11 @@ module.exports = {
   coverageReporters: ['json', 'lcov', 'text-summary', 'html'],
   testMatch: ['**/server/__tests__/**/*.test.js'],
   verbose: true,
+  rootDir: '../',
+  transform: {
+    '^.+\.(js|jsx)$': 'babel-jest',
+  },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(@fortawesome)/)',
+  ],
 };
