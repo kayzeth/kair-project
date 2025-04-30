@@ -68,6 +68,9 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose, userId }) 
       // Skip study sessions related to this event
       if (event.isStudySession && event.relatedEventId === parentEvent.id) return false;
       
+      // Skip all-day events in the hour-by-hour verification
+      if (event.allDay === true) return false;
+      
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
       
