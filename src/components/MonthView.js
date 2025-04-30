@@ -94,6 +94,19 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
       
       // Filter events for this day, including recurring events
       const dayEvents = events.filter(event => shouldShowEventOnDay(event, cloneDay));
+      
+      // Sort events chronologically by start time
+      dayEvents.sort((a, b) => {
+        const aStart = a.start instanceof Date ? a.start : new Date(a.start);
+        const bStart = b.start instanceof Date ? b.start : new Date(b.start);
+        
+        // Put all-day events first
+        if (a.allDay && !b.allDay) return -1;
+        if (!a.allDay && b.allDay) return 1;
+        
+        // Then sort by start time
+        return aStart.getTime() - bStart.getTime();
+      });
 
       days.push(
         <div
