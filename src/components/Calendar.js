@@ -436,10 +436,20 @@ const Calendar = ({ initialEvents = [], userId }) => {
       // }
 
       // Then delete from our backend
-      await eventService.deleteEvent(id);
+      const response = await eventService.deleteEvent(id);
       
-      // Remove from local state
+      // Remove the parent event from local state
       setEvents(prevEvents => prevEvents.filter(e => e.id !== id));
+      
+      // Also remove any study sessions associated with this event from local state
+      // The server already deletes these, but we need to update the UI immediately
+      if (response && response.studySessionsDeleted > 0) {
+        setEvents(prevEvents => prevEvents.filter(e => (
+          !(e.isStudySession && e.relatedEventId === id)
+        )));
+        console.log(`Removed ${response.studySessionsDeleted} study sessions associated with event ${id} from UI`);
+      }
+      
       setSyncStatus({
         status: 'success',
         message: 'Event deleted successfully'
@@ -525,17 +535,32 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
-      // Show loading status
+      // Generate study suggestions
+      // Use preparationHours if available, otherwise use requires_hours
+      const preparationHoursValue = event.preparationHours !== undefined && event.preparationHours !== null ? 
+        event.preparationHours : event.requires_hours;
+      
+      // Check if preparation hours are actually specified
+      if (preparationHoursValue === undefined || preparationHoursValue === null || preparationHoursValue === '') {
+        console.log(`Event "${event.title}" has requiresPreparation but no hours specified. Skipping generation.`);
+        return;
+      }
+      
+      // Only set processing state AFTER confirming we have valid preparation hours
+      setIsProcessingStudySuggestions(true);
+      
+      // Show loading status with a more prominent message
       setSyncStatus({
         status: 'loading',
-        message: 'Generating study suggestions...'
+        message: 'Generating study suggestions... This may take a moment'
       });
       
-      // Generate study suggestions
+      console.log(`Using preparation hours value: ${preparationHoursValue} for event ${event.title}`);
+      
       const suggestions = await studySuggesterService.generateStudySuggestions(
         userId, 
         event, 
-        Number(event.preparationHours),
+        Number(preparationHoursValue),
         forceGenerate // Pass the forceGenerate parameter
       );
       
@@ -562,17 +587,46 @@ const Calendar = ({ initialEvents = [], userId }) => {
         // Store the original event so we can mark it as having had suggestions shown
         setCurrentEventForSuggestions(event);
         
-        // Clear loading status
+        // Show success status before clearing
         setSyncStatus({
-          status: 'idle',
-          message: ''
+          status: 'success',
+          message: 'Study suggestions generated successfully!'
         });
+        
+        // Clear status after 3 seconds
+        setTimeout(() => {
+          setSyncStatus({
+            status: 'idle',
+            message: ''
+          });
+        }, 3000);
       } else {
-        // If no suggestions were generated, show a message
-        setSyncStatus({
-          status: 'info',
-          message: 'No study suggestions could be generated. Please try again later.'
-        });
+        // For Canvas events with null preparation hours, don't show any banner
+        if (event.source === 'CANVAS' && 
+            ((event.preparationHours === null || event.preparationHours === undefined || event.preparationHours === '') ||
+             (event.requires_hours === null || event.requires_hours === undefined || event.requires_hours === ''))) {
+          // Don't show any banner for Canvas events with null preparation hours
+          setSyncStatus({
+            status: 'idle',
+            message: ''
+          });
+        } 
+        // For backward compatibility with existing LMS events
+        else if (event.source === 'LMS' && 
+            ((event.preparationHours === null || event.preparationHours === undefined || event.preparationHours === '') ||
+             (event.requires_hours === null || event.requires_hours === undefined || event.requires_hours === ''))) {
+          // Don't show any banner for Canvas/LMS events with null preparation hours
+          setSyncStatus({
+            status: 'idle',
+            message: ''
+          });
+        } else {
+          // Only show the banner for non-Canvas/non-LMS events or events with preparation hours set
+          setSyncStatus({
+            status: 'info',
+            message: 'No study suggestions could be generated. Please try again later.'
+          });
+        }
         
         setTimeout(() => {
           setSyncStatus({ status: 'idle', message: '' });
@@ -590,8 +644,11 @@ const Calendar = ({ initialEvents = [], userId }) => {
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
+    } finally {
+      // Always set isProcessingStudySuggestions to false when done, whether successful or not
+      setIsProcessingStudySuggestions(false);
     }
-  }, [userId, setSyncStatus, setStudySuggestions, setShowStudySuggestions, setCurrentEventForSuggestions]);
+  }, [userId, setShowStudySuggestions, setStudySuggestions, setCurrentEventForSuggestions, setIsProcessingStudySuggestions]);
 
   // Check for events needing study suggestions
   const checkForEventsNeedingStudySuggestions = useCallback(async () => {
@@ -959,9 +1016,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
 
   return (
     <div className="calendar-container" data-testid="calendar-container">
-      {syncStatus.status !== 'idle' && (
-        <div className={`sync-banner sync-${syncStatus.status}`} data-testid="sync-status">
-          {syncStatus.message}
+      {(syncStatus.status !== 'idle' || isProcessingStudySuggestions) && (
+        <div className={`sync-banner sync-${isProcessingStudySuggestions ? 'loading' : syncStatus.status}`} data-testid="sync-status">
+          {isProcessingStudySuggestions ? 'Generating study suggestions... This may take a moment' : syncStatus.message}
         </div>
       )}
       <div className="calendar-header">

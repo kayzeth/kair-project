@@ -29,7 +29,7 @@ const eventSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['LMS', 'GOOGLE_CALENDAR', 'SYLLABUS', 'NUDGER'],
+    enum: ['LMS', 'CANVAS', 'GOOGLE_CALENDAR', 'SYLLABUS', 'NUDGER'],
     required: true
   },
   description: {
@@ -46,7 +46,12 @@ const eventSchema = new mongoose.Schema({
   },
   requires_hours: {
     type: Number,
-    default: 0
+    // Removed default: 0 to allow null values for Canvas events
+    // This ensures the nudger can identify events needing preparation hours
+  },
+  preparationHours: {
+    type: Number,
+    default: null
   },
   color: {
     type: String,
