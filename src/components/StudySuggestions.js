@@ -4,6 +4,7 @@ import { faTimes, faBook, faCheck, faClock, faCalendarPlus, faEdit, faExclamatio
 import { format, isValid, parseISO, parse, set } from 'date-fns';
 import eventService from '../services/eventService';
 import './StudySuggestions.css';
+import '../styles/Calendar.css'; // Import for sync-banner styling
 
 /**
  * Component that displays study session suggestions to the user
@@ -67,6 +68,9 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose, userId }) 
       
       // Skip study sessions related to this event
       if (event.isStudySession && event.relatedEventId === parentEvent.id) return false;
+      
+      // Skip all-day events in the hour-by-hour verification
+      if (event.allDay === true) return false;
       
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
@@ -364,7 +368,13 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose, userId }) 
   }
 
   return (
-    <div className="study-suggestions-container" data-testid="study-suggestions-container">
+    <>
+      {isLoading && (
+        <div className="sync-banner sync-loading" data-testid="study-suggestions-loading">
+          Generating study suggestions...
+        </div>
+      )}
+      <div className="study-suggestions-container" data-testid="study-suggestions-container">
       {isLoading ? (
         <div className="loading-indicator">Loading calendar events...</div>
       ) : (
@@ -593,6 +603,7 @@ const StudySuggestions = ({ suggestions, onAccept, onReject, onClose, userId }) 
       </>
       )}
     </div>
+    </>
   );
 };
 

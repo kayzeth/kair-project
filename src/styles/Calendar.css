@@ -187,10 +187,15 @@
   color: white;
   animation: slide-in 0.3s ease-out;
   z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-weight: 500;
+  min-width: 250px;
+  text-align: center;
 }
 
 .sync-loading {
   background-color: var(--info-color);
+  animation: pulse 1.5s infinite alternate;
 }
 
 .sync-info {
@@ -213,5 +218,14 @@
   to {
     transform: translateX(0);
     opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  from {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  to {
+    box-shadow: 0 4px 20px rgba(66, 135, 245, 0.5);
   }
 }

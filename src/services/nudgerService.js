@@ -158,6 +158,15 @@ export const identifyEventsNeedingStudySuggestions = (events) => {
   
   // Identify events that require preparation, have hours specified, and haven't had suggestions shown yet
   const eventsNeedingSuggestions = upcomingEvents.filter(event => {
+    // Debug information for each event
+    console.log(`Nudger Debug: Event "${event.title}"`, {
+      requiresPreparation: event.requiresPreparation,
+      preparationHours: event.preparationHours,
+      requires_hours: event.requires_hours,
+      preparationHoursType: typeof event.preparationHours,
+      studySuggestionsShown: event.studySuggestionsShown,
+      source: event.source
+    });
     // Skip events where studySuggestionsShown is undefined or not explicitly set to false
     // This ensures we don't process events from before the schema update
     if (event.studySuggestionsShown === undefined) {
@@ -172,17 +181,58 @@ export const identifyEventsNeedingStudySuggestions = (events) => {
       return false;
     }
     
-    // Check if preparation hours are explicitly set and valid
-    // This is critical - we only want to show study suggestions if hours are actually specified
-    if (event.preparationHours === undefined || event.preparationHours === null || event.preparationHours === '') {
+    // For any events that require preparation but don't have preparation hours specified
+    // we want to prompt the user to specify preparation hours
+    if (event.requiresPreparation === true) {
+      // Check if preparation hours are missing or empty string in either field
+      // Note: The client-side uses preparationHours, but the database uses requires_hours
+      if ((event.preparationHours === undefined || event.preparationHours === null || event.preparationHours === '') &&
+          (event.requires_hours === undefined || event.requires_hours === null || event.requires_hours === '')) {
+        console.log(`Nudger: Event "${event.title}" requires preparation but needs preparation hours specified`);
+        return true;
+      }
+      
+      // For Canvas assignments that have preparation hours set to 0,
+      // we want to prompt the user to specify actual hours
+      // This is because Canvas typically sets requiresPreparation=true and requires_hours=0 by default
+      if (event.source === 'CANVAS' && 
+          ((event.preparationHours === 0 || event.preparationHours === '0') ||
+           (event.requires_hours === 0 || event.requires_hours === '0'))) {
+        console.log(`Nudger: Canvas assignment "${event.title}" has default preparation hours (0) and needs user input`);
+        return true;
+      }
+      
+      // For backward compatibility with existing LMS events
+      if (event.source === 'LMS' && 
+          ((event.preparationHours === 0 || event.preparationHours === '0') ||
+           (event.requires_hours === 0 || event.requires_hours === '0'))) {
+        console.log(`Nudger: LMS assignment "${event.title}" has default preparation hours (0) and needs user input`);
+        return true;
+      }
+    }
+    
+    // For non-Canvas events, check if preparation hours are explicitly set and valid
+    // Note: The client-side uses preparationHours, but the database uses requires_hours
+    const hasPreparationHours = event.preparationHours !== undefined && event.preparationHours !== null && event.preparationHours !== '';
+    const hasRequiresHours = event.requires_hours !== undefined && event.requires_hours !== null && event.requires_hours !== '';
+    
+    if (!hasPreparationHours && !hasRequiresHours) {
       console.log(`Nudger: Skipping event "${event.title}" because preparation hours are not specified yet`);
       return false;
     }
     
-    // Ensure preparation hours are greater than 0
-    const preparationHours = Number(event.preparationHours);
-    if (isNaN(preparationHours) || preparationHours <= 0) {
-      console.log(`Nudger: Skipping event "${event.title}" because preparation hours (${event.preparationHours}) are invalid or not greater than 0`);
+    // Ensure preparation hours are a valid number
+    // Prioritize preparationHours if available, otherwise use requires_hours
+    const preparationHours = hasPreparationHours ? Number(event.preparationHours) : Number(event.requires_hours);
+    if (isNaN(preparationHours)) {
+      console.log(`Nudger: Skipping event "${event.title}" because preparation hours (${hasPreparationHours ? event.preparationHours : event.requires_hours}) is not a valid number`);
+      return false;
+    }
+    
+    // If preparation hours are explicitly set to 0 by the user and it's not from a Canvas or LMS source,
+    // respect the user's choice
+    if (preparationHours === 0 && event.source !== 'CANVAS' && event.source !== 'LMS') {
+      console.log(`Nudger: Skipping event "${event.title}" because preparation hours are explicitly set to 0 by the user`);
       return false;
     }
     
