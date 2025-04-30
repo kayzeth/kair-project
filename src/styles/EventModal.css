@@ -24,7 +24,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  padding: 15px;
+  padding: 15px 15px 0;
   display: flex;
   flex-direction: column;
   scrollbar-width: thin;
@@ -45,7 +45,9 @@
 .modal-body {
   display: flex;
   flex-direction: column;
-  overflow-y: visible;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(95vh - 120px); /* Account for header and footer */
 }
 
 .modal-header {
@@ -57,10 +59,16 @@
 
 .modal-footer {
   margin-top: 15px;
+  margin-left: -15px;
+  margin-right: -15px;
   display: flex;
   justify-content: flex-end;
-  padding-top: 12px;
+  padding: 15px;
   border-top: 1px solid var(--border-color);
+  position: sticky;
+  bottom: 0;
+  background-color: white;
+  z-index: 10;
 }
 
 .form-group {
@@ -316,6 +324,8 @@
   padding: 6px;
   background-color: var(--background-color-light);
   border-radius: var(--border-radius-sm);
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .weekday-selector {
