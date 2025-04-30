@@ -109,7 +109,8 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
             <div className="day-number" data-testid={`monthview-day-number-${format(day, 'yyyy-MM-dd')}`}>{dayNumber}</div>
           </div>
           <div className="day-events">
-            {dayEvents.slice(0, 2).map(event => {
+            {/* Show first 2 events if there are more than 3, otherwise show all (up to 3) */}
+            {dayEvents.slice(0, dayEvents.length > 3 ? 2 : 3).map(event => {
               const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
               return (
                 <div
