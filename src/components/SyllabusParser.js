@@ -214,14 +214,14 @@ const SyllabusParser = ({ onAddEvents }) => {
   
   const editEventsButtonStyle = {
     ...buttonBaseStyle,
-    backgroundColor: '#f8f9fa',
-    color: '#4285F4',
-    border: '1px solid #4285F4',
+    backgroundColor: '#4285F4',
+    color: 'white',
     width: '100%',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     gap: '8px',
+    boxShadow: '0 2px 4px rgba(66, 133, 244, 0.3)',
     transition: 'all 0.2s ease',
     marginBottom: '10px'
   };
@@ -1575,14 +1575,14 @@ function buildLocalDate(ymd) {
                       disabled={calendarEvents.length === 0}
                       onMouseOver={(e) => {
                         if (calendarEvents.length > 0) {
-                          e.currentTarget.style.backgroundColor = '#e8f0fe';
-                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(66, 133, 244, 0.2)';
+                          e.currentTarget.style.backgroundColor = '#3367d6';
+                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(66, 133, 244, 0.4)';
                         }
                       }}
                       onMouseOut={(e) => {
                         if (calendarEvents.length > 0) {
-                          e.currentTarget.style.backgroundColor = '#f8f9fa';
-                          e.currentTarget.style.boxShadow = 'none';
+                          e.currentTarget.style.backgroundColor = '#4285F4';
+                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(66, 133, 244, 0.3)';
                         }
                       }}
                       onClick={() => {
@@ -1654,7 +1654,7 @@ timeString = event.start && !event.allDay
                       }}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{flexShrink: 0}}>
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#4285F4"/>
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="white"/>
                       </svg>
                       Review & Edit Events
                     </button>
