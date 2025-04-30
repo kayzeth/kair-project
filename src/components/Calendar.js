@@ -535,16 +535,25 @@ const Calendar = ({ initialEvents = [], userId }) => {
         return;
       }
       
-      // Show loading status
-      setSyncStatus({
-        status: 'loading',
-        message: 'Generating study suggestions...'
-      });
-      
       // Generate study suggestions
       // Use preparationHours if available, otherwise use requires_hours
       const preparationHoursValue = event.preparationHours !== undefined && event.preparationHours !== null ? 
         event.preparationHours : event.requires_hours;
+      
+      // Check if preparation hours are actually specified
+      if (preparationHoursValue === undefined || preparationHoursValue === null || preparationHoursValue === '') {
+        console.log(`Event "${event.title}" has requiresPreparation but no hours specified. Skipping generation.`);
+        return;
+      }
+      
+      // Only set processing state AFTER confirming we have valid preparation hours
+      setIsProcessingStudySuggestions(true);
+      
+      // Show loading status with a more prominent message
+      setSyncStatus({
+        status: 'loading',
+        message: 'Generating study suggestions... This may take a moment'
+      });
       
       console.log(`Using preparation hours value: ${preparationHoursValue} for event ${event.title}`);
       
@@ -578,11 +587,19 @@ const Calendar = ({ initialEvents = [], userId }) => {
         // Store the original event so we can mark it as having had suggestions shown
         setCurrentEventForSuggestions(event);
         
-        // Clear loading status
+        // Show success status before clearing
         setSyncStatus({
-          status: 'idle',
-          message: ''
+          status: 'success',
+          message: 'Study suggestions generated successfully!'
         });
+        
+        // Clear status after 3 seconds
+        setTimeout(() => {
+          setSyncStatus({
+            status: 'idle',
+            message: ''
+          });
+        }, 3000);
       } else {
         // For Canvas events with null preparation hours, don't show any banner
         if (event.source === 'CANVAS' && 
@@ -627,8 +644,11 @@ const Calendar = ({ initialEvents = [], userId }) => {
       setTimeout(() => {
         setSyncStatus({ status: 'idle', message: '' });
       }, 3000);
+    } finally {
+      // Always set isProcessingStudySuggestions to false when done, whether successful or not
+      setIsProcessingStudySuggestions(false);
     }
-  }, [userId, setSyncStatus, setStudySuggestions, setShowStudySuggestions, setCurrentEventForSuggestions]);
+  }, [userId, setShowStudySuggestions, setStudySuggestions, setCurrentEventForSuggestions, setIsProcessingStudySuggestions]);
 
   // Check for events needing study suggestions
   const checkForEventsNeedingStudySuggestions = useCallback(async () => {
@@ -996,9 +1016,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
 
   return (
     <div className="calendar-container" data-testid="calendar-container">
-      {syncStatus.status !== 'idle' && (
-        <div className={`sync-banner sync-${syncStatus.status}`} data-testid="sync-status">
-          {syncStatus.message}
+      {(syncStatus.status !== 'idle' || isProcessingStudySuggestions) && (
+        <div className={`sync-banner sync-${isProcessingStudySuggestions ? 'loading' : syncStatus.status}`} data-testid="sync-status">
+          {isProcessingStudySuggestions ? 'Generating study suggestions... This may take a moment' : syncStatus.message}
         </div>
       )}
       <div className="calendar-header">

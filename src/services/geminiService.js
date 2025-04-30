@@ -402,7 +402,7 @@ STUDY PLAN RULES:
 - Total study time MUST EXACTLY add up to ${preparationHours} hours
 - Don't schedule any sessions in the past
 - CRITICAL: Do NOT schedule any study sessions that overlap with the existing calendar events listed above
-- Ensure at least 30 minutes buffer time before and after existing calendar events
+- Ensure at least 15 minutes buffer time before and after existing calendar events
 - Don't schedule anything between ${bedtimeFormatted} and ${wakeupTimeFormatted} because the user will be asleep. So you can only schedule events for the ${availableHours.toFixed(1)} hours following ${wakeupTimeFormatted}
 - Maximum session length should be 4 hours
 - Schedule all sessions to start and end on 15-minute increments (e.g., 9:00, 9:15, 9:30, 9:45)
@@ -551,8 +551,8 @@ Example format:
       console.log('Sending prompt to Gemini:', currentPromptText);
       
       try {
-        // For @google/generative-ai, use the gemini-2.0-flash model
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        // For @google/generative-ai, use the gemini-2.5-flash-preview-04-17 model
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-04-17" });
         const result = await model.generateContent({
           contents: [
             {
