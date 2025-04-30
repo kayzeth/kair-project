@@ -436,10 +436,20 @@ const Calendar = ({ initialEvents = [], userId }) => {
       // }
 
       // Then delete from our backend
-      await eventService.deleteEvent(id);
+      const response = await eventService.deleteEvent(id);
       
-      // Remove from local state
+      // Remove the parent event from local state
       setEvents(prevEvents => prevEvents.filter(e => e.id !== id));
+      
+      // Also remove any study sessions associated with this event from local state
+      // The server already deletes these, but we need to update the UI immediately
+      if (response && response.studySessionsDeleted > 0) {
+        setEvents(prevEvents => prevEvents.filter(e => (
+          !(e.isStudySession && e.relatedEventId === id)
+        )));
+        console.log(`Removed ${response.studySessionsDeleted} study sessions associated with event ${id} from UI`);
+      }
+      
       setSyncStatus({
         status: 'success',
         message: 'Event deleted successfully'
