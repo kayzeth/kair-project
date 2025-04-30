@@ -574,8 +574,18 @@ const Calendar = ({ initialEvents = [], userId }) => {
           message: ''
         });
       } else {
-        // For Canvas/LMS events with null preparation hours, don't show any banner
-        if ((event.source === 'CANVAS' || event.source === 'LMS') && 
+        // For Canvas events with null preparation hours, don't show any banner
+        if (event.source === 'CANVAS' && 
+            ((event.preparationHours === null || event.preparationHours === undefined || event.preparationHours === '') ||
+             (event.requires_hours === null || event.requires_hours === undefined || event.requires_hours === ''))) {
+          // Don't show any banner for Canvas events with null preparation hours
+          setSyncStatus({
+            status: 'idle',
+            message: ''
+          });
+        } 
+        // For backward compatibility with existing LMS events
+        else if (event.source === 'LMS' && 
             ((event.preparationHours === null || event.preparationHours === undefined || event.preparationHours === '') ||
              (event.requires_hours === null || event.requires_hours === undefined || event.requires_hours === ''))) {
           // Don't show any banner for Canvas/LMS events with null preparation hours
@@ -584,7 +594,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
             message: ''
           });
         } else {
-          // Only show the banner for non-Canvas/LMS events or events with preparation hours set
+          // Only show the banner for non-Canvas/non-LMS events or events with preparation hours set
           setSyncStatus({
             status: 'info',
             message: 'No study suggestions could be generated. Please try again later.'

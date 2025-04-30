@@ -192,13 +192,21 @@ export const identifyEventsNeedingStudySuggestions = (events) => {
         return true;
       }
       
-      // For Canvas/LMS assignments that have preparation hours set to 0,
+      // For Canvas assignments that have preparation hours set to 0,
       // we want to prompt the user to specify actual hours
-      // This is because Canvas/LMS typically sets requiresPreparation=true and requires_hours=0 by default
-      if ((event.source === 'CANVAS' || event.source === 'LMS') && 
+      // This is because Canvas typically sets requiresPreparation=true and requires_hours=0 by default
+      if (event.source === 'CANVAS' && 
           ((event.preparationHours === 0 || event.preparationHours === '0') ||
            (event.requires_hours === 0 || event.requires_hours === '0'))) {
-        console.log(`Nudger: ${event.source} assignment "${event.title}" has default preparation hours (0) and needs user input`);
+        console.log(`Nudger: Canvas assignment "${event.title}" has default preparation hours (0) and needs user input`);
+        return true;
+      }
+      
+      // For backward compatibility with existing LMS events
+      if (event.source === 'LMS' && 
+          ((event.preparationHours === 0 || event.preparationHours === '0') ||
+           (event.requires_hours === 0 || event.requires_hours === '0'))) {
+        console.log(`Nudger: LMS assignment "${event.title}" has default preparation hours (0) and needs user input`);
         return true;
       }
     }
@@ -221,7 +229,7 @@ export const identifyEventsNeedingStudySuggestions = (events) => {
       return false;
     }
     
-    // If preparation hours are explicitly set to 0 by the user and it's not from an LMS/Canvas source,
+    // If preparation hours are explicitly set to 0 by the user and it's not from a Canvas or LMS source,
     // respect the user's choice
     if (preparationHours === 0 && event.source !== 'CANVAS' && event.source !== 'LMS') {
       console.log(`Nudger: Skipping event "${event.title}" because preparation hours are explicitly set to 0 by the user`);

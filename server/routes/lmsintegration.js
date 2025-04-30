@@ -151,7 +151,7 @@ async function syncCanvasEvents(userId) {
           start_time: new Date(assignment.due_at),
           end_time: new Date(assignment.due_at),
           description: assignment.description || '',
-          source: 'LMS',
+          source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
           requires_preparation: true,
           requires_hours: null, // Explicitly set to null instead of defaulting to 0
           study_suggestions_shown: false, // Ensure this is set to false so nudger will identify it
@@ -196,7 +196,7 @@ async function syncCanvasEvents(userId) {
           end_time: event.end_at ? new Date(event.end_at) : new Date(event.start_at),
           description: event.description || '',
           location: event.location_name || '',
-          source: 'LMS',
+          source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
           metadata: {
             courseId: course.id,
             eventId: event.id,
@@ -211,7 +211,7 @@ async function syncCanvasEvents(userId) {
   // Delete existing Canvas events for this user
   await Event.deleteMany({ 
     user_id: userId,
-    source: 'LMS'
+    source: 'CANVAS'
   });
 
   // Insert new events
