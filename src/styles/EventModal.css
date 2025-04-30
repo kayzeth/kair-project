@@ -45,8 +45,9 @@
 .modal-body {
   display: flex;
   flex-direction: column;
-  overflow-y: visible;
+  overflow-y: auto;
   flex: 1;
+  max-height: calc(95vh - 120px); /* Account for header and footer */
 }
 
 .modal-header {
