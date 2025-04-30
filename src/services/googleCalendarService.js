@@ -338,13 +338,27 @@ class GoogleCalendarService {
             const allDay = !event.start?.dateTime;
             const isDeleted = event.status === 'cancelled';
             
+            // For all-day events, Google Calendar uses the convention where the end date is exclusive
+            // (i.e., the day after the actual end). We need to adjust this for our app.
+            let start = allDay ? (event.start?.date || null) : (event.start?.dateTime || null);
+            let end = allDay ? (event.end?.date || null) : (event.end?.dateTime || null);
+            
+            // For all-day events, adjust the end date by subtracting one day to match our app's convention
+            // This fixes the issue of events appearing on both the intended day and the day after
+            if (allDay && end) {
+              // Parse the end date, subtract one day, and format it back to YYYY-MM-DD
+              const endDate = new Date(end);
+              endDate.setDate(endDate.getDate() - 1);
+              end = endDate.toISOString().split('T')[0];
+            }
+            
             return {
               id: `${calendar.id}_${event.id}`, // Make ID unique across calendars
               title: event.summary || 'Untitled Event',
               description: event.description || '',
               location: event.location || '',
-              start: allDay ? (event.start?.date || null) : (event.start?.dateTime || null),
-              end: allDay ? (event.end?.date || null) : (event.end?.dateTime || null),
+              start,
+              end,
               allDay,
               color: calendar.backgroundColor || '#d2b48c', // Use calendar color if available
               googleEventId: event.id, // Store the Google event ID for future reference

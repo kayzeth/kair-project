@@ -40,6 +40,8 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     // Default start and end times
     let startTime = '09:00';
     let endTime = '10:00';
+    let startDate = format(selectedDate, 'yyyy-MM-dd');
+    let endDate = format(selectedDate, 'yyyy-MM-dd');
     
     // If there's a suggested hour from clicking a time slot in week view
     if (event && event.suggestedHour !== undefined) {
@@ -50,14 +52,21 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       // Set end time to be 1 hour after start time
       const endHour = (event.suggestedHour + 1) % 24;
       endTime = `${endHour.toString().padStart(2, '0')}:00`;
+      
+      // If the end time crosses midnight (e.g., 11pm to 12am), set the end date to the next day
+      if (endHour < event.suggestedHour) {
+        const nextDay = new Date(selectedDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        endDate = format(nextDay, 'yyyy-MM-dd');
+      }
     }
     
     return {
       title: '',
       description: '',
       location: '',
-      start: format(selectedDate, 'yyyy-MM-dd'),
-      end: format(selectedDate, 'yyyy-MM-dd'),
+      start: startDate,
+      end: endDate,
       startTime: startTime,
       endTime: endTime,
       allDay: false,
