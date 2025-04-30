@@ -31,8 +31,8 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
     // Special handling for all-day events
     if (event.allDay) {
       // For all-day events, use the stored date strings to avoid timezone issues
-      const startDate = event.startDate || (event.start instanceof Date ? format(event.start, 'yyyy-MM-dd') : event.start.split('T')[0]);
-      const endDate = event.endDate || (event.end instanceof Date ? format(event.end, 'yyyy-MM-dd') : event.end.split('T')[0]);
+      const startDate = event.start instanceof Date ? format(event.start, 'yyyy-MM-dd') : event.start.split('T')[0];
+      const endDate = event.end instanceof Date ? format(event.end, 'yyyy-MM-dd') : event.end.split('T')[0];
       
       // Format the day we're checking to yyyy-MM-dd for string comparison
       const dayString = format(day, 'yyyy-MM-dd');
@@ -94,6 +94,19 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
       
       // Filter events for this day, including recurring events
       const dayEvents = events.filter(event => shouldShowEventOnDay(event, cloneDay));
+      
+      // Sort events chronologically by start time
+      dayEvents.sort((a, b) => {
+        const aStart = a.start instanceof Date ? a.start : new Date(a.start);
+        const bStart = b.start instanceof Date ? b.start : new Date(b.start);
+        
+        // Put all-day events first
+        if (a.allDay && !b.allDay) return -1;
+        if (!a.allDay && b.allDay) return 1;
+        
+        // Then sort by start time
+        return aStart.getTime() - bStart.getTime();
+      });
 
       days.push(
         <div
@@ -109,7 +122,8 @@ const MonthView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
             <div className="day-number" data-testid={`monthview-day-number-${format(day, 'yyyy-MM-dd')}`}>{dayNumber}</div>
           </div>
           <div className="day-events">
-            {dayEvents.slice(0, 2).map(event => {
+            {/* Show first 2 events if there are more than 3, otherwise show all (up to 3) */}
+            {dayEvents.slice(0, dayEvents.length > 3 ? 2 : 3).map(event => {
               const eventStart = event.start instanceof Date ? event.start : new Date(event.start);
               return (
                 <div

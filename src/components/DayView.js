@@ -122,6 +122,19 @@ const DayView = ({ currentDate, events, onAddEvent, onEditEvent }) => {
   // Check if an event spans into the current day
   const eventSpansDay = (event, day) => {
     try {
+      // For all-day events, use date string comparison
+      if (event.allDay) {
+        const startDate = event.start instanceof Date ? format(event.start, 'yyyy-MM-dd') : event.start.split('T')[0];
+        const endDate = event.end instanceof Date ? format(event.end, 'yyyy-MM-dd') : event.end.split('T')[0];
+        
+        // Format the day we're checking to yyyy-MM-dd for string comparison
+        const dayString = format(day, 'yyyy-MM-dd');
+        
+        // Check if the day is between start and end dates (inclusive)
+        return dayString >= startDate && dayString <= endDate;
+      }
+      
+      // For regular events
       const eventStart = typeof event.start === 'string' ? parseISO(event.start) : event.start;
       const eventEnd = typeof event.end === 'string' ? parseISO(event.end) : event.end || addHours(eventStart, 1);
       
