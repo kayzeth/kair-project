@@ -7,6 +7,7 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import 'pdfjs-dist/legacy/build/pdf.worker.entry';
 import eventService from '../services/eventService';
 import { getCurrentUserId } from '../services/userService';
+import Title from './Title';
 
 const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents, setApiResponse, setExtractedInfo, setCalendarEvents, setOpenAiError, convertToCalendarEvents) => {
     // Bail if tiny
@@ -1141,6 +1142,7 @@ function buildLocalDate(ymd) {
 
   return (
     <div className="syllabus-parser-container">
+      <Title page="Syllabus Parser" />
       <h2 data-testid="syllabus-title">Syllabus Parser</h2>
       <p data-testid="syllabus-upload-instruction">Upload or paste your course syllabus to automatically extract important dates and add them to your calendar using OpenAI.</p>
       
@@ -1539,7 +1541,7 @@ function buildLocalDate(ymd) {
                                       </span>
                                     </div>
                                   </li>
-                              ))}
+                                ))}
                             </ul>
                           ) : (
                             <p style={{color: '#666', fontStyle: 'italic', textAlign: 'center', margin: '15px 0'}}>No events selected to add to calendar</p>

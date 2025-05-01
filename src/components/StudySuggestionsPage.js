@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
+import Title from './Title';
 import '../styles/Account.css';
 import '../styles/StudySuggestionsPage.css';
 
@@ -108,7 +109,8 @@ const StudySuggestionsPage = () => {
   };
 
   return (
-    <div className="account-container">
+    <div className="study-suggestions-page">
+      <Title page="Study Suggestions" />
       <h1 className="account-title">Study Suggestions</h1>
       
       <div className="account-section">

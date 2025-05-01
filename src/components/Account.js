@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import ApiKeyInput from './ApiKeyInput';
+import Title from './Title';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { faSync, faCheck, faTimes, faCalendarAlt, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
-import { useAuth } from '../context/AuthContext';
 import googleCalendarService from '../services/googleCalendarService';
 import googleCalendarDbService from '../services/googleCalendarDbService';
 import canvasService from '../services/canvasService';
@@ -362,7 +365,8 @@ const Account = () => {
   };
 
   return (
-    <div className="account-container">
+    <div className="account-container" data-testid="account-container">
+      <Title page="Account" />
       <h1 className="account-title" data-testid="account-title">Account Settings</h1>
 
       {/* Remove ApiKeyInput component */}
