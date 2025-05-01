@@ -128,13 +128,14 @@ async function syncCanvasEvents(userId) {
       continue;
     }
 
-    // Fetch assignments
+    // Get date range for both assignments and calendar events
     const now = new Date();
-    const oneYearAgo = new Date(now);
-    oneYearAgo.setFullYear(now.getFullYear() - 1);
-    const oneYearAhead = new Date(now);
-    oneYearAhead.setFullYear(now.getFullYear() + 1);
+    const ninetyDaysAgo = new Date(now);
+    ninetyDaysAgo.setDate(now.getDate() - 90);
+    const ninetyDaysAhead = new Date(now);
+    ninetyDaysAhead.setDate(now.getDate() + 90);
 
+    // Fetch assignments
     const assignmentParams = new URLSearchParams({
       'include[]': 'description',
       'include[]': 'due_at',
@@ -142,8 +143,8 @@ async function syncCanvasEvents(userId) {
       'include[]': 'overrides',
       'order_by': 'due_at',
       'per_page': '100',
-      'start_date': oneYearAgo.toISOString(),
-      'end_date': oneYearAhead.toISOString()
+      'start_date': ninetyDaysAgo.toISOString(),
+      'end_date': ninetyDaysAhead.toISOString()
     });
 
     const assignmentsResponse = await fetch(
@@ -186,12 +187,12 @@ async function syncCanvasEvents(userId) {
     
     events.push(...assignmentEvents);
 
-    // Fetch calendar events
+    // Fetch calendar events using same date range
     const calendarParams = new URLSearchParams({
       'context_codes[]': `course_${course.id}`,
       'type': 'event',
-      'start_date': oneYearAgo.toISOString(),
-      'end_date': oneYearAhead.toISOString(),
+      'start_date': ninetyDaysAgo.toISOString(),
+      'end_date': ninetyDaysAhead.toISOString(),
       'per_page': '100'
     });
 
