@@ -92,16 +92,15 @@ const canvasService = {
       const oneYearAhead = new Date(now);
       oneYearAhead.setFullYear(now.getFullYear() + 1);
 
-      const params = new URLSearchParams({
-        'include[]': 'due_at',
-        'include[]': 'description',
-        'include[]': 'submission',
-        'include[]': 'overrides',
-        'order_by': 'due_at',
-        'per_page': '100',
-        'start_date': oneYearAgo.toISOString(),
-        'end_date': oneYearAhead.toISOString()
-      });
+      const params = new URLSearchParams();
+      params.append('include[]', 'due_at');
+      params.append('include[]', 'description');
+      params.append('include[]', 'submission');
+      params.append('include[]', 'overrides');
+      params.append('order_by', 'due_at');
+      params.append('per_page', '100');
+      params.append('start_date', oneYearAgo.toISOString());
+      params.append('end_date', oneYearAhead.toISOString());
 
       const response = await fetch(`${PROXY_URL}courses/${courseId}/assignments?${params.toString()}`);
       
@@ -126,14 +125,13 @@ const canvasService = {
       const oneYearAhead = new Date(now);
       oneYearAhead.setFullYear(now.getFullYear() + 1);
 
-      const params = new URLSearchParams({
-        'context_codes[]': `course_${courseId}`,
-        'type': 'event',
-        'start_date': oneYearAgo.toISOString(),
-        'end_date': oneYearAhead.toISOString(),
-        'include[]': 'description',
-        'per_page': '100'
-      });
+      const params = new URLSearchParams();
+      params.append('context_codes[]', `course_${courseId}`);
+      params.append('type', 'event');
+      params.append('start_date', oneYearAgo.toISOString());
+      params.append('end_date', oneYearAhead.toISOString());
+      params.append('include[]', 'description');
+      params.append('per_page', '100');
 
       const response = await fetch(`${PROXY_URL}calendar_events?${params.toString()}`);
 
