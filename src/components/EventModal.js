@@ -260,7 +260,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         isValid = false;
       }
       
-      // Validate that end date/time is after start date/time
+      // Only validate date range if both times are valid
       if (isValid) {
         const [startYear, startMonth, startDay] = data.start.split('-').map(Number);
         const startDate = new Date(startYear, startMonth - 1, startDay, startHours, startMinutes);
@@ -268,8 +268,8 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         const [endYear, endMonth, endDay] = data.end.split('-').map(Number);
         const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes);
         
-        if (endDate <= startDate) {
-          errors.timeRange = 'End time must be after start time';
+        if (endDate < startDate) {
+          errors.timeRange = 'End time cannot be before start time';
           isValid = false;
         }
       }

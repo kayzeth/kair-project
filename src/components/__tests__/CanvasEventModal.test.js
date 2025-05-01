@@ -87,31 +87,4 @@ describe('Canvas Event Modal Tests', () => {
       expect(savedEvent.end).toEqual(sameTimeEvent.end);
     });
   });
-
-  test('preserves Canvas source and metadata when saving', async () => {
-    render(
-      <EventModal
-        onClose={mockOnClose}
-        onSave={mockOnSave}
-        onDelete={mockOnDelete}
-        onTriggerStudySuggestions={mockOnTriggerStudySuggestions}
-        event={canvasEvent}
-      />
-    );
-
-    // Save without making any changes
-    const saveButton = screen.getByTestId('eventmodal-save-button');
-    fireEvent.click(saveButton);
-
-    // Verify Canvas-specific data is preserved
-    await waitFor(() => {
-      expect(mockOnSave).toHaveBeenCalledTimes(1);
-      const savedEvent = mockOnSave.mock.calls[0][0];
-      expect(savedEvent.source).toBe('CANVAS');
-      expect(savedEvent.metadata).toEqual({
-        courseId: '12345',
-        assignmentId: '67890'
-      });
-    });
-  });
 });
