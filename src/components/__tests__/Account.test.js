@@ -1,339 +1,369 @@
+
 import React from 'react';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
-import '@testing-library/jest-dom';
-import Account from '../Account';
-// Import the real AuthContext to see its implementation
-import { useAuth, AuthProvider } from '../../context/AuthContext';
-
-// Mock the dependencies before importing them
-jest.mock('../../services/googleCalendarService');
-jest.mock('../../config/googleCalendarConfig');
-jest.mock('../../services/googleCalendarDbService');
-jest.mock('../../services/canvasService');
-jest.mock('../../config/canvasConfig');
-
-// Import the mocked modules after mocking
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom/extend-expect';
+import Account from '../../components/Account';
+import { useAuth } from '../../context/AuthContext';
 import googleCalendarService from '../../services/googleCalendarService';
-import googleCalendarDbService from '../../services/googleCalendarDbService';
-import { isConfigured as isGoogleConfigured } from '../../config/googleCalendarConfig';
+import { isConfigured } from '../../config/googleCalendarConfig';
 import canvasService from '../../services/canvasService';
-import { isConfigured as isCanvasConfigured } from '../../config/canvasConfig';
+import googleCalendarDbService from '../../services/googleCalendarDbService';
+import { act } from 'react-dom/test-utils';
 
-// Mock FontAwesome to avoid issues
-jest.mock('@fortawesome/react-fontawesome', () => ({
-  FontAwesomeIcon: () => <div data-testid="mock-icon" />
-}));
-
-// Create AuthContext for testing
-const TestAuthContext = React.createContext(null);
-
-// Mock AuthContext provider
-const MockAuthProvider = ({ children }) => {
-  const mockAuthValue = {
-    user: { _id: 'test-user-id', email: 'test@example.com', name: 'Test User' },
-    isAuthenticated: true,
-  authToken: 'test-token',
-  login: jest.fn(),
-  logout: jest.fn()
-};
-
-  return (
-    <TestAuthContext.Provider value={mockAuthValue}>
-      {children}
-    </TestAuthContext.Provider>
-  );
-};
-
-// Mock the useAuth hook to return our test values
+// Mock services and context
 jest.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({
-    user: { _id: 'test-user-id', email: 'test@example.com', name: 'Test User' },
-    isAuthenticated: true,
-    authToken: 'test-token',
-    login: jest.fn(),
-    logout: jest.fn()
-  }),
-  AuthProvider: ({ children }) => <>{children}</>
+  useAuth: jest.fn(),
 }));
 
-// Custom render function
-const renderWithAuth = (ui) => {
-  return render(ui);
-};
+jest.mock('../../services/googleCalendarService', () => ({
+  initialize: jest.fn(),
+  isSignedIn: jest.fn(),
+  getCurrentUser: jest.fn(),
+  addSignInListener: jest.fn(),
+  signIn: jest.fn(),
+  signOut: jest.fn(),
+}));
+
+jest.mock('../../services/canvasService', () => ({
+  setCredentials: jest.fn(),
+  syncWithCalendar: jest.fn(),
+  clearCredentials: jest.fn(),
+}));
+
+jest.mock('../../config/googleCalendarConfig', () => ({
+  isConfigured: jest.fn(),
+}));
+
+jest.mock('../../services/googleCalendarDbService', () => ({
+  syncGoogleCalendarWithDb: jest.fn(),
+  deleteAllGoogleEvents: jest.fn(),
+}));
 
 describe('Account Component', () => {
   beforeEach(() => {
-    // Reset mocks before each test
-    jest.clearAllMocks();
-    
-    // Set up mock implementations
-    isGoogleConfigured.mockReturnValue(true);
-    
-    // Set up googleCalendarService mock implementations
-    googleCalendarService.initialize = jest.fn().mockResolvedValue();
-    googleCalendarService.isSignedIn = jest.fn().mockReturnValue(false);
-    googleCalendarService.getCurrentUser = jest.fn().mockReturnValue(null);
-    
-    // Mock addSignInListener to store the callback
-    googleCalendarService.addSignInListener = jest.fn((callback) => {
-      googleCalendarService.signInCallback = callback;
+    jest.resetAllMocks();
+  
+    // 1. Override localStorage
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: jest.fn(() => JSON.stringify({ id: '123' })),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn(),
+      },
+      writable: true,
     });
-    
-    googleCalendarService.signIn = jest.fn().mockResolvedValue();
-    googleCalendarService.signOut = jest.fn().mockResolvedValue();
-    googleCalendarService.syncEvents = jest.fn().mockResolvedValue({ imported: 5, exported: 3 });
-  });
-
-  test('renders account title', async () => {
-    await act(() => {
-      renderWithAuth(<Account />);
+  
+    // 2. Ensure localhost to show delete button
+    Object.defineProperty(window, 'location', {
+      value: { hostname: 'localhost' },
+      writable: true,
     });
-    expect(screen.getByTestId('account-title')).toBeInTheDocument();
-  });
-
-  test('shows API credentials warning when not configured', async () => {
-    isGoogleConfigured.mockReturnValue(false);
-    await act(() => {
-      renderWithAuth(<Account />);
+  
+    // 3. Mock config + auth
+    isConfigured.mockReturnValue(true);
+    useAuth.mockReturnValue({
+      user: { id: '123', name: 'Test User', email: 'test@example.com' },
+      isLoggedIn: true,
     });
-    expect(screen.getByTestId('api-credentials-warning')).toBeInTheDocument(); // This is an error state message
-  });
-
-  test('initializes Google Calendar service on mount', async () => {
-    await act(() => {
-      renderWithAuth(<Account />);
-    });
-    expect(googleCalendarService.initialize).toHaveBeenCalled();
-  });
-
-  test('shows sign-in button when not signed in', async () => {
-    await act(() => {
-      renderWithAuth(<Account />);
-    });
-    expect(screen.getByTestId('google-sign-in-button')).toBeInTheDocument();
-  });
-
-  test('shows user profile when signed in', async () => {
-    // Mock signed-in state and user data
-    const mockUser = {
-      name: 'Test User',
-      email: 'test@example.com',
-      imageUrl: 'https://example.com/profile.jpg'
-    };
-    
-    // Set up mocks before rendering
-    googleCalendarService.isSignedIn.mockReturnValue(true);
-    googleCalendarService.getCurrentUser.mockReturnValue(mockUser);
-    
-    // Store the sign-in listener to call it later
-    let signInListener;
-    googleCalendarService.addSignInListener.mockImplementation((callback) => {
-      signInListener = callback;
-      return jest.fn(); // Return a mock removal function
-    });
-    
-    // Mock the initialize method to resolve immediately
-    googleCalendarService.initialize.mockImplementation(() => {
-      return Promise.resolve();
-    });
-
-    // Render component inside act to catch initial renders
-    await act(async () => {
-      renderWithAuth(<Account />);
-    });
-    
-    // Trigger the sign-in callback inside act
-    await act(async () => {
-      if (signInListener) {
-        signInListener(true);
-      }
-    });
-    
-    // Now check if user info is displayed correctly
-    // These assertions don't need to be in act() since they don't cause state updates
-    expect(screen.getByTestId('user-name')).toHaveTextContent('Test User');
-    expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
-    
-    // Check if auth card user info is displayed
-    expect(screen.getByTestId('auth-user-name')).toHaveTextContent('Test User');
-    expect(screen.getByTestId('auth-user-email')).toHaveTextContent('test@example.com');
-    
-    // Check if connection status is displayed
-    expect(screen.getByTestId('google-connected-status')).toBeInTheDocument();
-  });
-
-  test('handles sign-in button click', async () => {
-      await act(async () => {
-      renderWithAuth(<Account />);
-    });
-    
-    // Click the sign-in button
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('google-sign-in-button'));
-    });
-    
-    expect(googleCalendarService.signIn).toHaveBeenCalled();
-  });
-
-  test('handles sign-out button click when signed in', async () => {
-    // Mock signed-in state
+  
+    // 4. Indicate Google is signed in
     googleCalendarService.isSignedIn.mockReturnValue(true);
     googleCalendarService.getCurrentUser.mockReturnValue({
       name: 'Test User',
-      email: 'test@example.com'
+      email: 'test@example.com',
     });
+    googleCalendarService.addSignInListener.mockImplementation(() => {});
+    googleCalendarDbService.clearSyncData = jest.fn().mockResolvedValue(undefined);
+  });  
 
-    await act(async () => {
-      renderWithAuth(<Account />);
-    });
+  it('renders Account title and user info', async () => {
+    render(<Account />);
+    expect(await screen.findByTestId('account-title')).toBeInTheDocument();
+    expect(screen.getByTestId('user-name')).toHaveTextContent('Test User');
+    expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
+  });
+
+  it('shows sign-in button when not signed in', async () => {
+    render(<Account />);
+    expect(await screen.findByTestId('google-sign-in-button')).toBeInTheDocument();
+  });
+
+  it('displays API credential warning if not configured', async () => {
+    isConfigured.mockReturnValue(false);
+    render(<Account />);
+    expect(await screen.findByTestId('api-credentials-warning')).toBeInTheDocument();
+  });
+
+  test('handles Google sign-in errors gracefully', async () => {
+    googleCalendarService.signIn.mockRejectedValue(new Error('mock sign-in failure'));
+    googleCalendarService.isSignedIn.mockReturnValue(false);
     
-    // Click the sign-out button
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('google-disconnect-button'));
+    render(<Account />);
+  
+    fireEvent.click(await screen.findByTestId('google-sign-in-button'));
+  
+    await waitFor(() => {
+      expect(screen.getByTestId('sync-message')).toHaveTextContent(
+        'Failed to sign in with Google'
+      );
     });
-    
+  });  
+  
+  it('handles successful Canvas sync', async () => {
+    // Mock fetch before rendering, so useEffect sets isCanvasConnected = true
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { user_id: '123', lms_type: 'CANVAS' } // mock Canvas integration
+      ],
+    });
+  
+    canvasService.syncWithCalendar.mockResolvedValue(5); // pretend 5 events were added
+  
+    render(<Account />);
+  
+    // Wait for the sync button to appear
+    const syncButton = await screen.findByTestId('account-sync-canvas-button');
+    fireEvent.click(syncButton);
+  
+    await waitFor(() => {
+      expect(screen.getByTestId('canvas-error-message')).toHaveTextContent('Successfully synced 5 events from Canvas');
+    });
+  });  
+  
+  it('handles Canvas sync failure', async () => {
+    // Simulate Canvas connected state
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { user_id: '123', lms_type: 'CANVAS' } // simulate Canvas integration exists
+      ],
+    });
+  
+    canvasService.syncWithCalendar.mockRejectedValue(new Error('Canvas sync failed'));
+  
+    render(<Account />);
+    const syncButton = await screen.findByTestId('account-sync-canvas-button');
+    fireEvent.click(syncButton);
+  
+    await waitFor(() => {
+      expect(screen.getByTestId('canvas-error-message')).toHaveTextContent('Canvas sync failed');
+    });
+  });
+
+  it('handles Google Calendar incremental sync, full sync, event deletion, and sign out', async () => {
+    // 1. Set up mocks
+    isConfigured.mockReturnValue(true);
+    useAuth.mockReturnValue({
+      user: { id: '123', name: 'Test User', email: 'test@example.com' },
+      isLoggedIn: true,
+    });
+  
+    googleCalendarService.isSignedIn.mockReturnValue(true);
+    googleCalendarService.getCurrentUser.mockReturnValue({ name: 'Test User', email: 'test@example.com' });
+    googleCalendarService.addSignInListener.mockImplementation(() => {});
+    googleCalendarService.signOut = jest.fn();
+  
+    googleCalendarDbService.syncGoogleCalendarWithDb = jest.fn().mockResolvedValue({
+      events: [{}],
+      databaseResults: { imported: 1, updated: 0, deleted: 0 }
+    });
+  
+    googleCalendarDbService.deleteAllGoogleEvents = jest.fn().mockResolvedValue({ deletedCount: 3 }); 
+  
+    // 3. Make localhost button visible
+    Object.defineProperty(window, 'location', {
+      value: { hostname: 'localhost' },
+      writable: true,
+    });
+  
+    render(<Account />);
+  
+    await screen.findByTestId('google-disconnect-button');
+  
+    // 🟢 Incremental sync
+    fireEvent.click(screen.getByTestId('sync-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('sync-message')).toHaveTextContent('Successfully synced with Google Calendar');
+    });
+  
+    // 🟡 Full sync
+    fireEvent.click(screen.getByTestId('force-sync-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('sync-message')).toHaveTextContent('Successfully synced with Google Calendar');
+    });
+  
+    // 🔴 Delete events
+    window.confirm = jest.fn(() => true);
+    fireEvent.click(screen.getByTestId('delete-google-events-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('sync-message')).toHaveTextContent('Successfully deleted 3 Google Calendar events');
+    });
+  
+    // ❎ Disconnect
+    fireEvent.click(screen.getByTestId('google-disconnect-button'));
     expect(googleCalendarService.signOut).toHaveBeenCalled();
   });
 
-  test('handles sync button click when signed in', async () => {
-    // Mock signed-in state
-    googleCalendarService.isSignedIn.mockReturnValue(true);
-    googleCalendarService.getCurrentUser.mockReturnValue({
-      name: 'Test User',
-      email: 'test@example.com'
+  test('allows user to input and submit Canvas credentials', async () => {
+    // Mock canvasService call
+    canvasService.setCredentials = jest.fn().mockResolvedValue();
+  
+    // Ensure Canvas is not yet connected so the form shows
+    useAuth.mockReturnValue({
+      user: { id: '123', name: 'Test User', email: 'test@example.com' },
+      isLoggedIn: true,
     });
   
-    // Mock the initialize method to resolve immediately
-    googleCalendarService.initialize.mockResolvedValue();
-    
-    // Mock the importEvents method
-    googleCalendarService.importEvents.mockResolvedValue([{ id: '1', summary: 'Test Event' }]);
+    render(<Account />);
   
-    // Render the component within act
-    await act(async () => {
-      renderWithAuth(<Account />);
-    });
-    
-    // Wait for the component to finish initializing
-    await act(async () => {
-      // Manually trigger the sign-in callback that was registered
-      if (googleCalendarService.signInCallback) {
-        googleCalendarService.signInCallback(true);
-      }
-    });
-    
-    // Wait for the sync button to appear
+    // Fill out Canvas token input
+    const tokenInput = await screen.findByTestId('account-canvas-token-input');
+    fireEvent.change(tokenInput, { target: { value: 'test_token_123' } });
+    expect(tokenInput.value).toBe('test_token_123');
+  
+    // Fill out Canvas domain input
+    const domainInput = screen.getByTestId('account-canvas-domain-input');
+    fireEvent.change(domainInput, { target: { value: 'canvas.harvard.edu' } });
+    expect(domainInput.value).toBe('canvas.harvard.edu');
+  
+    // Click Connect button
+    const connectButton = screen.getByTestId('account-connect-canvas-button');
+    fireEvent.click(connectButton);
+  
     await waitFor(() => {
-      expect(screen.getByTestId('sync-button')).toBeInTheDocument();
-    });
-    
-    // Click the sync button within act
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('sync-button'));
-    });
-
-    const mockUser = {
-      name: 'Test User',
-      email: 'test@example.com'
-    };
-
-    // Wait for the import method to be called
-    // Test the direct interaction instead
-    await waitFor(() => {
-      expect(googleCalendarDbService.forceSyncGoogleCalendar).toHaveBeenCalledWith(mockUser.id);
+      expect(canvasService.setCredentials).toHaveBeenCalledWith(
+        'test_token_123',
+        'canvas.harvard.edu',
+        '123'
+      );
     });
   });
 
-  test('displays sync status messages', async () => {
-    // Set up localStorage with proper user data first
-    const mockUser = {
-      id: 'test-user-id',  // <-- This is crucial!
-      name: 'Test User',
-      email: 'test@example.com'
-    };
-    localStorage.setItem('userData', JSON.stringify(mockUser));
-    
-    await act(() => {
-      renderWithAuth(<Account />, {
-        authState: {
-          ...mockAuthContext,
-          user: mockUser  // Make sure auth context matches localStorage
-        }
-      });
+  it('disconnects Canvas successfully when user is logged in', async () => {
+    useAuth.mockReturnValue({
+      user: { id: '123', name: 'Test User', email: 'test@example.com' },
+      isLoggedIn: true,
     });
   
-    const syncButton = await screen.findByTestId('sync-button');
-    await act(async () => {
-      fireEvent.click(syncButton);
+    // Simulate successful connection and disconnection
+    canvasService.connect = jest.fn().mockResolvedValueOnce(); // for the form
+    canvasService.clearCredentials = jest.fn().mockResolvedValueOnce();
+  
+    render(<Account />);
+  
+    // Fill in Canvas form to simulate a connection
+    fireEvent.change(screen.getByTestId('account-canvas-token-input'), {
+      target: { value: 'mock-token' },
     });
-    
-    expect(screen.getByTestId('sync-message')).toHaveTextContent('Syncing with Google Calendar...');
-  });
+    fireEvent.change(screen.getByTestId('account-canvas-domain-input'), {
+      target: { value: 'canvas.harvard.edu' },
+    });
+  
+    fireEvent.click(screen.getByTestId('account-connect-canvas-button'));
+  
+    // Wait until component reflects connected state
+    const disconnectBtn = await screen.findByTestId('account-disconnect-canvas-button');
+  
+    // Click disconnect
+    fireEvent.click(disconnectBtn);
+  
+    // Expect canvasService.clearCredentials to be called
+    await waitFor(() => {
+      expect(canvasService.clearCredentials).toHaveBeenCalledWith('123');
+    });
+  });  
 
-  test('updates UI when sign-in state changes', async () => {
-    // Start with signed-out state
-    googleCalendarService.isSignedIn.mockReturnValue(false);
-    
-    let signInListener;
-    googleCalendarService.addSignInListener.mockImplementation((callback) => {
-      signInListener = callback;
-      return jest.fn(); // Return a mock removal function
+  it('shows error if disconnecting Canvas fails', async () => {
+    // Simulate user is logged in
+    useAuth.mockReturnValue({ user: { id: '123' }, isLoggedIn: true });
+  
+    // Mock connect to succeed so we reach connected state
+    canvasService.connect = jest.fn().mockResolvedValue(true);
+  
+    // Mock disconnect to fail
+    canvasService.clearCredentials = jest.fn().mockRejectedValue(new Error('Failed'));
+  
+    render(<Account />);
+  
+    // Fill in Canvas form
+    fireEvent.change(screen.getByTestId('account-canvas-token-input'), {
+      target: { value: 'mock-token' },
     });
-    
-    await act(async () => {
-      renderWithAuth(<Account />);
+    fireEvent.change(screen.getByTestId('account-canvas-domain-input'), {
+      target: { value: 'canvas.harvard.edu' },
     });
-    
-    // Verify signed-out UI
-    expect(screen.getByTestId('google-sign-in-button')).toBeInTheDocument();
-    
-    // Simulate sign-in event
-    const mockUser = {
-      name: 'Test User',
-      email: 'test@example.com'
-    };
-    
-    googleCalendarService.isSignedIn.mockReturnValue(true);
-    googleCalendarService.getCurrentUser.mockReturnValue(mockUser);
-    
-    // Call the stored callback
-    await act(async () => {
-      if (signInListener) {
-        signInListener(true);
-      }
+  
+    // Submit form to connect
+    fireEvent.click(screen.getByTestId('account-connect-canvas-button'));
+  
+    // Wait for disconnect button to appear
+    const disconnectBtn = await screen.findByTestId('account-disconnect-canvas-button');
+  
+    // Click disconnect
+    fireEvent.click(disconnectBtn);
+  
+    // Verify error appears
+    await waitFor(() => {
+      expect(screen.getByTestId('canvas-error-message')).toHaveTextContent(
+        'Failed to disconnect Canvas account'
+      );
     });
-    
-    // Verify signed-in UI
-    expect(screen.getByTestId('user-name')).toHaveTextContent('Test User');
-    expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
-  });
+  });  
 });
 
-describe('Canvas Service', () => {
-  const testUserId = 'test-user-id';
-  const testToken = 'test-token';
-  const testDomain = 'harvard';
-
+describe('Account Component – Google Sign-In Listener', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    canvasService.setCredentials.mockResolvedValue({ success: true });
-    canvasService.syncWithCalendar.mockResolvedValue(5);
+    jest.resetAllMocks();
+
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: jest.fn(() => JSON.stringify({ id: 'test-user-id' })),
+        setItem: jest.fn(),
+      },
+      writable: true,
+    });
+
+    googleCalendarService.getCurrentUser.mockReturnValue({
+      name: 'Test User',
+      email: 'test@example.com',
+    });
+
+    useAuth.mockReturnValue({
+      user: { id: 'test-user-id', name: 'Test User', email: 'test@example.com' },
+      isLoggedIn: true,
+    });
+
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ syncToken: 'dummy-token' }),
+      })
+    );
+
+    googleCalendarDbService.syncGoogleCalendarWithDb.mockResolvedValue();
   });
 
-  test('can set Canvas credentials', async () => {
-    const result = await canvasService.setCredentials(testToken, testDomain, testUserId);
-    expect(result.success).toBe(true);
-    expect(canvasService.setCredentials).toHaveBeenCalledWith(testToken, testDomain, testUserId);
-  });
-
-  test('can sync Canvas assignments', async () => {
-    const result = await canvasService.syncWithCalendar(testUserId);
-    expect(result).toBe(5);
-    expect(canvasService.syncWithCalendar).toHaveBeenCalledWith(testUserId);
-  });
-
-  test('handles sync failure', async () => {
-    canvasService.syncWithCalendar.mockRejectedValue(new Error('Sync failed'));
-    await expect(canvasService.syncWithCalendar(testUserId)).rejects.toThrow('Sync failed');
+  it('handles Google sign-out correctly', async () => {
+    const mockListener = jest.fn();
+  
+    isConfigured.mockReturnValue(true); // 👈 prevent credentials warning from showing
+  
+    // Setup listener interception
+    googleCalendarService.addSignInListener.mockImplementation((cb) => {
+      mockListener.mockImplementation(cb);
+    });
+  
+    render(<Account />);
+  
+    // Simulate sign-out
+    act(() => {
+      mockListener(false); // call the captured listener with "false" (signed out)
+    });
+  
+    // Check that sync message was cleared
+    await waitFor(() => {
+      expect(screen.getByTestId('sync-message')).toBeEmptyDOMElement();
+    });
   });
 });
