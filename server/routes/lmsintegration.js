@@ -165,6 +165,28 @@ async function syncCanvasEvents(userId) {
 
     const assignments = await assignmentsResponse.json();
     
+    // Helper function to strip HTML tags and convert common elements to text
+    const stripHtml = (html) => {
+      if (!html) return '';
+      
+      // Replace common HTML elements with newlines or spaces
+      const withLineBreaks = html
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/li>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<\/h[1-6]>/gi, '\n\n');
+      
+      // Remove all remaining HTML tags
+      const withoutTags = withLineBreaks.replace(/<[^>]+>/g, '');
+      
+      // Clean up extra whitespace and line breaks
+      return withoutTags
+        .replace(/\n\s*\n\s*\n/g, '\n\n') // Replace triple+ newlines with double
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .trim(); // Remove leading/trailing whitespace
+    };
+    
     const assignmentEvents = assignments
       .filter(assignment => assignment.due_at)
       .map(assignment => ({
@@ -173,12 +195,12 @@ async function syncCanvasEvents(userId) {
         all_day: false,
         start_time: new Date(assignment.due_at),
         end_time: new Date(assignment.due_at),
-        description: assignment.description || '',
-        source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
+        description: stripHtml(assignment.description),
+        source: 'CANVAS',
         requires_preparation: true,
-        requires_hours: null, // Explicitly set to null instead of defaulting to 0
-        study_suggestions_shown: false, // Ensure this is set to false so nudger will identify it
-        study_suggestions_accepted: false, // Initialize as false
+        requires_hours: null,
+        study_suggestions_shown: false,
+        study_suggestions_accepted: false,
         metadata: {
           courseId: course.id,
           assignmentId: assignment.id,
@@ -214,25 +236,23 @@ async function syncCanvasEvents(userId) {
       continue;
     }
 
-    const calendarEvents = await calendarResponse.json();
-    
-    const classEvents = calendarEvents
-      .filter(event => event.start_at)
-      .map(event => ({
-        user_id: userId,
-        title: `${course.name}: ${event.title}`,
-        all_day: event.all_day || false,
-        start_time: new Date(event.start_at),
-        end_time: event.end_at ? new Date(event.end_at) : new Date(event.start_at),
-        description: event.description || '',
-        location: event.location_name || '',
-        source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
-        metadata: {
-          courseId: course.id,
-          eventId: event.id,
-          url: event.html_url
-        }
-      }));
+    const calendarEvents = await calendarResponse.json().then(events => events.map(event => ({
+      user_id: userId,
+      title: event.title,
+      all_day: event.all_day,
+      start_time: new Date(event.start_at),
+      end_time: event.end_at ? new Date(event.end_at) : new Date(event.start_at),
+      description: stripHtml(event.description),
+      location: event.location_name || '',
+      source: 'CANVAS',
+      metadata: {
+        courseId: course.id,
+        eventId: event.id,
+        url: event.html_url
+      }
+    })));
+
+    const classEvents = calendarEvents;
     
     events.push(...classEvents);
   }
