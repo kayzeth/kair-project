@@ -214,21 +214,25 @@ const SyllabusParser = ({ onAddEvents }) => {
   
   const editEventsButtonStyle = {
     ...buttonBaseStyle,
-    backgroundColor: '#f8f9fa',
-    color: '#4285F4',
-    border: '1px solid #4285F4',
-    marginRight: '10px',
-    display: 'inline-flex',
+    backgroundColor: '#4285F4',
+    color: 'white',
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: '8px',
-    transition: 'all 0.2s ease'
+    boxShadow: '0 2px 4px rgba(66, 133, 244, 0.3)',
+    transition: 'all 0.2s ease',
+    marginBottom: '10px'
   };
   
   const addToCalendarButtonStyle = {
     ...buttonBaseStyle,
     backgroundColor: '#4285F4',
     color: 'white',
-    display: 'inline-flex',
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: '8px',
     boxShadow: '0 2px 4px rgba(66, 133, 244, 0.3)',
@@ -1297,218 +1301,7 @@ function buildLocalDate(ymd) {
                         </div>
                       )}
                     </div>
-                    
-                    <button 
-                      className="edit-events-button"
-                      style={{
-                        ...editEventsButtonStyle,
-                        opacity: calendarEvents.length === 0 ? 0.5 : 1,
-                        cursor: calendarEvents.length === 0 ? 'not-allowed' : 'pointer'
-                      }}
-                      disabled={calendarEvents.length === 0}
-                      onMouseOver={(e) => {
-                        if (calendarEvents.length > 0) {
-                          e.currentTarget.style.backgroundColor = '#e8f0fe';
-                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(66, 133, 244, 0.2)';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (calendarEvents.length > 0) {
-                          e.currentTarget.style.backgroundColor = '#f8f9fa';
-                          e.currentTarget.style.boxShadow = 'none';
-                        }
-                      }}
-                      onClick={() => {
-                        // Prepare events for editing
-                        const editableEventsList = calendarEvents.map((event, index) => {
-                          try {
-                            // Get date from event or use current date as fallback
-                            let eventDate;
-                            
-                            try {
-                              eventDate = event.start ? new Date(event.start) : new Date();
-                              
-                              // Check if the date is valid
-                              if (isNaN(eventDate.getTime())) {
-                                console.warn('Invalid date detected:', event.start);
-                                eventDate = new Date(); // Fallback to current date
-                              }
-                            } catch (dateError) {
-                              console.error('Error creating date object:', dateError);
-                              eventDate = new Date(); // Fallback to current date
-                            }
-                            
-                            // If the year is very old (like 2001), update it to current year
-                            if (eventDate.getFullYear() < 2020) {
-                              eventDate.setFullYear(currentYear);
-                            }
-                            
-                            // Format date and time strings safely
-                            let dateString, timeString;
-                            try {
-                              const pad = (n) => String(n).padStart(2, '0');
-                              dateString = [
-                                eventDate.getFullYear(),
-                                pad(eventDate.getMonth() + 1),
-                                pad(eventDate.getDate())
-                              ].join('-');
-                              // Format HH:mm in LOCAL time
-timeString = event.start && !event.allDay
-? `${pad(eventDate.getHours())}:${pad(eventDate.getMinutes())}`
-: '';
-                            } catch (formatError) {
-                              console.error('Error formatting date/time:', formatError);
-                              const now = new Date();
-                              dateString = now.toISOString().split('T')[0];
-                              timeString = '';
-                            }
-                            
-                            return {
-                              ...event,
-                              editId: index, // Add unique ID for editing
-                              dateString,
-                              timeString,
-                              selected: true // Default to selected
-                            };
-                          } catch (error) {
-                            console.error('Error processing event for editing:', error, event);
-                            // Return a safe fallback
-                            const now = new Date();
-                            return {
-                              ...event,
-                              editId: index,
-                              dateString: now.toISOString().split('T')[0],
-                              timeString: ''
-                            };
-                          }
-                        });
-                        setEditableEvents(editableEventsList);
-                        setShowEventEditor(true);
-                      }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{flexShrink: 0}}>
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#4285F4"/>
-                      </svg>
-                      Review & Edit Events
-                    </button>
-                    
-                    <button 
-                      className="add-to-calendar-button"
-                      style={{
-                        ...addToCalendarButtonStyle,
-                        opacity: calendarEvents.length === 0 ? 0.5 : 1,
-                        cursor: calendarEvents.length === 0 ? 'not-allowed' : 'pointer'
-                      }}
-                      data-testid="syllabus-add-to-calendar-button" 
-                      disabled={calendarEvents.length === 0}
-                      onMouseOver={(e) => {
-                        if (calendarEvents.length > 0) {
-                          e.currentTarget.style.backgroundColor = '#3367d6';
-                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(66, 133, 244, 0.4)';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (calendarEvents.length > 0) {
-                          e.currentTarget.style.backgroundColor = '#4285F4';
-                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(66, 133, 244, 0.3)';
-                        }
-                      }}
-                      onClick={async () => {
-                        if (calendarEvents.length > 0) {
-                          try {
-                            setIsLoading(true);
-                            setSaveSuccess(false);
-                            
-                            // Get current user ID
-                            const userId = getCurrentUserId();
-                            console.log('👤 Current user ID for saving events:', userId);
-                            if (!userId) {
-                              throw new Error('User ID not found. Please log in to save events.');
-                            }
-                            
-                            // Apply repeat settings to events
-                            const eventsToAdd = calendarEvents.map(event => {
-                              // Only apply repeat settings to class meetings (not assignments or exams)
-                              if (event.recurring && shouldRepeat) {
-                                return {
-                                  ...event,
-                                  repeatUntil: repeatUntilDate || null
-                                };
-                              }
-                              return event;
-                            });
-                            
-                            // Save each event to the database
-                            const savedEvents = [];
-                            for (const event of eventsToAdd) {
-                              // Convert to the format expected by the eventService
-                              // Ensure we have valid Date objects for start and end times
-                              const start = event.start ? new Date(event.start) : null;
-                              const end = event.end ? new Date(event.end) : null;
-                              
-                              // Skip events with invalid dates
-                              if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
-                                console.error('Skipping event with invalid dates:', event.title);
-                                continue;
-                              }
-                              
-                              const eventToSave = {
-                                title: event.title,
-                                start: start,
-                                end: end,
-                                allDay: event.allDay || false,
-                                description: event.description || '',
-                                location: event.location || '',
-                                requiresPreparation: event.requiresPreparation || false,
-                                color: event.color || '#d2b48c',
-                                source: 'SYLLABUS', // Match the enum values in the database schema
-                                // Add recurring event properties
-                                isRecurring: event.isRecurring || false,
-                                recurrenceFrequency: event.recurrenceFrequency || null,
-                                // Use the repeatUntil date if available, otherwise use the default recurrenceEndDate
-                                recurrenceEndDate: event.repeatUntil ? new Date(event.repeatUntil) : 
-                                                  (event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null),
-                                recurrenceDays: event.recurrenceDays || []
-                              };
-                              
-                              // Save to database
-                              console.log(`💾 Saving event to database: ${eventToSave.title}`);
-                              const savedEvent = await eventService.createEvent(eventToSave, userId);
-                              console.log(`✅ Event saved with ID: ${savedEvent.id}`);
-                              savedEvents.push(savedEvent);
-                            }
-                            
-                            console.log(`💾 Successfully saved ${savedEvents.length} events to database!`);
-                            setSaveSuccess(true);
-                            alert('Events added to calendar successfully!');
-                            
-                            // Also pass events to parent component if onAddEvents prop is provided
-                            // This maintains compatibility with the local state approach
-                            if (onAddEvents && typeof onAddEvents === 'function') {
-                              onAddEvents(savedEvents);
-                            }
-                            
-                            // Clear the form after successful save
-                            setFile(null);
-                            setExtractedInfo(null);
-                            setCalendarEvents([]);
-                            setApiResponse(null);
-                            setOpenAiError(null);
-                          } catch (error) {
-                            console.error('Error saving events to database:', error);
-                            setError(`Failed to save events: ${error.message}`);
-                          } finally {
-                            setIsLoading(false);
-                          }
-                        }
-                      }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z" fill="white"/>
-                      </svg>
-                      Add to Calendar
-                    </button>
-                    
+  
                     {showEventEditor && (
                       <div style={eventEditorModalStyle}>
                         <div style={eventEditorContentStyle}>
@@ -1772,6 +1565,216 @@ timeString = event.start && !event.allDay
                           ` (class meetings will repeat weekly${repeatUntilDate ? ` until ${new Date(repeatUntilDate).toLocaleDateString()}` : ''})`}
                       </p>
                     </div>
+                    <button 
+                      className="edit-events-button"
+                      style={{
+                        ...editEventsButtonStyle,
+                        opacity: calendarEvents.length === 0 ? 0.5 : 1,
+                        cursor: calendarEvents.length === 0 ? 'not-allowed' : 'pointer'
+                      }}
+                      disabled={calendarEvents.length === 0}
+                      onMouseOver={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#3367d6';
+                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(66, 133, 244, 0.4)';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#4285F4';
+                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(66, 133, 244, 0.3)';
+                        }
+                      }}
+                      onClick={() => {
+                        // Prepare events for editing
+                        const editableEventsList = calendarEvents.map((event, index) => {
+                          try {
+                            // Get date from event or use current date as fallback
+                            let eventDate;
+                            
+                            try {
+                              eventDate = event.start ? new Date(event.start) : new Date();
+                              
+                              // Check if the date is valid
+                              if (isNaN(eventDate.getTime())) {
+                                console.warn('Invalid date detected:', event.start);
+                                eventDate = new Date(); // Fallback to current date
+                              }
+                            } catch (dateError) {
+                              console.error('Error creating date object:', dateError);
+                              eventDate = new Date(); // Fallback to current date
+                            }
+                            
+                            // If the year is very old (like 2001), update it to current year
+                            if (eventDate.getFullYear() < 2020) {
+                              eventDate.setFullYear(currentYear);
+                            }
+                            
+                            // Format date and time strings safely
+                            let dateString, timeString;
+                            try {
+                              const pad = (n) => String(n).padStart(2, '0');
+                              dateString = [
+                                eventDate.getFullYear(),
+                                pad(eventDate.getMonth() + 1),
+                                pad(eventDate.getDate())
+                              ].join('-');
+                              // Format HH:mm in LOCAL time
+timeString = event.start && !event.allDay
+? `${pad(eventDate.getHours())}:${pad(eventDate.getMinutes())}`
+: '';
+                            } catch (formatError) {
+                              console.error('Error formatting date/time:', formatError);
+                              const now = new Date();
+                              dateString = now.toISOString().split('T')[0];
+                              timeString = '';
+                            }
+                            
+                            return {
+                              ...event,
+                              editId: index, // Add unique ID for editing
+                              dateString,
+                              timeString,
+                              selected: true // Default to selected
+                            };
+                          } catch (error) {
+                            console.error('Error processing event for editing:', error, event);
+                            // Return a safe fallback
+                            const now = new Date();
+                            return {
+                              ...event,
+                              editId: index,
+                              dateString: now.toISOString().split('T')[0],
+                              timeString: ''
+                            };
+                          }
+                        });
+                        setEditableEvents(editableEventsList);
+                        setShowEventEditor(true);
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{flexShrink: 0}}>
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="white"/>
+                      </svg>
+                      Review & Edit Events
+                    </button>
+                    
+                    <button 
+                      className="add-to-calendar-button"
+                      style={{
+                        ...addToCalendarButtonStyle,
+                        opacity: calendarEvents.length === 0 ? 0.5 : 1,
+                        cursor: calendarEvents.length === 0 ? 'not-allowed' : 'pointer'
+                      }}
+                      data-testid="syllabus-add-to-calendar-button" 
+                      disabled={calendarEvents.length === 0}
+                      onMouseOver={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#3367d6';
+                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(66, 133, 244, 0.4)';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (calendarEvents.length > 0) {
+                          e.currentTarget.style.backgroundColor = '#4285F4';
+                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(66, 133, 244, 0.3)';
+                        }
+                      }}
+                      onClick={async () => {
+                        if (calendarEvents.length > 0) {
+                          try {
+                            setIsLoading(true);
+                            setSaveSuccess(false);
+                            
+                            // Get current user ID
+                            const userId = getCurrentUserId();
+                            console.log('👤 Current user ID for saving events:', userId);
+                            if (!userId) {
+                              throw new Error('User ID not found. Please log in to save events.');
+                            }
+                            
+                            // Apply repeat settings to events
+                            const eventsToAdd = calendarEvents.map(event => {
+                              // Only apply repeat settings to class meetings (not assignments or exams)
+                              if (event.recurring && shouldRepeat) {
+                                return {
+                                  ...event,
+                                  repeatUntil: repeatUntilDate || null
+                                };
+                              }
+                              return event;
+                            });
+                            
+                            // Save each event to the database
+                            const savedEvents = [];
+                            for (const event of eventsToAdd) {
+                              // Convert to the format expected by the eventService
+                              // Ensure we have valid Date objects for start and end times
+                              const start = event.start ? new Date(event.start) : null;
+                              const end = event.end ? new Date(event.end) : null;
+                              
+                              // Skip events with invalid dates
+                              if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+                                console.error('Skipping event with invalid dates:', event.title);
+                                continue;
+                              }
+                              
+                              const eventToSave = {
+                                title: event.title,
+                                start: start,
+                                end: end,
+                                allDay: event.allDay || false,
+                                description: event.description || '',
+                                location: event.location || '',
+                                requiresPreparation: event.requiresPreparation || false,
+                                color: event.color || '#d2b48c',
+                                source: 'SYLLABUS', // Match the enum values in the database schema
+                                // Add recurring event properties
+                                isRecurring: event.isRecurring || false,
+                                recurrenceFrequency: event.recurrenceFrequency || null,
+                                // Use the repeatUntil date if available, otherwise use the default recurrenceEndDate
+                                recurrenceEndDate: event.repeatUntil ? new Date(event.repeatUntil) : 
+                                                  (event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : null),
+                                recurrenceDays: event.recurrenceDays || []
+                              };
+                              
+                              // Save to database
+                              console.log(`💾 Saving event to database: ${eventToSave.title}`);
+                              const savedEvent = await eventService.createEvent(eventToSave, userId);
+                              console.log(`✅ Event saved with ID: ${savedEvent.id}`);
+                              savedEvents.push(savedEvent);
+                            }
+                            
+                            console.log(`💾 Successfully saved ${savedEvents.length} events to database!`);
+                            setSaveSuccess(true);
+                            alert('Events added to calendar successfully!');
+                            
+                            // Also pass events to parent component if onAddEvents prop is provided
+                            // This maintains compatibility with the local state approach
+                            if (onAddEvents && typeof onAddEvents === 'function') {
+                              onAddEvents(savedEvents);
+                            }
+                            
+                            // Clear the form after successful save
+                            setFile(null);
+                            setExtractedInfo(null);
+                            setCalendarEvents([]);
+                            setApiResponse(null);
+                            setOpenAiError(null);
+                          } catch (error) {
+                            console.error('Error saving events to database:', error);
+                            setError(`Failed to save events: ${error.message}`);
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z" fill="white"/>
+                      </svg>
+                      Add to Calendar
+                    </button>
                     
                     {saveSuccess && (
                       <div className="success-message" style={{ marginTop: '10px', padding: '10px', backgroundColor: '#e8f5e9', border: '1px solid #4caf50', borderRadius: '4px', color: '#2e7d32' }}>
@@ -1786,18 +1789,21 @@ timeString = event.start && !event.allDay
               
               <div className="section json-response-section">
             <h4>Extracted JSON Data</h4>
-            <div className="json-response-container">
-              <pre className="json-response">
-                {JSON.stringify(extractedInfo, null, 2)}
-              </pre>
-              <div className="json-response-note">
-                <p><small>
-                  {openAiError 
-                    ? "The AI model detected that this file does not contain valid syllabus content."
-                    : "This is the structured data extracted from your syllabus that will be used to create calendar events."}
-                </small></p>
+            <details>
+              <summary>View Extracted JSON Data</summary>
+              <div className="json-response-container">
+                <pre className="json-response">
+                  {JSON.stringify(extractedInfo, null, 2)}
+                </pre>
+                <div className="json-response-note">
+                  <p><small>
+                    {openAiError 
+                      ? "The AI model detected that this file does not contain valid syllabus content."
+                      : "This is the structured data extracted from your syllabus that will be used to create calendar events."}
+                  </small></p>
+                </div>
               </div>
-            </div>
+            </details>
           </div>
           
           <div className="section">
