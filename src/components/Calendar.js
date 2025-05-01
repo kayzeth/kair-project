@@ -11,6 +11,7 @@ import StudySuggestions from './StudySuggestions';
 import nudgerService from '../services/nudgerService'; 
 import studySuggesterService from '../services/studySuggesterService'; 
 import eventService from '../services/eventService';
+import Title from './Title';
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
@@ -1021,6 +1022,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
           {isProcessingStudySuggestions ? 'Generating study suggestions... This may take a moment' : syncStatus.message}
         </div>
       )}
+      <Title page="Calendar" />
       <div className="calendar-header">
         <div className="calendar-title" data-testid="calendar-title">
           {view === 'month' && format(currentDate, 'MMMM yyyy')}
