@@ -4,6 +4,34 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faTrashAlt, faClock, faAlignLeft, faBookOpen, faChevronDown, faMinus, faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
 import '../styles/EventModal.css';
 
+// Helper function to strip HTML tags and convert common elements to text
+const stripHtml = (html) => {
+  if (!html) return '';
+  
+  // First replace list items with bullet points
+  let text = html.replace(/<li>/gi, '• ');
+  
+  // Replace common HTML elements with newlines
+  text = text
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<\/ul>/gi, '\n')
+    .replace(/<\/ol>/gi, '\n');
+  
+  // Remove all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, '');
+  
+  // Clean up whitespace while preserving newlines
+  return text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join('\n');
+};
+
 const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, event, selectedDate = new Date() }) => {
   // Create a ref for the title input to auto-focus it
   const titleInputRef = useRef(null);
@@ -163,7 +191,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
 
       setFormData({
         title: event.title || '',
-        description: event.description || '',
+        description: event.source === 'CANVAS' ? stripHtml(event.description) : (event.description || ''),
         location: event.location || '',
         start: startDate,
         end: endDate,
@@ -192,10 +220,8 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         })(),
         recurrenceDays: event.recurrenceDays || [],
         source: event.source || '',
-        // Include study suggestion status flags
         studySuggestionsShown: event.studySuggestionsShown || false,
         studySuggestionsAccepted: event.studySuggestionsAccepted || false,
-        // Include study session relationship fields
         isStudySession: event.isStudySession || false,
         relatedEventId: event.relatedEventId || null
       });
@@ -234,7 +260,7 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         isValid = false;
       }
       
-      // Validate that end date/time is after start date/time
+      // Only validate date range if both times are valid
       if (isValid) {
         const [startYear, startMonth, startDay] = data.start.split('-').map(Number);
         const startDate = new Date(startYear, startMonth - 1, startDay, startHours, startMinutes);
@@ -242,8 +268,8 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
         const [endYear, endMonth, endDay] = data.end.split('-').map(Number);
         const endDate = new Date(endYear, endMonth - 1, endDay, endHours, endMinutes);
         
-        if (endDate <= startDate) {
-          errors.timeRange = 'End time must be after start time';
+        if (endDate < startDate) {
+          errors.timeRange = 'End time cannot be before start time';
           isValid = false;
         }
       }

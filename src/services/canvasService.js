@@ -86,19 +86,33 @@ const canvasService = {
 
   fetchAssignmentsForCourse: async (courseId) => {
     try {
-      console.log(`Fetching assignments for course ${courseId}...`);
-      const response = await fetch(PROXY_URL + `courses/${courseId}/assignments?include[]=due_at&include[]=description`);
+      const now = new Date();
+      const ninetyDaysAgo = new Date(now);
+      ninetyDaysAgo.setDate(now.getDate() - 90);
+      const ninetyDaysAhead = new Date(now);
+      ninetyDaysAhead.setDate(now.getDate() + 90);
 
-      console.log(`[Canvas] API Response status: ${response.status}`);
+      const params = new URLSearchParams();
+      params.append('include[]', 'due_at');
+      params.append('include[]', 'description');
+      params.append('include[]', 'submission');
+      params.append('include[]', 'overrides');
+      params.append('order_by', 'due_at');
+      params.append('per_page', '100');
+      params.append('bucket', 'upcoming');
+      params.append('bucket', 'future');
+      params.append('bucket', 'unsubmitted');
+      params.append('bucket', 'past');
+      params.append('end_date', ninetyDaysAhead.toISOString());
+
+      const response = await fetch(`${PROXY_URL}courses/${courseId}/assignments?${params.toString()}`);
       
       if (!response.ok) {
         const error = await response.text();
-        console.error(`[Canvas] API Error response:`, error);
         throw new Error(`Failed to fetch assignments: ${error}`);
       }
 
       const assignments = await response.json();
-      console.log(`Found ${assignments.length} assignments for course ${courseId}`);
       return assignments;
     } catch (error) {
       console.error(`Failed to fetch assignments for course ${courseId}:`, error);
@@ -108,27 +122,31 @@ const canvasService = {
 
   fetchCalendarEventsForCourse: async (courseId) => {
     try {
-      console.log(`Fetching calendar events for course ${courseId}...`);
-      // Updated query parameters:
-      // - Removed type=event since we want all types
-      // - Added include[]=web_conference to get more details
-      // - Added all_events=1 to get all events including hidden ones
-      const response = await fetch(PROXY_URL + `calendar_events?context_codes[]=course_${courseId}&all_events=1&include[]=web_conference&per_page=100`);
+      const now = new Date();
+      const ninetyDaysAgo = new Date(now);
+      ninetyDaysAgo.setDate(now.getDate() - 90);
+      const ninetyDaysAhead = new Date(now);
+      ninetyDaysAhead.setDate(now.getDate() + 90);
 
-      console.log(`[Canvas] API Response status: ${response.status}`);
-      
+      const params = new URLSearchParams();
+      params.append('context_codes[]', `course_${courseId}`);
+      params.append('type', 'event');
+      params.append('bucket', 'upcoming');
+      params.append('bucket', 'future');
+      params.append('bucket', 'unsubmitted');
+      params.append('bucket', 'past');
+      params.append('end_date', ninetyDaysAhead.toISOString());
+      params.append('include[]', 'description');
+      params.append('per_page', '100');
+
+      const response = await fetch(`${PROXY_URL}calendar_events?${params.toString()}`);
+
       if (!response.ok) {
         const error = await response.text();
-        console.error(`[Canvas] API Error response:`, error);
         throw new Error(`Failed to fetch calendar events: ${error}`);
       }
 
       const events = await response.json();
-      console.log(`Found ${events.length} calendar events for course ${courseId}`);
-      // Log a sample event to see its structure
-      if (events.length > 0) {
-        console.log('Sample calendar event:', JSON.stringify(events[0], null, 2));
-      }
       return events;
     } catch (error) {
       console.error(`Failed to fetch calendar events for course ${courseId}:`, error);

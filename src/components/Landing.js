@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LoginForm, SignupForm } from './AuthForms';
+import Title from './Title';
 import logo2 from '../assets/images/logo2.png';
 import '../styles/Landing.css';
 import '../styles/AuthForms.css';
@@ -9,6 +10,7 @@ const Landing = () => {
 
   return (
     <div className="landing-container" data-testid="landing-container">
+      <Title page="Welcome" />
       <div className="landing-content" data-testid="landing-content">
         <div className="landing-logo-container" data-testid="landing-logo-container">
           <img src={logo2} alt="Kairos Logo" className="landing-logo" data-testid="landing-logo" />

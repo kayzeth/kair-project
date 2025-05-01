@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faKey, faCheck, faEye, faEyeSlash, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faKey } from '@fortawesome/free-solid-svg-icons';
 import { getApiKey, saveApiKey, clearApiKey, initializeGenAISync } from '../services/geminiService';
 
 /**
@@ -9,11 +9,10 @@ import { getApiKey, saveApiKey, clearApiKey, initializeGenAISync } from '../serv
  */
 const ApiKeyInput = ({ onApiKeySubmit }) => {
   const [apiKey, setApiKey] = useState('');
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [setError] = useState('');
+  const [setMessage] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
-  const [persistence, setPersistence] = useState('session');
+  const [persistence] = useState('session');
   
   // Check if API key exists on component mount
   useEffect(() => {
@@ -33,52 +32,52 @@ const ApiKeyInput = ({ onApiKeySubmit }) => {
     checkApiKey();
   }, []);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  // const handleSubmit = (e) => {
+  //   e.preventDefault();
     
-    if (!apiKey.trim()) {
-      setError('Please enter an API key');
-      return;
-    }
+  //   if (!apiKey.trim()) {
+  //     setError('Please enter an API key');
+  //     return;
+  //   }
     
-    // Save API key with selected persistence
-    const saveResult = saveApiKey(apiKey, persistence);
+  //   // Save API key with selected persistence
+  //   const saveResult = saveApiKey(apiKey, persistence);
     
-    if (!saveResult) {
-      setError('Failed to save API key');
-      return;
-    }
+  //   if (!saveResult) {
+  //     setError('Failed to save API key');
+  //     return;
+  //   }
     
-    // Reinitialize the Gemini API with the new key
-    const genAI = initializeGenAISync();
+  //   // Reinitialize the Gemini API with the new key
+  //   const genAI = initializeGenAISync();
     
-    if (!genAI) {
-      setError('API key saved but failed to initialize Gemini API');
-      // Still pass the key to parent component
-      onApiKeySubmit(apiKey);
-      return;
-    }
+  //   if (!genAI) {
+  //     setError('API key saved but failed to initialize Gemini API');
+  //     // Still pass the key to parent component
+  //     onApiKeySubmit(apiKey);
+  //     return;
+  //   }
     
-    // Pass the API key to the parent component
-    onApiKeySubmit(apiKey);
+  //   // Pass the API key to the parent component
+  //   onApiKeySubmit(apiKey);
     
-    // Collapse the expanded info
-    setIsExpanded(false);
+  //   // Collapse the expanded info
+  //   setIsExpanded(false);
     
-    // Show success message
-    setMessage('API key is now managed by the server for all users');
-    setTimeout(() => setMessage(''), 5000);
-  };
+  //   // Show success message
+  //   setMessage('API key is now managed by the server for all users');
+  //   setTimeout(() => setMessage(''), 5000);
+  // };
 
-  const handleClear = () => {
-    clearApiKey();
-    setApiKey('');
-    setMessage('API key cleared from storage');
-    setTimeout(() => setMessage(''), 3000);
+  // const handleClear = () => {
+  //   clearApiKey();
+  //   setApiKey('');
+  //   setMessage('API key cleared from storage');
+  //   setTimeout(() => setMessage(''), 3000);
     
-    // Notify parent component
-    onApiKeySubmit(null);
-  };
+  //   // Notify parent component
+  //   onApiKeySubmit(null);
+  // };
 
   return (
     <div className="api-key-section">
