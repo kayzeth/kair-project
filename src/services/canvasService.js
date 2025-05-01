@@ -100,7 +100,8 @@ const canvasService = {
       params.append('order_by', 'due_at');
       params.append('per_page', '100');
       params.append('bucket', 'upcoming');
-      params.append('start_date', ninetyDaysAgo.toISOString());
+      params.append('bucket', 'future');
+      params.append('bucket', 'unsubmitted');
       params.append('end_date', ninetyDaysAhead.toISOString());
 
       const response = await fetch(`${PROXY_URL}courses/${courseId}/assignments?${params.toString()}`);
@@ -130,7 +131,8 @@ const canvasService = {
       params.append('context_codes[]', `course_${courseId}`);
       params.append('type', 'event');
       params.append('bucket', 'upcoming');
-      params.append('start_date', ninetyDaysAgo.toISOString());
+      params.append('bucket', 'future');
+      params.append('bucket', 'unsubmitted');
       params.append('end_date', ninetyDaysAhead.toISOString());
       params.append('include[]', 'description');
       params.append('per_page', '100');
