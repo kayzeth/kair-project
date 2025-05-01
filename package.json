@@ -29,6 +29,7 @@
     "jwt-decode": "^4.0.0",
     "luxon": "^3.6.1",
     "mongodb": "^6.15.0",
+    "mongodb-client-encryption": "^6.3.0",
     "mongoose": "^8.13.2",
     "node-fetch": "^2.7.0",
     "openai": "^4.87.3",
