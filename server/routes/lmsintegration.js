@@ -146,6 +146,7 @@ async function syncCanvasEvents(userId) {
       'bucket': 'upcoming',
       'bucket': 'unsubmitted',
       'bucket': 'future',
+      'bucket': 'past',
       'end_date': ninetyDaysAhead.toISOString()
     });
 
@@ -196,6 +197,7 @@ async function syncCanvasEvents(userId) {
       'bucket': 'upcoming',
       'bucket': 'unsubmitted',
       'bucket': 'future',
+      'bucket': 'past',
       'end_date': ninetyDaysAhead.toISOString(),
       'per_page': '100'
     });
