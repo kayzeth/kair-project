@@ -42,7 +42,9 @@ describe('Canvas Event Modal Tests', () => {
 
     // Check that HTML tags are not visible but text content is
     const description = screen.getByTestId('eventmodal-description');
-    expect(description).toHaveValue('Submit your final project\nInclude documentation\nAdd tests');
+    expect(description).toHaveValue(
+      'Submit your final project\n• Include documentation\n• Add tests'
+    );
     expect(description).not.toHaveValue(expect.stringContaining('<p>'));
     expect(description).not.toHaveValue(expect.stringContaining('<ul>'));
     expect(description).not.toHaveValue(expect.stringContaining('<li>'));
