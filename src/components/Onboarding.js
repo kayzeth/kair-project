@@ -288,8 +288,8 @@ const Onboarding = () => {
       <div className="onboarding-content">
         {currentStep === 1 && (
           <div className="onboarding-step">
-            <h1>Welcome to Kairos!</h1>
-            <h2>Connect your Google Calendar</h2>
+            <h1 data-testid="welcome-title">Welcome to Kairos!</h1>
+            <h2 data-testid="google-calendar-title">Connect your Google Calendar</h2>
             
             <div className="google-auth-section">
               {!isSignedIn ? (
@@ -299,6 +299,7 @@ const Onboarding = () => {
                     <h3>Connect with Google Calendar</h3>
                     <p>Link your Google Calendar to import and export events</p>
                     <button 
+                      data-testid="google-signin-button"
                       className="button button-primary google-button"
                       onClick={handleSignIn}
                     >
@@ -330,25 +331,30 @@ const Onboarding = () => {
                   </div>
                 </div>
               )}
-            </div>
-            
-            {/* Always render the sync status container for testing purposes, but hide it with CSS when idle */}
-            <div className={`sync-status ${syncStatus.status}`} style={{ display: syncStatus.status === 'idle' ? 'none' : 'flex' }}>
-              <FontAwesomeIcon 
-                icon={
-                  syncStatus.status === 'loading' ? faSync :
-                  syncStatus.status === 'success' ? faCheck : faTimes
-                } 
-                className={`status-icon ${syncStatus.status === 'loading' ? 'fa-spin' : ''}`}
-              />
-              <span>{syncStatus.message}</span>
+              
+              <div className={`sync-status ${syncStatus.status}`} style={{ display: syncStatus.status === 'idle' ? 'none' : 'flex' }}>
+                <FontAwesomeIcon 
+                  icon={
+                    syncStatus.status === 'loading' ? faSync :
+                    syncStatus.status === 'success' ? faCheck : faTimes
+                  } 
+                  className={`status-icon ${syncStatus.status === 'loading' ? 'fa-spin' : ''}`}
+                />
+                {syncStatus.status === 'error' ? (
+                  <p data-testid="google-error-message" className="error-message">{syncStatus.message}</p>
+                ) : syncStatus.status === 'success' ? (
+                  <p data-testid="google-success-message" className="success-message">{syncStatus.message}</p>
+                ) : (
+                  <span>{syncStatus.message}</span>
+                )}
+              </div>
             </div>
           </div>
         )}
         
         {currentStep === 2 && (
           <div className="onboarding-step">
-            <h1>Connect Canvas LMS</h1>
+            <h1 data-testid="canvas-title">Connect Canvas LMS</h1>
             <h2>Import your assignments and deadlines</h2>
             
             <div className="canvas-auth-section">
@@ -358,10 +364,11 @@ const Onboarding = () => {
                     <FontAwesomeIcon icon={faGraduationCap} size="3x" className="canvas-icon" />
                     <h3>Connect with Canvas</h3>
                     <p>Link your Canvas account to import assignments and deadlines</p>
-                    <form onSubmit={handleCanvasSubmit}>
+                    <form data-testid="canvas-form" onSubmit={handleCanvasSubmit}>
                       <div className="form-group">
                         <label htmlFor="canvasToken">Canvas Access Token</label>
                         <input
+                          data-testid="canvas-token-input"
                           id="canvasToken"
                           placeholder="Enter your Canvas access token"
                           required
@@ -373,6 +380,7 @@ const Onboarding = () => {
                       <div className="form-group">
                         <label htmlFor="canvasDomain">Canvas Domain</label>
                         <input
+                          data-testid="canvas-domain-input"
                           id="canvasDomain"
                           placeholder="ex. canvas.harvard.edu OR harvard.instructure.com"
                           required
@@ -385,6 +393,7 @@ const Onboarding = () => {
                         </small>
                       </div>
                       <button 
+                        data-testid="canvas-connect-button"
                         type="submit" 
                         className="button button-primary canvas-button"
                         disabled={canvasStatus.status === 'loading'}
@@ -415,12 +424,20 @@ const Onboarding = () => {
                     
                     <div className="canvas-actions">
                       <button 
+                        data-testid="canvas-sync-button"
                         className="button button-primary"
                         onClick={handleCanvasSync}
                         disabled={canvasSyncStatus.status === 'loading'}
                       >
-                        <FontAwesomeIcon icon={faSync} className={canvasSyncStatus.status === 'loading' ? 'fa-spin' : ''} />
-                        {canvasSyncStatus.status === 'loading' ? 'Syncing...' : 'Sync Assignments'}
+                        {canvasSyncStatus.status === 'loading' ? (
+                          <>
+                            <FontAwesomeIcon icon={faSync} spin /> <span data-testid="canvas-sync-loading">Syncing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faSync} /> Sync Assignments
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -436,7 +453,17 @@ const Onboarding = () => {
                     } 
                     className={`status-icon ${(canvasStatus.status === 'loading' || canvasSyncStatus.status === 'loading') ? 'fa-spin' : ''}`}
                   />
-                  <span>{canvasStatus.message || canvasSyncStatus.message}</span>
+                  {canvasStatus.status === 'error' ? (
+                    <p data-testid="canvas-error-message" className="error-message">{canvasStatus.message}</p>
+                  ) : canvasSyncStatus.status === 'error' ? (
+                    <p data-testid="canvas-sync-error-message" className="error-message">{canvasSyncStatus.message}</p>
+                  ) : canvasStatus.status === 'success' ? (
+                    <p data-testid="canvas-success-message" className="success-message">{canvasStatus.message}</p>
+                  ) : canvasSyncStatus.status === 'success' ? (
+                    <p data-testid="canvas-sync-success-message" className="success-message">{canvasSyncStatus.message}</p>
+                  ) : (
+                    <span data-testid="canvas-sync-loading-message">{canvasStatus.message || canvasSyncStatus.message}</span>
+                  )}
                 </div>
               )}
             </div>
@@ -454,7 +481,7 @@ const Onboarding = () => {
         
         {currentStep === 3 && (
           <div className="onboarding-step">
-            <h1>Set Your Sleep Schedule</h1>
+            <h1 data-testid="sleep-schedule-title">Set Your Sleep Schedule</h1>
             <h2>Help us optimize your study sessions</h2>
             
             <div className="sleep-schedule-section">
@@ -472,6 +499,7 @@ const Onboarding = () => {
                           <FontAwesomeIcon icon={faMoon} className="schedule-icon" /> Bedtime
                         </label>
                         <input
+                          data-testid="bedtime-input"
                           type="time"
                           id="bedtime"
                           name="bedtime"
@@ -486,6 +514,7 @@ const Onboarding = () => {
                           <FontAwesomeIcon icon={faSun} className="schedule-icon" /> Wake-up Time
                         </label>
                         <input
+                          data-testid="wakeup-time-input"
                           type="time"
                           id="wakeupTime"
                           name="wakeupTime"
@@ -517,16 +546,16 @@ const Onboarding = () => {
         
         <div className="onboarding-actions">
           {currentStep > 1 && (
-            <button className="button button-secondary" onClick={handleBack}>
+            <button data-testid="back-button" className="button button-secondary" onClick={handleBack}>
               <FontAwesomeIcon icon={faArrowLeft} /> Back
             </button>
           )}
           
-          <button className="button button-text" onClick={handleSkip}>
+          <button data-testid="skip-button" className="button button-text" onClick={handleSkip}>
             Skip
           </button>
           
-          <button className="button button-primary" onClick={handleNext}>
+          <button data-testid="next-button" className="button button-primary" onClick={handleNext}>
             {currentStep < 3 ? 'Next' : 'Go to Calendar'} <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
