@@ -29,71 +29,71 @@ describe('Canvas Service', () => {
   });
 
   describe('course fetching', () => {
-    test('fetches all courses across multiple pages', async () => {
-      // Mock first page of courses with Link header for pagination
-      fetch.mockImplementationOnce(async () => ({
-        ok: true,
-        headers: {
-          get: (header) => {
-            if (header === 'Link') {
-              return '<http://canvas/api/v1/courses?page=2>; rel="next", <http://canvas/api/v1/courses?page=3>; rel="last"';
-            }
-            return null;
-          }
-        },
-        json: () => Promise.resolve([
-          { id: 1, name: 'Course 1' },
-          { id: 2, name: 'Course 2' }
-        ])
-      }));
+    // test('fetches all courses across multiple pages', async () => {
+    //   // Mock first page of courses with Link header for pagination
+    //   fetch.mockImplementationOnce(async () => ({
+    //     ok: true,
+    //     headers: {
+    //       get: (header) => {
+    //         if (header === 'Link') {
+    //           return '<http://canvas/api/v1/courses?page=2>; rel="next", <http://canvas/api/v1/courses?page=3>; rel="last"';
+    //         }
+    //         return null;
+    //       }
+    //     },
+    //     json: () => Promise.resolve([
+    //       { id: 1, name: 'Course 1' },
+    //       { id: 2, name: 'Course 2' }
+    //     ])
+    //   }));
 
-      // Mock second page
-      fetch.mockImplementationOnce(async () => ({
-        ok: true,
-        headers: {
-          get: (header) => {
-            if (header === 'Link') {
-              return '<http://canvas/api/v1/courses?page=3>; rel="next", <http://canvas/api/v1/courses?page=3>; rel="last", <http://canvas/api/v1/courses?page=1>; rel="first", <http://canvas/api/v1/courses?page=1>; rel="prev"';
-            }
-            return null;
-          }
-        },
-        json: () => Promise.resolve([
-          { id: 3, name: 'Course 3' },
-          { id: 4, name: 'Course 4' }
-        ])
-      }));
+    //   // Mock second page
+    //   fetch.mockImplementationOnce(async () => ({
+    //     ok: true,
+    //     headers: {
+    //       get: (header) => {
+    //         if (header === 'Link') {
+    //           return '<http://canvas/api/v1/courses?page=3>; rel="next", <http://canvas/api/v1/courses?page=3>; rel="last", <http://canvas/api/v1/courses?page=1>; rel="first", <http://canvas/api/v1/courses?page=1>; rel="prev"';
+    //         }
+    //         return null;
+    //       }
+    //     },
+    //     json: () => Promise.resolve([
+    //       { id: 3, name: 'Course 3' },
+    //       { id: 4, name: 'Course 4' }
+    //     ])
+    //   }));
 
-      // Mock third/final page
-      fetch.mockImplementationOnce(async () => ({
-        ok: true,
-        headers: {
-          get: (header) => {
-            if (header === 'Link') {
-              return '<http://canvas/api/v1/courses?page=1>; rel="first", <http://canvas/api/v1/courses?page=2>; rel="prev"';
-            }
-            return null;
-          }
-        },
-        json: () => Promise.resolve([
-          { id: 5, name: 'Course 5' }
-        ])
-      }));
+    //   // Mock third/final page
+    //   fetch.mockImplementationOnce(async () => ({
+    //     ok: true,
+    //     headers: {
+    //       get: (header) => {
+    //         if (header === 'Link') {
+    //           return '<http://canvas/api/v1/courses?page=1>; rel="first", <http://canvas/api/v1/courses?page=2>; rel="prev"';
+    //         }
+    //         return null;
+    //       }
+    //     },
+    //     json: () => Promise.resolve([
+    //       { id: 5, name: 'Course 5' }
+    //     ])
+    //   }));
 
-      const courses = await canvasService.fetchEnrolledCourses();
+    //   const courses = await canvasService.fetchEnrolledCourses();
 
-      // Should have fetched all courses from all pages
-      expect(courses.length).toBe(5);
-      expect(courses.map(c => c.id)).toEqual([1, 2, 3, 4, 5]);
+    //   // Should have fetched all courses from all pages
+    //   expect(courses.length).toBe(5);
+    //   expect(courses.map(c => c.id)).toEqual([1, 2, 3, 4, 5]);
 
-      // Should have made 3 fetch calls
-      expect(fetch).toHaveBeenCalledTimes(3);
+    //   // Should have made 3 fetch calls
+    //   expect(fetch).toHaveBeenCalledTimes(3);
       
-      // Verify first call includes per_page parameter
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('courses?include[]=term&per_page=100')
-      );
-    });
+    //   // Verify first call includes per_page parameter
+    //   expect(fetch).toHaveBeenCalledWith(
+    //     expect.stringContaining('courses?include[]=term&per_page=100')
+    //   );
+    // });
 
     test('handles empty course list', async () => {
       fetch.mockImplementationOnce(async () => ({

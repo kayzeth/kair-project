@@ -123,89 +123,113 @@ async function syncCanvasEvents(userId) {
 
   // For each course, fetch assignments and calendar events
   for (const course of courses) {
+    // Skip if assignments tab is hidden
+    if (course.tab_configuration?.some(tab => tab.id === 'assignments' && tab.hidden)) {
+      continue;
+    }
+
     // Fetch assignments
+    const now = new Date();
+    const oneYearAgo = new Date(now);
+    oneYearAgo.setFullYear(now.getFullYear() - 1);
+    const oneYearAhead = new Date(now);
+    oneYearAhead.setFullYear(now.getFullYear() + 1);
+
+    const assignmentParams = new URLSearchParams({
+      'include[]': 'description',
+      'include[]': 'due_at',
+      'include[]': 'submission',
+      'include[]': 'overrides',
+      'order_by': 'due_at',
+      'per_page': '100',
+      'start_date': oneYearAgo.toISOString(),
+      'end_date': oneYearAhead.toISOString()
+    });
+
     const assignmentsResponse = await fetch(
-      `https://${integration.domain}/api/v1/courses/${course.id}/assignments?` +
-      `include[]=due_at&` +
-      `include[]=description&` +
-      `bucket=upcoming&` +
-      `order_by=due_at&` +
-      `per_page=100`,
+      `https://${integration.domain}/api/v1/courses/${course.id}/assignments?${assignmentParams.toString()}`,
       {
         headers: {
-          'Authorization': integration.token,
-          'Content-Type': 'application/json'
+          'Authorization': integration.token
         }
       }
     );
 
-    if (assignmentsResponse.ok) {
-      const assignments = await assignmentsResponse.json();
-      
-      const assignmentEvents = assignments
-        .filter(assignment => assignment.due_at)
-        .map(assignment => ({
-          user_id: userId,
-          title: `${course.name}: ${assignment.name}`,
-          all_day: false,
-          start_time: new Date(assignment.due_at),
-          end_time: new Date(assignment.due_at),
-          description: assignment.description || '',
-          source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
-          requires_preparation: true,
-          requires_hours: null, // Explicitly set to null instead of defaulting to 0
-          study_suggestions_shown: false, // Ensure this is set to false so nudger will identify it
-          study_suggestions_accepted: false, // Initialize as false
-          metadata: {
-            courseId: course.id,
-            assignmentId: assignment.id,
-            points: assignment.points_possible,
-            url: assignment.html_url
-          }
-        }));
-      
-      events.push(...assignmentEvents);
+    if (!assignmentsResponse.ok) {
+      console.warn(`Failed to fetch assignments for course ${course.id}:`, await assignmentsResponse.text());
+      continue;
     }
+
+    const assignments = await assignmentsResponse.json();
+    
+    const assignmentEvents = assignments
+      .filter(assignment => assignment.due_at)
+      .map(assignment => ({
+        user_id: userId,
+        title: `${course.name}: ${assignment.name}`,
+        all_day: false,
+        start_time: new Date(assignment.due_at),
+        end_time: new Date(assignment.due_at),
+        description: assignment.description || '',
+        source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
+        requires_preparation: true,
+        requires_hours: null, // Explicitly set to null instead of defaulting to 0
+        study_suggestions_shown: false, // Ensure this is set to false so nudger will identify it
+        study_suggestions_accepted: false, // Initialize as false
+        metadata: {
+          courseId: course.id,
+          assignmentId: assignment.id,
+          points: assignment.points_possible,
+          url: assignment.html_url
+        }
+      }));
+    
+    events.push(...assignmentEvents);
 
     // Fetch calendar events
+    const calendarParams = new URLSearchParams({
+      'context_codes[]': `course_${course.id}`,
+      'type': 'event',
+      'start_date': oneYearAgo.toISOString(),
+      'end_date': oneYearAhead.toISOString(),
+      'per_page': '100'
+    });
+
     const calendarResponse = await fetch(
-      `https://${integration.domain}/api/v1/calendar_events?` + 
-      `context_codes[]=course_${course.id}&` +
-      `all_events=1&` +
-      `type=event&` +
-      `start_date=${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}&` +
-      `end_date=${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString()}`,
+      `https://${integration.domain}/api/v1/calendar_events?${calendarParams.toString()}`,
       {
         headers: {
-          'Authorization': integration.token,
-          'Content-Type': 'application/json'
+          'Authorization': integration.token
         }
       }
     );
 
-    if (calendarResponse.ok) {
-      const calendarEvents = await calendarResponse.json();
-      
-      const classEvents = calendarEvents
-        .filter(event => event.start_at)
-        .map(event => ({
-          user_id: userId,
-          title: `${course.name}: ${event.title}`,
-          all_day: event.all_day || false,
-          start_time: new Date(event.start_at),
-          end_time: event.end_at ? new Date(event.end_at) : new Date(event.start_at),
-          description: event.description || '',
-          location: event.location_name || '',
-          source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
-          metadata: {
-            courseId: course.id,
-            eventId: event.id,
-            url: event.html_url
-          }
-        }));
-      
-      events.push(...classEvents);
+    if (!calendarResponse.ok) {
+      console.warn(`Failed to fetch calendar events for course ${course.id}:`, await calendarResponse.text());
+      continue;
     }
+
+    const calendarEvents = await calendarResponse.json();
+    
+    const classEvents = calendarEvents
+      .filter(event => event.start_at)
+      .map(event => ({
+        user_id: userId,
+        title: `${course.name}: ${event.title}`,
+        all_day: event.all_day || false,
+        start_time: new Date(event.start_at),
+        end_time: event.end_at ? new Date(event.end_at) : new Date(event.start_at),
+        description: event.description || '',
+        location: event.location_name || '',
+        source: 'CANVAS', // Use 'CANVAS' instead of 'LMS' for better tracking
+        metadata: {
+          courseId: course.id,
+          eventId: event.id,
+          url: event.html_url
+        }
+      }));
+    
+    events.push(...classEvents);
   }
 
   // Delete existing Canvas events for this user
