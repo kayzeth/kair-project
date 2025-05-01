@@ -102,6 +102,7 @@ const canvasService = {
       params.append('bucket', 'upcoming');
       params.append('bucket', 'future');
       params.append('bucket', 'unsubmitted');
+      params.append('bucket', 'past');
       params.append('end_date', ninetyDaysAhead.toISOString());
 
       const response = await fetch(`${PROXY_URL}courses/${courseId}/assignments?${params.toString()}`);
@@ -133,6 +134,7 @@ const canvasService = {
       params.append('bucket', 'upcoming');
       params.append('bucket', 'future');
       params.append('bucket', 'unsubmitted');
+      params.append('bucket', 'past');
       params.append('end_date', ninetyDaysAhead.toISOString());
       params.append('include[]', 'description');
       params.append('per_page', '100');
