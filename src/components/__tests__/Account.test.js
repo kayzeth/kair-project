@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/extend-expect';
@@ -9,6 +8,7 @@ import { isConfigured } from '../../config/googleCalendarConfig';
 import canvasService from '../../services/canvasService';
 import googleCalendarDbService from '../../services/googleCalendarDbService';
 import { act } from 'react-dom/test-utils';
+import { HelmetProvider } from 'react-helmet-async';
 
 // Mock services and context
 jest.mock('../../context/AuthContext', () => ({
@@ -78,20 +78,32 @@ describe('Account Component', () => {
   });  
 
   it('renders Account title and user info', async () => {
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
     expect(await screen.findByTestId('account-title')).toBeInTheDocument();
     expect(screen.getByTestId('user-name')).toHaveTextContent('Test User');
     expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
   });
 
   it('shows sign-in button when not signed in', async () => {
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
     expect(await screen.findByTestId('google-sign-in-button')).toBeInTheDocument();
   });
 
   it('displays API credential warning if not configured', async () => {
     isConfigured.mockReturnValue(false);
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
     expect(await screen.findByTestId('api-credentials-warning')).toBeInTheDocument();
   });
 
@@ -99,7 +111,11 @@ describe('Account Component', () => {
     googleCalendarService.signIn.mockRejectedValue(new Error('mock sign-in failure'));
     googleCalendarService.isSignedIn.mockReturnValue(false);
     
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
   
     fireEvent.click(await screen.findByTestId('google-sign-in-button'));
   
@@ -121,7 +137,11 @@ describe('Account Component', () => {
   
     canvasService.syncWithCalendar.mockResolvedValue(5); // pretend 5 events were added
   
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
   
     // Wait for the sync button to appear
     const syncButton = await screen.findByTestId('account-sync-canvas-button');
@@ -143,7 +163,11 @@ describe('Account Component', () => {
   
     canvasService.syncWithCalendar.mockRejectedValue(new Error('Canvas sync failed'));
   
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
     const syncButton = await screen.findByTestId('account-sync-canvas-button');
     fireEvent.click(syncButton);
   
@@ -178,7 +202,11 @@ describe('Account Component', () => {
       writable: true,
     });
   
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
   
     await screen.findByTestId('google-disconnect-button');
   
@@ -216,7 +244,11 @@ describe('Account Component', () => {
       isLoggedIn: true,
     });
   
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
   
     // Fill out Canvas token input
     const tokenInput = await screen.findByTestId('account-canvas-token-input');
@@ -251,7 +283,11 @@ describe('Account Component', () => {
     canvasService.connect = jest.fn().mockResolvedValueOnce(); // for the form
     canvasService.clearCredentials = jest.fn().mockResolvedValueOnce();
   
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
   
     // Fill in Canvas form to simulate a connection
     fireEvent.change(screen.getByTestId('account-canvas-token-input'), {
@@ -285,7 +321,11 @@ describe('Account Component', () => {
     // Mock disconnect to fail
     canvasService.clearCredentials = jest.fn().mockRejectedValue(new Error('Failed'));
   
-    render(<Account />);
+    render(
+      <HelmetProvider>
+        <Account />
+      </HelmetProvider>
+    );
   
     // Fill in Canvas form
     fireEvent.change(screen.getByTestId('account-canvas-token-input'), {
@@ -354,7 +394,11 @@ describe('Account Component – Google Sign-In Listener', () => {
       mockListener.mockImplementation(cb);
     });
   
-    render(<Account />);
+    render(
+  <HelmetProvider>
+    <Account />
+  </HelmetProvider>
+);
   
     // Simulate sign-out
     act(() => {
