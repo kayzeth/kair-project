@@ -143,6 +143,7 @@ async function syncCanvasEvents(userId) {
       'include[]': 'overrides',
       'order_by': 'due_at',
       'per_page': '100',
+      'bucket': 'upcoming',
       'start_date': ninetyDaysAgo.toISOString(),
       'end_date': ninetyDaysAhead.toISOString()
     });
@@ -191,6 +192,7 @@ async function syncCanvasEvents(userId) {
     const calendarParams = new URLSearchParams({
       'context_codes[]': `course_${course.id}`,
       'type': 'event',
+      'bucket': 'upcoming',
       'start_date': ninetyDaysAgo.toISOString(),
       'end_date': ninetyDaysAhead.toISOString(),
       'per_page': '100'
