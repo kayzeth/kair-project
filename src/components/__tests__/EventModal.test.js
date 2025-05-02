@@ -5,6 +5,12 @@ import EventModal from '../EventModal';
 import { format } from 'date-fns';
 import userEvent from '@testing-library/user-event';
 
+// Mock react-helmet-async to fix the 'Cannot read properties of undefined (reading 'add')' error
+jest.mock('react-helmet-async', () => ({
+  HelmetProvider: ({ children }) => <>{children}</>,
+  Helmet: () => null
+}));
+
 describe('EventModal Component', () => {
   const mockDate = new Date(2025, 2, 15, 10, 0); // March 15, 2025, 10:00 AM
   const mockEvent = {
@@ -229,19 +235,19 @@ describe('EventModal Component', () => {
     });
     
     // Initially, the preparation hours input should not be visible
-    expect(screen.queryByTestId('eventmodal-preparation-hours')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('eventmodalsafari-preparation-hours-input')).not.toBeInTheDocument();
     
     // Find and click the "Requires Preparation?" checkbox
-    const prepCheckbox = screen.getByTestId('eventmodal-requires-preparation');
+    const prepCheckbox = screen.getByTestId('eventmodalsafari-requires-preparation-checkbox');
     await act(async () => {
       fireEvent.click(prepCheckbox);
     });
     
     // Now the preparation hours input should be visible
-    expect(screen.getByTestId('eventmodal-preparation-hours')).toBeInTheDocument();
+    expect(screen.getByTestId('eventmodalsafari-preparation-hours-input')).toBeInTheDocument();
     
     // Enter a value in the preparation hours input
-    const hoursInput = screen.getByTestId('eventmodal-preparation-hours');
+    const hoursInput = screen.getByTestId('eventmodalsafari-preparation-hours-input');
     await act(async () => {
       fireEvent.change(hoursInput, { target: { value: '4' } });
     });
@@ -278,11 +284,11 @@ describe('EventModal Component', () => {
     });
     
     // The requires preparation checkbox should be checked
-    const prepCheckbox = screen.getByTestId('eventmodal-requires-preparation');
+    const prepCheckbox = screen.getByTestId('eventmodalsafari-requires-preparation-checkbox');
     expect(prepCheckbox).toBeChecked();
     
     // The preparation hours input should be visible and have the correct value
-    const hoursInput = screen.getByTestId('eventmodal-preparation-hours');
+    const hoursInput = screen.getByTestId('eventmodalsafari-preparation-hours-input');
     expect(hoursInput.value).toBe('3');
     
     // Update the preparation hours
@@ -322,7 +328,7 @@ describe('EventModal Component', () => {
     });
     
     // The requires preparation checkbox should be checked initially
-    const prepCheckbox = screen.getByTestId('eventmodal-requires-preparation');
+    const prepCheckbox = screen.getByTestId('eventmodalsafari-requires-preparation-checkbox');
     expect(prepCheckbox).toBeChecked();
     
     // Uncheck the requires preparation checkbox
@@ -331,7 +337,7 @@ describe('EventModal Component', () => {
     });
     
     // The preparation hours input should no longer be visible
-    expect(screen.queryByTestId('eventmodal-preparation-hours')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('eventmodalsafari-preparation-hours-input')).not.toBeInTheDocument();
     
     // Click save and check if the preparation hours are removed
     await act(async () => {

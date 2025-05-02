@@ -210,6 +210,10 @@
   background-color: var(--error-color);
 }
 
+.sync-warning {
+  background-color: #f0ad4e; /* Warning color (amber/orange) */
+}
+
 @keyframes slide-in {
   from {
     transform: translateX(100%);

@@ -8,6 +8,12 @@ import eventService from '../../services/eventService';
 import nudgerService from '../../services/nudgerService';
 import studySuggesterService from '../../services/studySuggesterService';
 
+// Mock react-helmet-async to fix the 'Cannot read properties of undefined (reading 'add')' error
+jest.mock('react-helmet-async', () => ({
+  HelmetProvider: ({ children }) => <>{children}</>,
+  Helmet: () => null
+}));
+
 // Mock child components to isolate Calendar component testing
 jest.mock('../MonthView', () => () => <div data-testid="month-view">Month View</div>);
 jest.mock('../WeekView', () => () => <div data-testid="week-view">Week View</div>);
