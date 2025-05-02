@@ -32,6 +32,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
   const [currentEventForSuggestions, setCurrentEventForSuggestions] = useState(null);
   const [isProcessingStudySuggestions, setIsProcessingStudySuggestions] = useState(false);
   
+  // Queue to store events waiting for study suggestions
+  const [studySuggestionsQueue, setStudySuggestionsQueue] = useState([]);
+  
   // Use a ref to track events that have already been processed for study suggestions in this session
   // This prevents the same event from triggering multiple suggestion checks in a single session
   const processedEventsRef = useRef(new Set());
@@ -478,8 +481,8 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
   };
 
-  // Simplified triggerStudySuggestions function
-  const triggerStudySuggestions = useCallback(async (event, forceGenerate = false) => {
+  // Actual function that generates study suggestions for an event
+  const triggerStudySuggestionsForEvent = useCallback(async (event, forceGenerate = false) => {
     try {
       // Skip in test environment
       if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
@@ -670,6 +673,40 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
   }, [userId, setShowStudySuggestions, setStudySuggestions, setCurrentEventForSuggestions, setIsProcessingStudySuggestions]);
 
+  // This function adds an event to the queue or processes it immediately if possible
+  const triggerStudySuggestions = useCallback((event, forceGenerate = false) => {
+    // If we're already showing suggestions or processing them, add to queue
+    if (showStudySuggestions || isProcessingStudySuggestions) {
+      console.log(`Adding event ${event.title} to study suggestions queue`);
+      setStudySuggestionsQueue(prev => [...prev, { event, forceGenerate }]);
+      return;
+    }
+    
+    // Otherwise process immediately
+    triggerStudySuggestionsForEvent(event, forceGenerate);
+  }, [showStudySuggestions, isProcessingStudySuggestions, triggerStudySuggestionsForEvent]);
+  
+  // Process the next event in the study suggestions queue
+  const processNextInSuggestionsQueue = useCallback(() => {
+    if (studySuggestionsQueue.length > 0 && !showStudySuggestions && !isProcessingStudySuggestions) {
+      console.log('Processing next event in study suggestions queue:', studySuggestionsQueue[0]);
+      const nextEvent = studySuggestionsQueue[0];
+      // Remove the event from the queue
+      setStudySuggestionsQueue(prev => prev.slice(1));
+      // Process this event immediately - removed delay for better responsiveness
+      triggerStudySuggestionsForEvent(nextEvent.event, nextEvent.forceGenerate);
+    }
+  }, [studySuggestionsQueue, showStudySuggestions, isProcessingStudySuggestions, triggerStudySuggestionsForEvent]);
+  
+  // Effect to monitor study suggestions state and process the queue when appropriate
+  useEffect(() => {
+    // If we're not showing suggestions and not processing any, check the queue
+    if (!showStudySuggestions && !isProcessingStudySuggestions && studySuggestionsQueue.length > 0) {
+      console.log('Study suggestions state changed, checking queue');
+      processNextInSuggestionsQueue();
+    }
+  }, [showStudySuggestions, isProcessingStudySuggestions, studySuggestionsQueue, processNextInSuggestionsQueue]);
+
   // Check for events needing study suggestions
   const checkForEventsNeedingStudySuggestions = useCallback(async () => {
     try {
@@ -844,6 +881,11 @@ const Calendar = ({ initialEvents = [], userId }) => {
       
       if (!dontClose) {
         setShowStudySuggestions(false);
+        
+        // Process the next event in the queue after a short delay
+        setTimeout(() => {
+          processNextInSuggestionsQueue();
+        }, 500);
       }
     } catch (error) {
       console.error('Error accepting study suggestions:', error);
@@ -859,6 +901,11 @@ const Calendar = ({ initialEvents = [], userId }) => {
       
       if (!dontClose) {
         setShowStudySuggestions(false);
+        
+        // Process the next event in the queue after a short delay
+        setTimeout(() => {
+          processNextInSuggestionsQueue();
+        }, 500);
       }
     }
   };
@@ -879,6 +926,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
     }
     
     setShowStudySuggestions(false);
+    
+    // Process the next event in the queue immediately
+    processNextInSuggestionsQueue();
   };
 
   // Simplified savePreparationHours function
@@ -930,11 +980,9 @@ const Calendar = ({ initialEvents = [], userId }) => {
         prevEvents.map(event => event.id === savedEvent.id ? savedEvent : event)
       );
       
+      // Immediately hide the preparation prompt for better user experience
+      setShowPreparationPrompt(false);
       setEventsNeedingPreparation(prev => prev.filter(event => event.id !== eventId));
-      
-      if (eventsNeedingPreparation.length <= 1) {
-        setShowPreparationPrompt(false);
-      }
       
       // Only trigger study suggestions if the event doesn't already have them
       if (!hasExistingStudySessions) {

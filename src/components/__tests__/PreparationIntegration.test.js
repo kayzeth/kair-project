@@ -5,6 +5,12 @@ import Calendar from '../Calendar';
 import * as nudgerService from '../../services/nudgerService';
 import PreparationPrompt from '../PreparationPrompt';
 
+// Mock react-helmet-async to fix the 'Cannot read properties of undefined (reading 'add')' error
+jest.mock('react-helmet-async', () => ({
+  HelmetProvider: ({ children }) => <>{children}</>,
+  Helmet: () => null
+}));
+
 // Mock the nudger service
 jest.mock('../../services/nudgerService');
 
