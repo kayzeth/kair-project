@@ -519,6 +519,25 @@ const Calendar = ({ initialEvents = [], userId }) => {
         });
       }
       
+      // Check if the event is in the past
+      const eventDate = new Date(event.start instanceof Date ? event.start : event.start_time);
+      const now = new Date();
+      if (eventDate < now && eventDate.toDateString() !== now.toDateString()) {
+        console.log('Event is in the past - cannot generate study suggestions');
+        
+        // Show a specific message for past events
+        setSyncStatus({
+          status: 'warning',
+          message: `Cannot generate study plans for events in the past. Please select an upcoming event instead.`
+        });
+        
+        setTimeout(() => {
+          setSyncStatus({ status: 'idle', message: '' });
+        }, 5000);
+        
+        return;
+      }
+      
       // Check if the event is within 8 days, but allow override with forceGenerate
       if (!forceGenerate && !studySuggesterService.isEventWithin8Days(event)) {
         console.log('Event is more than 8 days away - not showing study suggestions yet');
