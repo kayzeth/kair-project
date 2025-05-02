@@ -3,6 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Landing from '../Landing';
 
+// Mock react-helmet-async to fix the 'Cannot read properties of undefined (reading 'add')' error
+jest.mock('react-helmet-async', () => ({
+  HelmetProvider: ({ children }) => <>{children}</>,
+  Helmet: () => null
+}));
+
 // Mock the AuthForms components before importing them
 jest.mock('../AuthForms', () => ({
   LoginForm: jest.fn(() => <div data-testid="login-form">Login Form</div>),

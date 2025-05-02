@@ -1,6 +1,12 @@
 import * as studySuggesterService from '../studySuggesterService';
 import { isSameDay, addDays, subDays, format } from 'date-fns';
 
+// Mock the geminiService to prevent actual API calls during tests
+jest.mock('../geminiService', () => ({
+  generateSmartStudySuggestions: jest.fn().mockResolvedValue([]),
+  getApiKey: jest.fn().mockResolvedValue('test-api-key')
+}));
+
 // Mock date for consistent testing
 const mockDate = new Date('2025-03-15T12:00:00');
 const originalDate = global.Date;
