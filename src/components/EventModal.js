@@ -119,6 +119,39 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   const [formErrors, setFormErrors] = useState({});
   const [isFormValid, setIsFormValid] = useState(true);
 
+  const getOptimalRecurrenceStart = (startDateStr, recurrenceDays) => {
+    const base   = new Date(startDateStr);
+    const today  = new Date();
+    // pick whichever is later
+    const cursor = today > base ? today : base;
+     // map full-day names to JS weekday numbers
+    const FULL_DAY_MAP = {
+      SUNDAY:    0,
+      MONDAY:    1,
+      TUESDAY:   2,
+      WEDNESDAY: 3,
+      THURSDAY:  4,
+      FRIDAY:    5,
+      SATURDAY:  6,
+    };
+    // build an array of allowed day-numbers, filtering out any unrecognized
+    const allowed = recurrenceDays
+      .map(d => FULL_DAY_MAP[d.toUpperCase()])
+      .filter(n => typeof n === 'number');
+     // walk forward up to one year from cursor
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(cursor);
+      d.setDate(cursor.getDate() + i);
+      if (allowed.includes(d.getDay())) {
+        // return as YYYY-MM-DD so your existing date-parsing sees it
+        return d.toISOString().split('T')[0];
+      }
+    }
+     // fallback if nothing matched
+    return startDateStr;
+  };
+ 
+
   useEffect(() => {
     if (event) {
       console.log('Event being edited:', event);
@@ -421,6 +454,19 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
       isStudySession: event?.isStudySession || false,
       relatedEventId: event?.relatedEventId || null
     };
+
+    // if it’s a recurring series, shift formData.start to the first real instance
+ if (formData.isRecurring) {
+    const optimal = getOptimalRecurrenceStart(
+      formData.start,           // e.g. "2025-05-03"
+      formData.recurrenceDays   // e.g. ["FRIDAY","WEDNESDAY","MONDAY"]
+    );
+    console.log('[EventModal] optimal recurrence start:', optimal);
+
+    // shift both start _and_ end to that day
+    formData.start = optimal;
+    formData.end   = optimal;
+}
     
     // Log the study session relationship
     if (event?.isStudySession) {
@@ -580,8 +626,22 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
   };
 
   const handleDelete = () => {
-    if (event && event.id) {
-      onDelete(event.id);
+    // default to the clicked instance’s ID (or undefined if event is falsy)
+    let idToDelete = event && event.id;
+     // 1) use originalRecurringEventId if it exists
+    if (event && event.originalRecurringEventId) {
+      idToDelete = event.originalRecurringEventId;
+     // 2) else use the internal FullCalendar recurringDef.typeId
+    } else if (event && event._def?.recurringDef?.typeId) {
+      idToDelete = event._def.recurringDef.typeId;
+     // 3) else if it’s a “seriesId-instanceIndex” string, split off the seriesId
+    } else if (typeof idToDelete === 'string' && idToDelete.includes('-')) {
+      idToDelete = idToDelete.split('-')[0];
+    }
+     // only call onDelete if we actually found something
+    if (idToDelete) {
+      console.log('[EventModal] deleting master event id:', idToDelete);
+      onDelete(idToDelete);
     }
   };
 
