@@ -15,6 +15,8 @@ import Title from './Title';
 import '../styles/Calendar.css';
 import '../styles/DayEventsPopup.css';
 
+const WEEKDAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+
 const Calendar = ({ initialEvents = [], userId }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month'); // 'month', 'week', or 'day'
@@ -40,155 +42,95 @@ const Calendar = ({ initialEvents = [], userId }) => {
   const processedEventsRef = useRef(new Set());
   
   // Generate recurring event instances based on recurrence settings
-  const generateRecurringInstances = useCallback((events, viewStart, viewEnd) => {
-    if (!events || events.length === 0) return events;
-    
-    // Create a new array to hold all events including recurring instances
-    const allEvents = [];
-    
+ const generateRecurringInstances = useCallback((events, viewStart, viewEnd) => {
+   if (!events?.length) return events;
+   const allEvents = [];
+   const MS_PER_DAY = 24*60*60*1000;
     events.forEach(event => {
-      // Add the original event
-      allEvents.push(event);
-      
-      // If the event is recurring and has a recurrence end date
-      if (event.isRecurring && event.recurrenceEndDate) {
-        const startDate = new Date(event.start);
-        const endDate = new Date(event.end);
-        const recurrenceEndDate = new Date(event.recurrenceEndDate);
-        const eventDuration = endDate.getTime() - startDate.getTime();
-        
-        // Don't generate instances if the recurrence end date is in the past
-        // FIXED: Don't return from the forEach callback as it only skips this event
-        if (recurrenceEndDate < viewStart) return;
-        
-        // Limit the generation to the view period plus some buffer
-        const generationEndDate = new Date(Math.min(
-          recurrenceEndDate.getTime(),
-          viewEnd.getTime() + 7 * 24 * 60 * 60 * 1000 // Add 1 week buffer
-        ));
-        
-        // For recurring events with specific days, we need a different approach
-        if ((event.recurrenceFrequency === 'WEEKLY' || event.recurrenceFrequency === 'BIWEEKLY') && 
-            event.recurrenceDays && event.recurrenceDays.length > 0) {
-          
-          // Start from the view start date or the event start date, whichever is later
-          let currentDate = new Date(Math.max(viewStart.getTime(), startDate.getTime()));
-          
-          // If we're starting from the event start date, move to the next day to avoid duplicating the original
-          if (currentDate.getTime() === startDate.getTime()) {
-            currentDate = addDays(currentDate, 1);
-          }
-          
-          // Generate instances for each day until the end date
-          while (currentDate <= generationEndDate) {
-            const dayOfWeek = format(currentDate, 'EEEE').toUpperCase();
-            
-            // Check if this day of the week is included in the recurrence days
-            // Convert both to lowercase for case-insensitive comparison
-            const currentDayLower = dayOfWeek.toLowerCase();
-            const matchingDay = event.recurrenceDays.some(day => day.toLowerCase() === currentDayLower);
-            if (matchingDay) {
-              // For biweekly, we need to check if this is the correct week
-              let isCorrectWeek = true;
-              
-              if (event.recurrenceFrequency === 'BIWEEKLY') {
-                // Calculate weeks between the start date and current date
-                const weeksBetween = Math.round((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                isCorrectWeek = weeksBetween % 2 === 0; // Only include even week numbers
-              }
-              
-              if (isCorrectWeek) {
-                // Create a new instance of the event
-                const instanceStart = new Date(currentDate);
-                instanceStart.setHours(startDate.getHours(), startDate.getMinutes(), 0, 0);
-                
-                const instanceEnd = new Date(instanceStart.getTime() + eventDuration);
-                
-                const eventInstance = {
-                  ...event,
-                  id: `${event.id}-${instanceStart.getTime()}`, // Create a unique ID for this instance
-                  start: instanceStart,
-                  end: instanceEnd,
-                  isRecurringInstance: true, // Mark as a recurring instance
-                  originalEventId: event.id // Reference to the original event
-                };
-                
-                allEvents.push(eventInstance);
-              }
-            }
-            
-            // Move to the next day
-            currentDate = addDays(currentDate, 1);
-          }
-        } else {
-          // Handle simple recurrence without specific days
-          let currentDate = new Date(startDate);
-          
-          // Generate instances based on frequency
-          while (currentDate <= generationEndDate) {
-            // Skip the original event date
-            if (currentDate.getTime() === startDate.getTime()) {
-              // Move to next occurrence based on frequency
-              if (event.recurrenceFrequency === 'DAILY') {
-                currentDate = addDays(currentDate, 1);
-              } else if (event.recurrenceFrequency === 'WEEKLY') {
-                currentDate = addDays(currentDate, 7);
-              } else if (event.recurrenceFrequency === 'BIWEEKLY') {
-                currentDate = addDays(currentDate, 14);
-              } else if (event.recurrenceFrequency === 'MONTHLY') {
-                currentDate = addMonths(currentDate, 1);
-              }
-              continue;
-            }
-            
-            // Skip instances outside the view range
-            if (currentDate < viewStart || currentDate > viewEnd) {
-              // Move to next occurrence based on frequency
-              if (event.recurrenceFrequency === 'DAILY') {
-                currentDate = addDays(currentDate, 1);
-              } else if (event.recurrenceFrequency === 'WEEKLY') {
-                currentDate = addDays(currentDate, 7);
-              } else if (event.recurrenceFrequency === 'BIWEEKLY') {
-                currentDate = addDays(currentDate, 14);
-              } else if (event.recurrenceFrequency === 'MONTHLY') {
-                currentDate = addMonths(currentDate, 1);
-              }
-              continue;
-            }
-            
-            // Create a new instance of the event
-            const instanceStart = new Date(currentDate);
-            const instanceEnd = new Date(instanceStart.getTime() + eventDuration);
-            
-            const eventInstance = {
-              ...event,
-              id: `${event.id}-${instanceStart.getTime()}`, // Create a unique ID for this instance
-              start: instanceStart,
-              end: instanceEnd,
-              isRecurringInstance: true, // Mark as a recurring instance
-              originalEventId: event.id // Reference to the original event
-            };
-            
-            allEvents.push(eventInstance);
-            
-            // Move to next occurrence based on frequency
-            if (event.recurrenceFrequency === 'DAILY') {
-              currentDate = addDays(currentDate, 1);
-            } else if (event.recurrenceFrequency === 'WEEKLY') {
-              currentDate = addDays(currentDate, 7);
-            } else if (event.recurrenceFrequency === 'BIWEEKLY') {
-              currentDate = addDays(currentDate, 14);
-            } else if (event.recurrenceFrequency === 'MONTHLY') {
-              currentDate = addMonths(currentDate, 1);
-            }
-          }
-        }
-      }
-    });
-    
-    // console.log(`Generated ${allEvents.length} events including recurring instances`);
+     allEvents.push(event);
+     if (!event.isRecurring || !event.recurrenceEndDate) return;
+      const startDate   = new Date(event.start);
+     const endDate     = new Date(event.end);
+     const durationMs  = endDate - startDate;
+     const recEndDate  = new Date(event.recurrenceEndDate);
+     if (recEndDate < viewStart) return;
+      // cap generation at viewEnd + 1 week
+     const generationEnd = new Date(
+       Math.min(recEndDate.getTime(), viewEnd.getTime() + 7*MS_PER_DAY)
+     );
+      // WEEKLY/BIWEEKLY with specific days
+     if ((event.recurrenceFrequency === 'WEEKLY' || event.recurrenceFrequency === 'BIWEEKLY')
+       && event.recurrenceDays.length > 0
+     ) {
+       const intervalDays = event.recurrenceFrequency === 'BIWEEKLY' ? 14 : 7;
+        // 1) get the Sunday of the week containing startDate
+       const weekStart = startOfWeek(startDate); // defaults to Sunday
+        event.recurrenceDays.forEach(dayName => {
+         const wdIdx = WEEKDAYS.indexOf(dayName.toLowerCase());
+         if (wdIdx < 0) return;
+          // 2) base date = weekStart + wdIdx days
+         let instDate = addDays(weekStart, wdIdx);
+          // 3) if that base is before your event start, bump forward in interval chunks
+         if (instDate < startDate) {
+           const jumps = Math.ceil((startDate - instDate) / (intervalDays*MS_PER_DAY));
+           instDate = addDays(instDate, jumps * intervalDays);
+         }
+         // also fast-forward into the view window
+         if (instDate < viewStart) {
+           const jumps = Math.ceil((viewStart - instDate) / (intervalDays*MS_PER_DAY));
+           instDate = addDays(instDate, jumps * intervalDays);
+         }
+          // 4) emit every N days exactly
+         while (instDate <= generationEnd) {
+           if (instDate >= viewStart && instDate <= viewEnd) {
+             const instStart = new Date(instDate);
+             instStart.setHours(startDate.getHours(), startDate.getMinutes(), 0, 0);
+              allEvents.push({
+               ...event,
+               id: `${event.id}-${instStart.getTime()}`,
+               start: instStart,
+               end:   new Date(instStart.getTime() + durationMs),
+               isRecurringInstance: true,
+               originalEventId: event.id
+             });
+           }
+           instDate = addDays(instDate, intervalDays);
+         }
+       });
+     }
+     // fallback: DAILY / WEEKLY / BIWEEKLY / MONTHLY without specific days
+     else if (event.recurrenceFrequency) {
+       let cursor = new Date(startDate);
+       const step = freq => {
+         if (freq === 'DAILY')    return addDays(cursor, 1);
+         if (freq === 'WEEKLY')   return addDays(cursor, 7);
+         if (freq === 'BIWEEKLY') return addDays(cursor, 14);
+         if (freq === 'MONTHLY')  return addMonths(cursor, 1);
+         return cursor;
+       };
+        while (cursor <= generationEnd) {
+         if (
+           cursor.getTime() !== startDate.getTime() &&
+           cursor >= viewStart &&
+           cursor <= viewEnd
+         ) {
+           const instStart = new Date(cursor);
+           const instEnd   = new Date(cursor.getTime() + durationMs);
+            allEvents.push({
+             ...event,
+             id: `${event.id}-${instStart.getTime()}`,
+             start: instStart,
+             end:   instEnd,
+             isRecurringInstance: true,
+             originalEventId: event.id
+           });
+         }
+         cursor = step(event.recurrenceFrequency);
+       }
+     }
+   });
     return allEvents;
-  }, []);
+ }, []);
 
   // Use a simple loadEvents function that works reliably in both tests and production
   const loadEvents = useCallback(async () => {

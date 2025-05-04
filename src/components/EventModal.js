@@ -456,17 +456,29 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
     };
 
     // if it’s a recurring series, shift formData.start to the first real instance
- if (formData.isRecurring) {
-    const optimal = getOptimalRecurrenceStart(
-      formData.start,           // e.g. "2025-05-03"
-      formData.recurrenceDays   // e.g. ["FRIDAY","WEDNESDAY","MONDAY"]
-    );
-    console.log('[EventModal] optimal recurrence start:', optimal);
-
-    // shift both start _and_ end to that day
-    formData.start = optimal;
-    formData.end   = optimal;
-}
+    if (formData.isRecurring) {
+      const optimal = getOptimalRecurrenceStart(
+        formData.start,
+        formData.recurrenceDays
+      );
+      console.log('[EventModal] optimal recurrence start:', optimal);
+    
+      // pull the y/m/d and h/m back out
+      const [optY, optM, optD] = optimal.split('-').map(Number);
+      const [sh, sm]    = formData.startTime.split(':').map(Number);
+      const [eh, em]    = formData.endTime.split(':').map(Number);
+    
+      // update the actual eventObject
+      eventObject.start = new Date(optY, optM - 1, optD, sh, sm, 0);
+    
+      // if the end date was the same day, shift it too
+      if (formData.end === formData.start) {
+        eventObject.end = new Date(optY, optM - 1, optD, eh, em, 0);
+      } else {
+        const [ey, emon, ed] = formData.end.split('-').map(Number);
+        eventObject.end = new Date(ey, emon - 1, ed, eh, em, 0);
+      }
+    }
     
     // Log the study session relationship
     if (event?.isStudySession) {
