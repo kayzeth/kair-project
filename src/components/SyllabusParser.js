@@ -17,7 +17,7 @@ const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents, set
       return;
     }
   
-    const maxContentLength = 15000;
+    const maxContentLength = 150000;
     const truncated = rawContent.length > maxContentLength
         ? rawContent.slice(0, maxContentLength) + '... (content truncated)'
         : rawContent;
@@ -353,7 +353,7 @@ const SyllabusParser = ({ onAddEvents }) => {
         }
         
         // Truncate content if it's too long (though the backend will also handle this)
-        const maxContentLength = 15000; // Adjust based on token limits
+        const maxContentLength = 150000; // Adjust based on token limits
         const truncatedContent = content.length > maxContentLength 
           ? content.substring(0, maxContentLength) + '... (content truncated)' 
           : content;
@@ -484,7 +484,7 @@ const SyllabusParser = ({ onAddEvents }) => {
           }
           
           // Truncate content if it's too long (though the backend will also handle this)
-          const maxContentLength = 15000; // Adjust based on token limits
+          const maxContentLength = 150000; // Adjust based on token limits
           const truncatedContent = content.length > maxContentLength 
             ? content.substring(0, maxContentLength) + '... (content truncated)' 
             : content;
@@ -591,7 +591,7 @@ const SyllabusParser = ({ onAddEvents }) => {
       }
         
         // Truncate content if it's too long (though the backend will also handle this)
-        const maxContentLength = 15000; // Adjust based on token limits
+        const maxContentLength = 150000; // Adjust based on token limits
         const truncatedContent = content.length > maxContentLength 
           ? content.substring(0, maxContentLength) + '... (content truncated)' 
           : content;

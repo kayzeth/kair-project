@@ -128,25 +128,57 @@ app.post('/api/openai/syllabus-parser', async (req, res) => {
     }
     
     // Truncate content if it's too long
-    const maxContentLength = 15000; // Adjust based on token limits
+    const maxContentLength = 200000; // Adjust based on token limits
     const truncatedContent = content.length > maxContentLength 
       ? content.substring(0, maxContentLength) + '... (content truncated)' 
       : content;
     
-    // Prepare request body
+    // Prepare request bodys
     const requestBody = {
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that parses course syllabi. Extract all relevant information including course name, course code, instructor, meeting times, and assignment due dates. Format the output as a valid JSON object with the following structure: { courseName, courseCode, instructor, meetingTimes: [{day, startTime, endTime, location}], assignments: [{title, dueDate, description}], exams: [{title, date, time, location, description}] }\n\nIMPORTANT: If the provided text does not appear to be a valid course syllabus, or if you cannot confidently extract the required information, DO NOT make up fake data. Instead, return a JSON object with an 'error' field like this: { \"error\": \"This does not appear to be a valid course syllabus\" }. Never return made-up course information."
+          content: `
+      You are an assistant that extracts **structured JSON** from real-world course syllabi, even when they are long, messy, or incomplete.
+    
+      Return *only* a JSON object with this exact shape:
+      - Do not wrap the output in backticks or markdown formatting. Output only plain, raw JSON.
+      {
+        "courseName": "...",
+        "courseCode": "...",
+        "instructor": "...",
+        "meetingTimes": [
+          {
+            "day":  "..." Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday (If multiple days, create mutliple objects)
+            "startTime": "HH:MM AM/PM | unknown",
+            "endTime":   "HH:MM AM/PM | unknown",
+            "location":  "..."
+          }
+        ],
+        "assignments": [
+          { "title": "...", "dueDate": "YYYY-MM-DD | unknown", "description": "..." }
+        ],
+        "exams": [
+          { "title": "...", "date": "YYYY-MM-DD | unknown", "time": "...", "location": "...", "description": "..." }
+        ]
+      }
+    
+      Guidelines
+      - **Canonical weekday codes**:
+        - Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+        - If a syllabus groups days (“MW”, “Mon/Wed”, “T-Th”, “Tuesday & Thursday”) **split them into separate meetingTimes objects**, one per code.
+      - If any meeting-time field is missing, still emit the object and fill the slot with **"unknown"** (not empty).
+      - If a date omits the year, assume **2025** and output "YYYY-MM-DD".
+      - Never invent data; never summarize multiple items into one; mark absent items **"unknown"**.
+      - Use the word **"error"** **only** when the entire input is clearly *not* a syllabus (empty, blank, or unrelated text).
+      - Do not output anything except the JSON object.`
         },
         {
           role: "user",
-          content: `Parse the following syllabus and extract all relevant information. Format your response as a valid JSON object. If this is not a valid syllabus, return an error message as instructed.\n\n${truncatedContent}`
+          content: truncatedContent
         }
       ],
-      response_format: { type: "json_object" },
       temperature: 0.3
     };
     
