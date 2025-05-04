@@ -194,7 +194,11 @@ async function syncCanvasEvents(userId) {
         title: `${course.name}: ${assignment.name}`,
         all_day: false,
         start_time: new Date(assignment.due_at),
-        end_time: new Date(assignment.due_at),
+        end_time: (() => {
+          const endTime = new Date(assignment.due_at);
+          endTime.setMinutes(endTime.getMinutes() + 1);
+          return endTime;
+        })(),
         description: stripHtml(assignment.description),
         source: 'CANVAS',
         requires_preparation: true,
