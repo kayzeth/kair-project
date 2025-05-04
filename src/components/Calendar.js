@@ -517,7 +517,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
       // Show loading status with a more prominent message
       setSyncStatus({
         status: 'loading',
-        message: 'Generating study suggestions... This may take a moment'
+        message: 'Generating study suggestions... This may take a moment, do not leave or refresh the page'
       });
       
       console.log(`Using preparation hours value: ${preparationHoursValue} for event ${event.title}`);
@@ -1028,7 +1028,7 @@ const Calendar = ({ initialEvents = [], userId }) => {
     <div className="calendar-container" data-testid="calendar-container">
       {(syncStatus.status !== 'idle' || isProcessingStudySuggestions) && (
         <div className={`sync-banner sync-${isProcessingStudySuggestions ? 'loading' : syncStatus.status}`} data-testid="sync-status">
-          {isProcessingStudySuggestions ? 'Generating study suggestions... This may take a moment' : syncStatus.message}
+          {isProcessingStudySuggestions ? 'Generating study suggestions... This may take a moment, do not leave or refresh the page' : syncStatus.message}
         </div>
       )}
       <Title page="Calendar" />

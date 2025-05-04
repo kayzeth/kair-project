@@ -461,6 +461,7 @@ CRITICAL SCHEDULING RULES:
 - Ensure at least 30 minutes buffer time before and after existing calendar events
 - If a day has too many conflicts, it's better to move study time to other days than to try to squeeze sessions in
 - The time allocation percentages are guidelines, not strict requirements - prioritize avoiding conflicts
+- Under the circumstances study plans are manually generated far in advance, do not schedule any events more than 14 days ahead of time.
 
 Please provide your response ONLY as a JSON array of study sessions, with each session having these properties:
 - suggestedStartTime (ISO date string with timezone)
@@ -478,8 +479,8 @@ Example format:
   }
 ]`;
 
-    // Implement retry mechanism
-    const MAX_RETRIES = 3;
+    // No retries - just use the initial prompt
+    const MAX_RETRIES = 1;
     let attempts = 0;
     let formattedSuggestions = [];
     let isValid = false;
@@ -552,7 +553,7 @@ Example format:
       
       try {
         // For @google/generative-ai, use the gemini-2.5-flash-preview-04-17 model
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-04-17" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent({
           contents: [
             {
