@@ -17,7 +17,7 @@ const sendToParser = async (rawContent, setError, setIsLoading, onAddEvents, set
       return;
     }
   
-    const maxContentLength = 15000;
+    const maxContentLength = 150000;
     const truncated = rawContent.length > maxContentLength
         ? rawContent.slice(0, maxContentLength) + '... (content truncated)'
         : rawContent;
@@ -260,7 +260,11 @@ const SyllabusParser = ({ onAddEvents }) => {
       setFile(selectedFile);
       // Clear pasted text when a file is selected
       setPastedText('');
+      // Reset error states and extracted info when a new file is selected
       setError(null);
+      setOpenAiError(null);
+      setExtractedInfo(null);
+      setCalendarEvents([]);
     }
   };
   
@@ -274,6 +278,10 @@ const SyllabusParser = ({ onAddEvents }) => {
       const fileInput = document.getElementById('syllabus-file');
       if (fileInput) fileInput.value = '';
     }
+    // Reset error states and extracted info when text is modified
+    setOpenAiError(null);
+    setExtractedInfo(null);
+    setCalendarEvents([]);
   };
 
 
@@ -353,7 +361,7 @@ const SyllabusParser = ({ onAddEvents }) => {
         }
         
         // Truncate content if it's too long (though the backend will also handle this)
-        const maxContentLength = 15000; // Adjust based on token limits
+        const maxContentLength = 150000; // Adjust based on token limits
         const truncatedContent = content.length > maxContentLength 
           ? content.substring(0, maxContentLength) + '... (content truncated)' 
           : content;
@@ -484,7 +492,7 @@ const SyllabusParser = ({ onAddEvents }) => {
           }
           
           // Truncate content if it's too long (though the backend will also handle this)
-          const maxContentLength = 15000; // Adjust based on token limits
+          const maxContentLength = 150000; // Adjust based on token limits
           const truncatedContent = content.length > maxContentLength 
             ? content.substring(0, maxContentLength) + '... (content truncated)' 
             : content;
@@ -591,7 +599,7 @@ const SyllabusParser = ({ onAddEvents }) => {
       }
         
         // Truncate content if it's too long (though the backend will also handle this)
-        const maxContentLength = 15000; // Adjust based on token limits
+        const maxContentLength = 150000; // Adjust based on token limits
         const truncatedContent = content.length > maxContentLength 
           ? content.substring(0, maxContentLength) + '... (content truncated)' 
           : content;
@@ -1200,7 +1208,8 @@ function buildLocalDate(ymd) {
       
       {error && <div className="error-message" data-testid="syllabus-processing-error">{error}</div>}
       
-      {extractedInfo && (
+      {/* Show either valid extracted info OR the OpenAI error message */}
+      {(extractedInfo && (validateSyllabusData(extractedInfo) || openAiError)) && (
         <div className="parsed-data-container">
           {openAiError ? (
             <div className="error-message-container" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#ffebee', border: '1px solid #f44336', borderRadius: '4px' }}>
