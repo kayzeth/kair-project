@@ -92,16 +92,37 @@ describe('Event Modal and Study Plan Tests', () => {
     // Wait for the modal to close
     cy.get('.modal-overlay').should('not.exist');
     
+    // Wait a moment for the calendar to update
+    cy.wait(2000);
+    
     // Step 4: Find the event again to generate study plan
-    cy.contains(eventTitle).click();
+    // First make sure we're on the calendar page
+    cy.url().should('include', '/calendar');
     
-    // Check if the event modal appears again
-    cy.get('.modal-overlay').should('be.visible');
-    cy.get('.modal').should('be.visible');
+    // Make sure the calendar container is visible
+    cy.get('[data-testid="calendar-container"]').should('be.visible');
     
-    // Verify the preparation hours are saved
-    cy.get('[data-testid="eventmodalsafari-requires-preparation-checkbox"]').should('be.checked');
-    cy.get('[data-testid="eventmodalsafari-preparation-hours-input"]').should('have.value', '5');
+    // Look for the event by its title with a longer timeout
+    cy.contains(eventTitle, { timeout: 10000 })
+      .should('be.visible')
+      .click({ force: true });
+    
+    // Check if the event modal appears again and wait for it to fully load
+    cy.get('.modal-overlay', { timeout: 10000 }).should('be.visible');
+    cy.get('.modal', { timeout: 10000 }).should('be.visible');
+    
+    // Add a wait to ensure the modal is fully rendered and stable
+    cy.wait(1000);
+    
+    // Verify the title is correct to ensure we're looking at the right event
+    cy.get('.title-input').should('have.value', eventTitle);
+    
+    // First check if the form has loaded the preparation section
+    cy.get('.form-group-flex-top').should('be.visible');
+    
+    // Now verify the preparation hours are saved
+    cy.get('[data-testid="eventmodalsafari-requires-preparation-checkbox"]', { timeout: 10000 }).should('be.visible').should('be.checked');
+    cy.get('[data-testid="eventmodalsafari-preparation-hours-input"]', { timeout: 10000 }).should('be.visible').should('have.value', '5');
     
     // Click the "Generate Study Plan" button
     cy.get('[data-testid="eventmodal-trigger-study-suggestions-button"]').click();
