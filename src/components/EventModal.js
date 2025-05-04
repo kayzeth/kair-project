@@ -1149,7 +1149,6 @@ const EventModal = ({ onClose, onSave, onDelete, onTriggerStudySuggestions, even
                             <option value="DAILY">Daily</option>
                             <option value="WEEKLY">Weekly</option>
                             <option value="BIWEEKLY">Bi-weekly</option>
-                            <option value="MONTHLY">Monthly</option>
                           </select>
                         </div>
                       </div>
