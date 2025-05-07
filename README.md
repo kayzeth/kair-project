@@ -17,7 +17,7 @@ The comprehensive academic management platform for students.
   - [End-to-End Tests](#end-to-end-tests)
   - [Test Coverage](#test-coverage)
 - [Deployment](#deployment)
-  - [Setting up OpenAI API](#setting-up-openai-api-for-syllabus-parser)
+  - [Setting up API Keys](#setting-up-api-keys-for-deployment)
   - [Vercel Deployment](#vercel-deployment)
 - [Canvas LMS Integration](#canvas-lms-integration)
 - [Security Considerations](#security-considerations)
@@ -49,11 +49,11 @@ Kairos is a comprehensive academic management platform designed to help students
   - Real-time synchronization with Canvas calendar
   - Access to course materials directly through Kairos
 
-- **Study Group Management**
-  - Create and manage study groups
-  - Schedule group study sessions
-  - Share resources and notes within groups
-  - Integrated communication tools
+- **Smart Study Suggestions**
+  - AI-powered study session planning based on event type and preparation needs
+  - Intelligent distribution of study hours across available days
+  - Customized session lengths and priorities based on proximity to deadlines
+  - Automatic scheduling around existing calendar events
 
 ## Architecture
 
@@ -62,7 +62,7 @@ Kairos is built using the following technology stack:
 - **Frontend**: React.js with React Router for navigation
 - **Backend**: Node.js with Express
 - **Database**: MongoDB with Mongoose ODM
-- **Authentication**: JWT with Google OAuth integration
+- **Authentication**: Google OAuth integration
 - **API Integration**: Canvas API, OpenAI API
 - **Testing**: Jest, React Testing Library, Cypress
 - **Deployment**: Vercel
@@ -109,7 +109,7 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 # OpenAI API
 OPENAI_API_KEY=your_openai_api_key
 
-# Gemini API (Optional)
+# Gemini API
 GEMINI_API_KEY=your_gemini_api_key
 
 # Deployment Configuration
@@ -203,8 +203,11 @@ Coverage reports will be generated in the `coverage` directory.
 
 ## Deployment
 
-### Setting up OpenAI API for Syllabus Parser
+### Setting up API Keys for Deployment
 
+Kairos requires API keys for its AI-powered features:
+
+#### OpenAI API Key
 The syllabus parser feature uses OpenAI's API to extract important dates and events from course syllabi. To securely deploy this feature:
 
 1. **Get an OpenAI API Key**
@@ -225,6 +228,21 @@ The syllabus parser feature uses OpenAI's API to extract important dates and eve
 3. **Redeploy Your Application**
    - After setting the environment variable, redeploy your application for the changes to take effect
    - You can trigger a redeployment by pushing a new commit or using the "Redeploy" option in the Vercel dashboard
+
+#### Gemini API Key
+The smart study suggestions feature uses Google's Gemini API for intelligent planning. To deploy this feature:
+
+1. **Get a Gemini API Key**
+   - Sign up or log in to [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create a new API key
+   - Copy the API key (you'll only see it once)
+
+2. **Add Environment Variable in Vercel**
+   - In your Vercel project settings, add a new environment variable:
+     - Name: `GEMINI_API_KEY`
+     - Value: Your Gemini API key
+     - Select all environments (Production, Preview, Development)
+   - Click "Save"
 
 ### Vercel Deployment
 
